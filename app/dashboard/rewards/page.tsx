@@ -231,20 +231,20 @@ export default function RewardsPage() {
 
         {/* Catalogue tab */}
         {activeTab === 'catalogue' && (
-          <div className="space-y-2">
-            {rewards.map(reward => (
-              <div key={reward.id} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-sm">
-                <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">
-                  {reward.emoji}
+          <div>
+            <div className="grid grid-cols-3 gap-3">
+              {rewards.map(reward => (
+                <div key={reward.id} className="bg-white rounded-3xl shadow-sm p-3 flex flex-col items-center gap-2 relative">
+                  <button onClick={() => deleteReward(reward.id)}
+                    className="absolute top-2 right-2 text-gray-200 hover:text-red-400 text-lg font-bold leading-none transition">×</button>
+                  <div className="w-14 h-14 bg-pink-50 rounded-2xl flex items-center justify-center text-4xl mt-1">
+                    {reward.emoji}
+                  </div>
+                  <p className="font-semibold text-gray-800 text-xs text-center leading-tight">{reward.title}</p>
+                  <p className="text-xs text-yellow-500 font-bold">⭐ {reward.star_cost}</p>
                 </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-800">{reward.title}</p>
-                  <p className="text-sm text-yellow-500 font-semibold">⭐ {reward.star_cost} stars</p>
-                </div>
-                <button onClick={() => deleteReward(reward.id)}
-                  className="text-gray-300 hover:text-red-400 text-2xl font-bold transition">×</button>
-              </div>
-            ))}
+              ))}
+            </div>
             {rewards.length === 0 && !showForm && (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">🎁</div>
