@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🌿','🗑️','🛁','🧼','🪥','🍳','🚿','🧽','👕','🎒','🏃','🌙','⭐','🎨']
@@ -23,6 +23,8 @@ interface Task {
   time_of_day: string | null
   star_value: number
   requires_photo: boolean
+  requires_benchmark_photo: boolean
+  benchmark_differs_per_child: boolean
   frequency: 'daily' | 'weekly' | 'monthly'
   carry_over: boolean
 }
@@ -46,9 +48,16 @@ export default function ChoresPage() {
   const [carryOver, setCarryOver] = useState(true)
   const [starValue, setStarValue] = useState(3)
   const [requiresPhoto, setRequiresPhoto] = useState(false)
+  const [requiresBenchmarkPhoto, setRequiresBenchmarkPhoto] = useState(false)
+  const [benchmarkDiffersPerChild, setBenchmarkDiffersPerChild] = useState(false)
+  const [benchmarkFiles, setBenchmarkFiles] = useState<File[]>([])
+  const [benchmarkVideo, setBenchmarkVideo] = useState<File | null>(null)
+  const [existingBenchmarks, setExistingBenchmarks] = useState<{ id: string; url: string; media_type: string }[]>([])
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
+  const benchmarkVideoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -84,12 +93,14 @@ export default function ChoresPage() {
     setEditingTaskId(null)
     setTitle(''); setEmoji('⭐'); setType('chore'); setTimeOfDay('morning')
     setFrequency('daily'); setCarryOver(true); setStarValue(3)
-    setRequiresPhoto(false); setAssignedChildren([])
+    setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
+    setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
+    setExistingBenchmarks([]); setAssignedChildren([])
     setFormError('')
     setShowForm(true)
   }
 
-  function openEditForm(task: Task) {
+  async function openEditForm(task: Task) {
     setEditingTaskId(task.id)
     setTitle(task.title)
     setEmoji(task.emoji)
@@ -99,9 +110,16 @@ export default function ChoresPage() {
     setCarryOver(task.carry_over ?? true)
     setStarValue(task.star_value)
     setRequiresPhoto(task.requires_photo)
+    setRequiresBenchmarkPhoto(task.requires_benchmark_photo || false)
+    setBenchmarkDiffersPerChild(task.benchmark_differs_per_child || false)
+    setBenchmarkFiles([]); setBenchmarkVideo(null)
     setAssignedChildren(assignments[task.id] || [])
     setFormError('')
     setShowForm(true)
+    // Load existing benchmarks
+    const supabase = createClient()
+    const { data } = await supabase.from('task_benchmark_photos').select('id, url, media_type').eq('task_id', task.id)
+    setExistingBenchmarks(data || [])
   }
 
   function closeForm() {
@@ -118,10 +136,13 @@ export default function ChoresPage() {
     const payload = {
       title: title.trim(), emoji, type,
       time_of_day: type === 'routine' ? timeOfDay : null,
-      star_value: starValue, requires_photo: requiresPhoto,
+      star_value: starValue, requires_photo: requiresPhoto || requiresBenchmarkPhoto,
+      requires_benchmark_photo: requiresBenchmarkPhoto,
+      benchmark_differs_per_child: benchmarkDiffersPerChild,
       frequency, carry_over: carryOver,
     }
 
+    let taskId = editingTaskId
     if (editingTaskId) {
       const { error } = await supabase.from('tasks').update(payload).eq('id', editingTaskId)
       if (error) { setFormError(error.message); setSaving(false); return }
@@ -131,7 +152,31 @@ export default function ChoresPage() {
       const { data: task, error } = await supabase.from('tasks')
         .insert({ ...payload, family_id: familyId, recurrence: frequency }).select().single()
       if (error || !task) { setFormError(error?.message || 'Failed to save.'); setSaving(false); return }
+      taskId = task.id
       await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: task.id, child_id: cid })))
+    }
+
+    // Upload benchmark media
+    if (taskId && requiresBenchmarkPhoto) {
+      for (let i = 0; i < benchmarkFiles.length; i++) {
+        const file = benchmarkFiles[i]
+        const ext = file.name.split('.').pop()
+        const path = `${familyId}/${taskId}/photo_${i}.${ext}`
+        const { error: uploadError } = await supabase.storage.from('task-benchmarks').upload(path, file, { upsert: true })
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('task-benchmarks').getPublicUrl(path)
+          await supabase.from('task_benchmark_photos').insert({ task_id: taskId, url: publicUrl, media_type: 'photo', sort_order: i })
+        }
+      }
+      if (benchmarkVideo) {
+        const ext = benchmarkVideo.name.split('.').pop()
+        const path = `${familyId}/${taskId}/video.${ext}`
+        const { error: uploadError } = await supabase.storage.from('task-benchmarks').upload(path, benchmarkVideo, { upsert: true })
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('task-benchmarks').getPublicUrl(path)
+          await supabase.from('task_benchmark_photos').insert({ task_id: taskId, url: publicUrl, media_type: 'video', sort_order: 99 })
+        }
+      }
     }
 
     closeForm()
@@ -270,6 +315,108 @@ export default function ChoresPage() {
               </button>
             </div>
 
+            {/* Benchmark photos */}
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Add benchmark photos 🖼️</p>
+                <p className="text-xs text-gray-400">Show kids the expected standard</p>
+              </div>
+              <button onClick={() => setRequiresBenchmarkPhoto(!requiresBenchmarkPhoto)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${requiresBenchmarkPhoto ? '' : 'bg-gray-200'}`}
+                style={requiresBenchmarkPhoto ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${requiresBenchmarkPhoto ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+              </button>
+            </div>
+
+            {requiresBenchmarkPhoto && (
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
+                {/* Existing benchmarks */}
+                {existingBenchmarks.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2 font-medium">Current benchmarks</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {existingBenchmarks.map(b => (
+                        <div key={b.id} className="relative">
+                          {b.media_type === 'video' ? (
+                            <div className="w-16 h-16 bg-gray-200 rounded-xl flex items-center justify-center text-2xl">🎥</div>
+                          ) : (
+                            <img src={b.url} className="w-16 h-16 object-cover rounded-xl" alt="benchmark"/>
+                          )}
+                          <button onClick={async () => {
+                            const supabase = createClient()
+                            await supabase.from('task_benchmark_photos').delete().eq('id', b.id)
+                            setExistingBenchmarks(prev => prev.filter(x => x.id !== b.id))
+                          }} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center font-bold">×</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* New photo uploads */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-2 font-medium">
+                    Add photos <span className="text-gray-400">(up to {5 - existingBenchmarks.filter(b => b.media_type === 'photo').length} more)</span>
+                  </p>
+                  {benchmarkFiles.length > 0 && (
+                    <div className="flex gap-2 flex-wrap mb-2">
+                      {benchmarkFiles.map((f, i) => (
+                        <div key={i} className="relative">
+                          <img src={URL.createObjectURL(f)} className="w-16 h-16 object-cover rounded-xl" alt=""/>
+                          <button onClick={() => setBenchmarkFiles(prev => prev.filter((_, j) => j !== i))}
+                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center font-bold">×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => benchmarkPhotoRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-400 font-medium w-full justify-center active:scale-95 transition">
+                    📷 Add photos
+                  </button>
+                  <input type="file" accept="image/*" multiple className="hidden" ref={benchmarkPhotoRef}
+                    onChange={e => {
+                      const files = Array.from(e.target.files || [])
+                      const maxNew = 5 - existingBenchmarks.filter(b => b.media_type === 'photo').length - benchmarkFiles.length
+                      setBenchmarkFiles(prev => [...prev, ...files.slice(0, maxNew)])
+                    }}/>
+                </div>
+
+                {/* Video upload */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-2 font-medium">Add video <span className="text-gray-400">(max 30 sec)</span></p>
+                  {benchmarkVideo ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-16 bg-gray-200 rounded-xl flex items-center justify-center text-2xl">🎥</div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-600 truncate">{benchmarkVideo.name}</p>
+                        <button onClick={() => setBenchmarkVideo(null)} className="text-xs text-red-400 font-semibold mt-0.5">Remove</button>
+                      </div>
+                    </div>
+                  ) : !existingBenchmarks.some(b => b.media_type === 'video') ? (
+                    <button onClick={() => benchmarkVideoRef.current?.click()}
+                      className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-400 font-medium w-full justify-center active:scale-95 transition">
+                      🎥 Add short video
+                    </button>
+                  ) : null}
+                  <input type="file" accept="video/*" className="hidden" ref={benchmarkVideoRef}
+                    onChange={e => { if (e.target.files?.[0]) setBenchmarkVideo(e.target.files[0]) }}/>
+                </div>
+
+                {/* Differs per child */}
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Different per child</p>
+                    <p className="text-xs text-gray-400">Each child has their own benchmark</p>
+                  </div>
+                  <button onClick={() => setBenchmarkDiffersPerChild(!benchmarkDiffersPerChild)}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${benchmarkDiffersPerChild ? '' : 'bg-gray-200'}`}
+                    style={benchmarkDiffersPerChild ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${benchmarkDiffersPerChild ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <p className="text-xs text-gray-500 mb-2">Assign to</p>
               <div className="flex gap-2 flex-wrap">
@@ -349,7 +496,8 @@ function TaskRow({ task, assignedIds, children, onEdit, onDelete }: {
           {task.frequency && task.frequency !== 'daily' && (
             <span className="text-xs bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded-full font-medium">{freqLabels[task.frequency]}</span>
           )}
-          {task.requires_photo && <span className="text-xs text-gray-400">· 📷</span>}
+          {task.requires_benchmark_photo && <span className="text-xs text-gray-400">· 🖼️ AI check</span>}
+          {task.requires_photo && !task.requires_benchmark_photo && <span className="text-xs text-gray-400">· 📷</span>}
           {!task.carry_over && <span className="text-xs text-orange-400">· no carry-over</span>}
         </div>
         {assigned.length > 0 && (

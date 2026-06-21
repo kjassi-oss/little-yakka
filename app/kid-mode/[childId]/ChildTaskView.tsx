@@ -7,7 +7,8 @@ import PinModal from '@/components/PinModal'
 
 interface Task {
   id: string; title: string; emoji: string; type: string
-  time_of_day: string | null; star_value: number; requires_photo: boolean
+  time_of_day: string | null; star_value: number
+  requires_photo: boolean; requires_benchmark_photo: boolean
 }
 interface Child { id: string; name: string; avatar: string; colour: string }
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
@@ -43,10 +44,70 @@ export default function ChildTaskView({
   const [floatingBadges, setFloatingBadges] = useState<FloatingBadge[]>([])
   const [encouragement, setEncouragement] = useState<string | null>(null)
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null)
+  const [photoTask, setPhotoTask] = useState<Task | null>(null)
+  const [validating, setValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<{ pass: boolean; feedback: string } | null>(null)
   const sessionCompleted = useRef(new Set<string>())
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const incomplete = tasks.filter(t => !completedIds.has(t.id))
   const complete = tasks.filter(t => completedIds.has(t.id))
+
+  async function handleTaskTap(task: Task) {
+    if (completedIds.has(task.id)) return
+    if (task.requires_benchmark_photo) {
+      setPhotoTask(task)
+      setValidationResult(null)
+      setTimeout(() => photoInputRef.current?.click(), 100)
+    } else {
+      await completeTask(task)
+    }
+  }
+
+  async function handlePhotoCapture(file: File) {
+    if (!photoTask) return
+    setValidating(true)
+    const supabase = createClient()
+
+    // Upload completion photo
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${child.id}/${photoTask.id}/${Date.now()}.${ext}`
+    let completionUrl = ''
+    const { error: uploadError } = await supabase.storage.from('completion-photos').upload(path, file, { upsert: true })
+    if (!uploadError) {
+      const { data: { publicUrl } } = supabase.storage.from('completion-photos').getPublicUrl(path)
+      completionUrl = publicUrl
+    }
+
+    // Get benchmarks
+    const { data: benchmarks } = await supabase.from('task_benchmark_photos')
+      .select('url').eq('task_id', photoTask.id).eq('media_type', 'photo').order('sort_order')
+    const benchmarkUrls = benchmarks?.map(b => b.url) || []
+
+    // Call AI validation if we have both
+    if (benchmarkUrls.length > 0 && completionUrl) {
+      try {
+        const res = await fetch('/api/validate-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ benchmarkUrls, completionUrl, taskTitle: photoTask.title }),
+        })
+        const result = await res.json()
+        setValidationResult(result)
+        setValidating(false)
+        if (result.pass) {
+          setTimeout(() => { setPhotoTask(null); setValidationResult(null); completeTask(photoTask) }, 2500)
+        }
+        return
+      } catch {
+        // fall through to complete anyway
+      }
+    }
+
+    setValidating(false)
+    setPhotoTask(null)
+    await completeTask(photoTask)
+  }
 
   async function completeTask(task: Task) {
     if (completedIds.has(task.id)) return
@@ -216,9 +277,13 @@ export default function ChildTaskView({
       )}
 
       {/* Incomplete tasks */}
+      {/* Hidden photo input for benchmark capture */}
+      <input type="file" accept="image/*" capture="environment" className="hidden" ref={photoInputRef}
+        onChange={e => { if (e.target.files?.[0]) handlePhotoCapture(e.target.files[0]) }}/>
+
       <div className="px-4 space-y-3">
         {incomplete.map((task, i) => (
-          <button key={task.id} onClick={() => completeTask(task)}
+          <button key={task.id} onClick={() => handleTaskTap(task)}
             className={`w-full flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm text-left transition-all duration-300 active:scale-95 ${justCompletedId === task.id ? 'scale-90 opacity-50' : ''}`}
             style={{ animationDelay: `${i * 0.05}s` }}>
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0 transition-transform"
@@ -227,7 +292,10 @@ export default function ChildTaskView({
             </div>
             <div className="flex-1">
               <p className="font-bold text-gray-800 text-base">{task.title}</p>
-              {task.time_of_day && <p className="text-sm text-gray-400 capitalize mt-0.5">{task.time_of_day}</p>}
+              <div className="flex items-center gap-2 mt-0.5">
+                {task.time_of_day && <p className="text-sm text-gray-400 capitalize">{task.time_of_day}</p>}
+                {task.requires_benchmark_photo && <span className="text-xs bg-purple-50 text-purple-400 font-semibold px-1.5 py-0.5 rounded-full">📷 photo check</span>}
+              </div>
             </div>
             <div className="flex-shrink-0 text-center">
               <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center"
@@ -279,6 +347,40 @@ export default function ChildTaskView({
           {sessionCompleted.current.size > 0 ? '✅ All done!' : '🔐 Exit'}
         </button>
       </div>
+
+      {/* AI Photo Validation overlay */}
+      {(validating || validationResult) && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl p-6 text-center w-full max-w-xs pop-in">
+            {validating ? (
+              <>
+                <div className="text-5xl mb-3 animate-spin">🔍</div>
+                <p className="font-bold text-gray-700 text-lg">Checking your work...</p>
+                <p className="text-sm text-gray-400 mt-1">AI is comparing your photo</p>
+              </>
+            ) : validationResult ? (
+              <>
+                <div className="text-6xl mb-3">{validationResult.pass ? '🌟' : '🤔'}</div>
+                <p className="font-black text-gray-800 text-xl mb-2">{validationResult.pass ? 'Great job!' : 'Not quite...'}</p>
+                <p className="text-gray-600 mb-4">{validationResult.feedback}</p>
+                {!validationResult.pass && (
+                  <div className="flex gap-2">
+                    <button onClick={() => { setValidationResult(null); setPhotoTask(null) }}
+                      className="flex-1 border border-gray-200 rounded-2xl py-3 text-sm font-semibold text-gray-500">
+                      Try again
+                    </button>
+                    <button onClick={() => { setValidationResult(null); setPhotoTask(null); completeTask(photoTask!) }}
+                      className="flex-1 text-white font-bold py-3 rounded-2xl text-sm"
+                      style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                      Submit anyway
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {showExitSummary && (
         <ExitSummary tasks={tasks.filter(t => sessionCompleted.current.has(t.id))}

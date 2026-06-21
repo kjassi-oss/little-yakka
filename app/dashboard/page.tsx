@@ -45,17 +45,26 @@ export default async function DashboardPage() {
   const childMap: Record<string, any> = {}
   children?.forEach(c => { childMap[c.id] = c })
 
-  const todayLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
+  // Upcoming = incomplete tasks today (assigned to at least one child)
+  const upcomingTasks = (tasks || []).filter(task => {
+    const assignedIds = assignmentMap[task.id] || []
+    if (assignedIds.length === 0) return false
+    // include if at least one assigned child hasn't completed it
+    return assignedIds.some(id => !completedSet.has(`${task.id}-${id}`))
+  })
+  const SHOW_LIMIT = 5
+  const showUpcoming = upcomingTasks.slice(0, SHOW_LIMIT)
+
+  const dateLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
       <div className="pt-12 pb-16 px-4" style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
         <div className="max-w-sm mx-auto flex items-center gap-4">
-          <Logo size={56} />
+          <Logo size={52}/>
           <div>
-            <p className="text-white/70 text-xs font-medium">Welcome back</p>
-            <h1 className="text-xl font-black text-white leading-tight">{guardian.name} 👋</h1>
+            <h1 className="text-xl font-black text-white leading-tight">{guardian.name}</h1>
             <p className="text-white/70 text-xs">{family?.name}</p>
           </div>
         </div>
@@ -72,10 +81,16 @@ export default async function DashboardPage() {
               return (
                 <div key={child.id} className="flex flex-col items-center gap-1.5 min-w-[72px]">
                   <div className="relative">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
-                      style={{ backgroundColor: child.colour + '33' }}>
-                      {child.avatar}
-                    </div>
+                    {child.avatar_url ? (
+                      <img src={child.avatar_url} alt={child.name}
+                        className="w-14 h-14 rounded-2xl object-cover"
+                        style={{ border: `3px solid ${child.colour}` }}/>
+                    ) : (
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+                        style={{ backgroundColor: child.colour + '33' }}>
+                        {child.avatar}
+                      </div>
+                    )}
                     {myTasks.length > 0 && (
                       <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${myDone === myTasks.length ? 'bg-green-500 text-white' : 'bg-white border-2 border-gray-200 text-gray-600'}`}>
                         {myDone === myTasks.length ? '✓' : `${myDone}/${myTasks.length}`}
@@ -90,43 +105,42 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Kid Mode button */}
+        {/* Kid Mode CTA */}
         <Link href="/kid-mode"
-          className="flex items-center gap-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-3xl p-4 shadow-lg active:scale-98 transition">
+          className="flex items-center gap-4 rounded-3xl p-4 shadow-lg active:scale-98 transition"
+          style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">⭐</div>
           <div className="flex-1">
             <p className="text-white font-bold text-lg">Enter Kid Mode</p>
-            <p className="text-purple-200 text-sm">Let the kids check off tasks</p>
+            <p className="text-white/70 text-sm">Let the kids check off tasks</p>
           </div>
           <span className="text-white/50 text-xl">›</span>
         </Link>
 
-        {/* Today's tasks */}
+        {/* Upcoming tasks */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Today's Tasks</h2>
-              <p className="text-xs text-gray-400">{todayLabel}</p>
+              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Upcoming Tasks</h2>
+              <p className="text-xs text-gray-400">{dateLabel}</p>
             </div>
-            <Link href="/dashboard/schedule" className="text-xs text-purple-500 font-semibold">Full schedule →</Link>
+            <Link href="/dashboard/schedule" className="text-xs font-semibold" style={{ color: 'var(--theme-from)' }}>
+              Schedule →
+            </Link>
           </div>
 
-          {tasks && tasks.length > 0 ? (
+          {showUpcoming.length > 0 ? (
             <div className="space-y-2">
-              {tasks.map(task => {
+              {showUpcoming.map(task => {
                 const assignedChildIds = assignmentMap[task.id] || []
                 const assignedKids = assignedChildIds.map(id => childMap[id]).filter(Boolean)
-                const allDone = assignedKids.length > 0 && assignedKids.every(c => completedSet.has(`${task.id}-${c.id}`))
-
                 return (
-                  <div key={task.id} className={`bg-white rounded-2xl p-3 shadow-sm flex items-center gap-3 transition ${allDone ? 'opacity-55' : ''}`}>
+                  <div key={task.id} className="bg-white rounded-2xl p-3 shadow-sm flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-xl flex-shrink-0">
                       {task.emoji}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-sm ${allDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                        {task.title}
-                      </p>
+                      <p className="font-semibold text-sm text-gray-800">{task.title}</p>
                       <p className="text-xs text-gray-400">⭐ {task.star_value}{task.time_of_day ? ` · ${task.time_of_day}` : ''}</p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
@@ -134,10 +148,14 @@ export default async function DashboardPage() {
                         const done = completedSet.has(`${task.id}-${child.id}`)
                         return (
                           <div key={child.id} className="relative">
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
-                              style={{ backgroundColor: child.colour + '33' }}>
-                              {child.avatar}
-                            </div>
+                            {child.avatar_url ? (
+                              <img src={child.avatar_url} className="w-7 h-7 rounded-full object-cover" alt=""/>
+                            ) : (
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
+                                style={{ backgroundColor: child.colour + '33' }}>
+                                {child.avatar}
+                              </div>
+                            )}
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
                               {done && <span className="text-white text-[8px] font-bold">✓</span>}
                             </div>
@@ -148,11 +166,23 @@ export default async function DashboardPage() {
                   </div>
                 )
               })}
+              {upcomingTasks.length > SHOW_LIMIT && (
+                <Link href="/dashboard/schedule"
+                  className="block text-center text-sm font-semibold py-3 bg-white rounded-2xl shadow-sm"
+                  style={{ color: 'var(--theme-from)' }}>
+                  Show {upcomingTasks.length - SHOW_LIMIT} more →
+                </Link>
+              )}
+            </div>
+          ) : upcomingTasks.length === 0 && (tasks?.length ?? 0) > 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
+              <div className="text-4xl mb-2">🎉</div>
+              <p className="font-semibold text-gray-700">All tasks done for today!</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
               <p className="text-gray-400 text-sm mb-2">No tasks set up yet.</p>
-              <Link href="/dashboard/chores" className="text-purple-500 text-sm font-semibold">Add tasks →</Link>
+              <Link href="/dashboard/chores" className="text-sm font-semibold" style={{ color: 'var(--theme-from)' }}>Add tasks →</Link>
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
@@ -8,12 +8,7 @@ import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/compone
 const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉']
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF']
 
-interface Child {
-  id: string
-  name: string
-  avatar: string
-  colour: string
-}
+interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 
 export default function SettingsPage() {
   const [children, setChildren] = useState<Child[]>([])
@@ -21,33 +16,31 @@ export default function SettingsPage() {
   const [familyId, setFamilyId] = useState('')
   const [loading, setLoading] = useState(true)
   const [activeTheme, setActiveTheme] = useState<ThemeKey>('purple')
-
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newChild, setNewChild] = useState({ name: '', avatar: '🐨', colour: '#FF6B6B' })
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
+  const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLink, setInviteLink] = useState('')
+  const [sendingInvite, setSendingInvite] = useState(false)
+  const [inviteCopied, setInviteCopied] = useState(false)
+  const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  useEffect(() => {
-    loadData()
-    setActiveTheme(getStoredTheme())
-  }, [])
+  useEffect(() => { loadData(); setActiveTheme(getStoredTheme()) }, [])
 
   async function loadData() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
-    const { data: guardian } = await supabase
-      .from('guardians').select('family_id').eq('auth_user_id', user.id).single()
+    const { data: guardian } = await supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single()
     if (!guardian) return
     setFamilyId(guardian.family_id)
-
     const [{ data: childrenData }, { data: familyData }] = await Promise.all([
       supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
       supabase.from('families').select('name').eq('id', guardian.family_id).single(),
     ])
-
     setChildren(childrenData || [])
     setFamilyName(familyData?.name || '')
     setLoading(false)
@@ -55,48 +48,68 @@ export default function SettingsPage() {
 
   async function saveFamilyName() {
     setSavingFamily(true)
-    const supabase = createClient()
-    await supabase.from('families').update({ name: familyName }).eq('id', familyId)
+    await createClient().from('families').update({ name: familyName }).eq('id', familyId)
     setSavingFamily(false)
   }
 
   async function addChild() {
     if (!newChild.name.trim()) return
     setSaving(true)
-    const supabase = createClient()
-    await supabase.from('children').insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
+    await createClient().from('children').insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
     setNewChild({ name: '', avatar: '🐨', colour: '#FF6B6B' })
-    setShowAddForm(false)
-    setSaving(false)
-    loadData()
+    setShowAddForm(false); setSaving(false); loadData()
   }
 
   async function saveEditChild() {
     if (!editingChild) return
     setSaving(true)
-    const supabase = createClient()
-    await supabase.from('children').update({
-      name: editingChild.name,
-      avatar: editingChild.avatar,
-      colour: editingChild.colour,
+    await createClient().from('children').update({
+      name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour,
     }).eq('id', editingChild.id)
-    setEditingChild(null)
-    setSaving(false)
-    loadData()
+    setEditingChild(null); setSaving(false); loadData()
   }
 
   async function deleteChild(childId: string) {
     if (!confirm('Remove this child? Their stars and completions will also be deleted.')) return
-    const supabase = createClient()
-    await supabase.from('children').delete().eq('id', childId)
+    await createClient().from('children').delete().eq('id', childId)
     loadData()
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-5xl animate-spin">⚙️</div>
-    </div>
-  )
+  async function uploadChildPhoto(childId: string, file: File) {
+    setUploadingPhotoId(childId)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()
+    const path = `${familyId}/${childId}/avatar.${ext}`
+    const { error: uploadError } = await supabase.storage.from('kid-avatars').upload(path, file, { upsert: true })
+    if (!uploadError) {
+      const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
+      await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', childId)
+      loadData()
+    }
+    setUploadingPhotoId(null)
+  }
+
+  async function sendInvite() {
+    if (!inviteEmail.trim()) return
+    setSendingInvite(true)
+    const supabase = createClient()
+    const { data } = await supabase.from('guardian_invitations')
+      .insert({ family_id: familyId, invited_email: inviteEmail.trim() })
+      .select('token').single()
+    if (data) {
+      const link = `${window.location.origin}/join/${data.token}`
+      setInviteLink(link)
+    }
+    setSendingInvite(false)
+  }
+
+  async function copyInviteLink() {
+    await navigator.clipboard.writeText(inviteLink)
+    setInviteCopied(true)
+    setTimeout(() => setInviteCopied(false), 2500)
+  }
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">⚙️</div></div>
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
@@ -123,9 +136,42 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* History link */}
-        <Link href="/dashboard/history"
-          className="flex items-center gap-3 bg-white rounded-2xl shadow-sm px-5 py-4 active:scale-95 transition">
+        {/* Invite co-parent */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-1">Invite Co-Parent</h2>
+          <p className="text-xs text-gray-400 mb-3">Give another parent access to the same family account</p>
+          {!inviteLink ? (
+            <div className="flex gap-2">
+              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                placeholder="partner@email.com"/>
+              <button onClick={sendInvite} disabled={sendingInvite || !inviteEmail.trim()}
+                className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                {sendingInvite ? '...' : 'Invite'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-green-600 font-semibold">✓ Invite link created!</p>
+              <div className="bg-gray-50 rounded-2xl px-4 py-3 text-xs text-gray-500 break-all">{inviteLink}</div>
+              <div className="flex gap-2">
+                <button onClick={copyInviteLink}
+                  className="flex-1 py-2.5 rounded-2xl text-sm font-semibold text-white active:scale-95 transition"
+                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                  {inviteCopied ? '✓ Copied!' : 'Copy link'}
+                </button>
+                <button onClick={() => { setInviteLink(''); setInviteEmail('') }}
+                  className="px-4 py-2.5 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100">
+                  New invite
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* History */}
+        <Link href="/dashboard/history" className="flex items-center gap-3 bg-white rounded-2xl shadow-sm px-5 py-4 active:scale-95 transition">
           <span className="text-2xl">📋</span>
           <div className="flex-1">
             <p className="font-semibold text-gray-800">Completion History</p>
@@ -139,9 +185,10 @@ export default function SettingsPage() {
           <h2 className="font-bold text-gray-800 mb-3">Family Name</h2>
           <div className="flex gap-2">
             <input type="text" value={familyName} onChange={e => setFamilyName(e.target.value)}
-              className="flex-1 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" />
+              className="flex-1 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
             <button onClick={saveFamilyName} disabled={savingFamily}
-              className="bg-purple-500 text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition">
+              className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
+              style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
               {savingFamily ? '...' : 'Save'}
             </button>
           </div>
@@ -152,25 +199,22 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-gray-800">Children</h2>
             <button onClick={() => { setShowAddForm(!showAddForm); setEditingChild(null) }}
-              className="bg-purple-100 text-purple-600 font-semibold px-3 py-1.5 rounded-xl text-sm active:scale-95 transition">
+              className="font-semibold px-3 py-1.5 rounded-xl text-sm active:scale-95 transition"
+              style={{ backgroundColor: 'var(--theme-from)22', color: 'var(--theme-from)' }}>
               {showAddForm ? '✕ Cancel' : '+ Add Child'}
             </button>
           </div>
 
-          {/* Add child form */}
           {showAddForm && (
             <div className="border border-gray-100 rounded-2xl p-4 mb-4 space-y-3">
               <input type="text" value={newChild.name} onChange={e => setNewChild({ ...newChild, name: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                placeholder="Child's name" />
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
               <div>
-                <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
+                <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
                 <div className="grid grid-cols-6 gap-1">
                   {AVATARS.map(a => (
                     <button key={a} onClick={() => setNewChild({ ...newChild, avatar: a })}
-                      className={`text-2xl p-1 rounded-xl ${newChild.avatar === a ? 'bg-purple-100 ring-2 ring-purple-400' : 'hover:bg-gray-100'}`}>
-                      {a}
-                    </button>
+                      className={`text-2xl p-1 rounded-xl ${newChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
                   ))}
                 </div>
               </div>
@@ -180,34 +224,31 @@ export default function SettingsPage() {
                   {COLOURS.map(c => (
                     <button key={c} onClick={() => setNewChild({ ...newChild, colour: c })}
                       className={`w-8 h-8 rounded-full transition ${newChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
-                      style={{ backgroundColor: c }} />
+                      style={{ backgroundColor: c }}/>
                   ))}
                 </div>
               </div>
               <button onClick={addChild} disabled={saving || !newChild.name.trim()}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-2.5 rounded-xl disabled:opacity-60 active:scale-95 transition text-sm">
+                className="w-full text-white font-bold py-2.5 rounded-xl disabled:opacity-60 active:scale-95 transition text-sm"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
                 {saving ? 'Adding...' : `Add ${newChild.name || 'Child'}`}
               </button>
             </div>
           )}
 
-          {/* Children list */}
           <div className="space-y-3">
             {children.map(child => (
               <div key={child.id}>
                 {editingChild?.id === child.id ? (
                   <div className="border border-purple-200 rounded-2xl p-4 space-y-3">
-                    <input type="text" value={editingChild.name}
-                      onChange={e => setEditingChild({ ...editingChild, name: e.target.value })}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" />
+                    <input type="text" value={editingChild.name} onChange={e => setEditingChild({ ...editingChild, name: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
                       <div className="grid grid-cols-6 gap-1">
                         {AVATARS.map(a => (
                           <button key={a} onClick={() => setEditingChild({ ...editingChild, avatar: a })}
-                            className={`text-2xl p-1 rounded-xl ${editingChild.avatar === a ? 'bg-purple-100 ring-2 ring-purple-400' : 'hover:bg-gray-100'}`}>
-                            {a}
-                          </button>
+                            className={`text-2xl p-1 rounded-xl ${editingChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
                         ))}
                       </div>
                     </div>
@@ -217,30 +258,42 @@ export default function SettingsPage() {
                         {COLOURS.map(c => (
                           <button key={c} onClick={() => setEditingChild({ ...editingChild, colour: c })}
                             className={`w-8 h-8 rounded-full transition ${editingChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
-                            style={{ backgroundColor: c }} />
+                            style={{ backgroundColor: c }}/>
                         ))}
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => setEditingChild(null)}
-                        className="flex-1 border border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm">Cancel</button>
+                      <button onClick={() => setEditingChild(null)} className="flex-1 border border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm">Cancel</button>
                       <button onClick={saveEditChild} disabled={saving}
-                        className="flex-1 bg-purple-500 text-white font-bold py-2 rounded-xl text-sm disabled:opacity-60">
+                        className="flex-1 text-white font-bold py-2 rounded-xl text-sm disabled:opacity-60"
+                        style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
                         {saving ? '...' : 'Save'}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                      style={{ backgroundColor: child.colour + '33' }}>
-                      {child.avatar}
+                    {/* Avatar with photo upload */}
+                    <div className="relative flex-shrink-0">
+                      {child.avatar_url ? (
+                        <img src={child.avatar_url} alt={child.name} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${child.colour}` }}/>
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
+                      )}
+                      <button onClick={() => photoInputRefs.current[child.id]?.click()}
+                        className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
+                        {uploadingPhotoId === child.id ? '⏳' : '📷'}
+                      </button>
+                      <input type="file" accept="image/*" className="hidden"
+                        ref={el => { photoInputRefs.current[child.id] = el }}
+                        onChange={e => e.target.files?.[0] && uploadChildPhoto(child.id, e.target.files[0])}/>
                     </div>
                     <p className="font-semibold text-gray-800 flex-1">{child.name}</p>
                     <button onClick={() => { setEditingChild(child); setShowAddForm(false) }}
-                      className="text-purple-500 text-sm font-semibold px-3 py-1.5 bg-purple-50 rounded-xl">Edit</button>
-                    <button onClick={() => deleteChild(child.id)}
-                      className="text-red-400 text-sm font-semibold px-3 py-1.5 bg-red-50 rounded-xl">Remove</button>
+                      className="text-sm font-semibold px-3 py-1.5 rounded-xl" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteChild(child.id)} className="text-red-400 text-sm font-semibold px-3 py-1.5 bg-red-50 rounded-xl">Remove</button>
                   </div>
                 )}
               </div>
@@ -249,11 +302,8 @@ export default function SettingsPage() {
         </div>
 
         {/* Sign out */}
-        <button onClick={async () => {
-          const supabase = createClient()
-          await supabase.auth.signOut()
-          window.location.href = '/login'
-        }} className="w-full bg-white rounded-2xl p-4 text-red-500 font-semibold shadow-sm text-center active:scale-95 transition">
+        <button onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login' }}
+          className="w-full bg-white rounded-2xl p-4 text-red-500 font-semibold shadow-sm text-center active:scale-95 transition">
           Sign Out
         </button>
       </div>
