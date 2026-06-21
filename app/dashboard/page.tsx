@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -49,11 +50,14 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="bg-gradient-to-br from-purple-500 to-pink-500 pt-12 pb-16 px-4">
-        <div className="max-w-sm mx-auto">
-          <p className="text-purple-200 text-sm">Welcome back</p>
-          <h1 className="text-2xl font-bold text-white">{guardian.name} 👋</h1>
-          <p className="text-purple-200 text-sm">{family?.name}</p>
+      <div className="pt-12 pb-16 px-4" style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
+        <div className="max-w-sm mx-auto flex items-center gap-4">
+          <Logo size={56} />
+          <div>
+            <p className="text-white/70 text-xs font-medium">Welcome back</p>
+            <h1 className="text-xl font-black text-white leading-tight">{guardian.name} 👋</h1>
+            <p className="text-white/70 text-xs">{family?.name}</p>
+          </div>
         </div>
       </div>
 
