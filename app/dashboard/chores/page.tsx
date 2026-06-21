@@ -198,8 +198,8 @@ export default function ChoresPage() {
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {EMOJIS.map(e => (
                   <button key={e} onClick={() => setEmoji(e)}
-                    className={`text-2xl p-1.5 rounded-xl transition ${emoji === e ? 'ring-2' : 'hover:bg-gray-100'}`}
-                    style={emoji === e ? { backgroundColor: 'var(--theme-from)22', ringColor: 'var(--theme-from)' } : {}}>
+                    className={`text-2xl p-1.5 rounded-xl transition ${emoji === e ? 'ring-2 ring-purple-400' : 'hover:bg-gray-100'}`}
+                    style={emoji === e ? { backgroundColor: 'var(--theme-from)22' } : {}}>
                     {e}
                   </button>
                 ))}
