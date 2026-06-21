@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --theme-from: #7C3AED;
+  --theme-to: #EC4899;
 }
 
 @theme inline {
@@ -12,15 +14,63 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Theme presets */
+[data-theme="ocean"]  { --theme-from: #0EA5E9; --theme-to: #06B6D4; }
+[data-theme="forest"] { --theme-from: #059669; --theme-to: #34D399; }
+[data-theme="sunset"] { --theme-from: #EA580C; --theme-to: #F59E0B; }
+[data-theme="galaxy"] { --theme-from: #4F46E5; --theme-to: #7C3AED; }
+[data-theme="rose"]   { --theme-from: #E11D48; --theme-to: #F97316; }
+
+/* Kid zone animations */
+@keyframes floatUp {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-90px) scale(1.5); }
+}
+.float-up {
+  animation: floatUp 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  position: fixed;
+  left: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+
+@keyframes popIn {
+  0%   { transform: scale(0.5) translateY(16px); opacity: 0; }
+  65%  { transform: scale(1.08) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.pop-in { animation: popIn 0.35s ease-out forwards; }
+
+@keyframes fadeSlideUp {
+  0%   { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.fade-slide-up { animation: fadeSlideUp 0.3s ease-out forwards; }
+
+@keyframes taskComplete {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.94) rotate(-1deg); }
+  100% { transform: scale(1); }
+}
+.task-complete-pulse { animation: taskComplete 0.4s ease-out forwards; }
+
+@keyframes starSpin {
+  from { transform: rotate(0deg) scale(1); }
+  to   { transform: rotate(360deg) scale(1.2); }
+}
+.star-spin { animation: starSpin 0.6s ease-out forwards; }
+
+@keyframes bounceIn {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.bounce-in { animation: bounceIn 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards; }

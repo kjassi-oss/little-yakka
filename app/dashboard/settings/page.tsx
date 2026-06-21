@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 
 const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉']
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF']
@@ -18,6 +20,7 @@ export default function SettingsPage() {
   const [familyName, setFamilyName] = useState('')
   const [familyId, setFamilyId] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeTheme, setActiveTheme] = useState<ThemeKey>('purple')
 
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -25,7 +28,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+    setActiveTheme(getStoredTheme())
+  }, [])
 
   async function loadData() {
     const supabase = createClient()
@@ -102,6 +108,31 @@ export default function SettingsPage() {
       </div>
 
       <div className="max-w-sm mx-auto px-4 mt-4 space-y-6">
+
+        {/* Colour theme */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-3">Colour Theme</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.entries(THEMES) as [ThemeKey, { name: string; from: string; to: string }][]).map(([key, theme]) => (
+              <button key={key} onClick={() => { setActiveTheme(key); setStoredTheme(key) }}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition active:scale-95 ${activeTheme === key ? 'border-gray-700 shadow-md' : 'border-transparent hover:border-gray-200'}`}>
+                <div className="w-10 h-10 rounded-full shadow-md" style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.to})` }}/>
+                <p className="text-xs font-semibold text-gray-600 text-center leading-tight">{theme.name}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* History link */}
+        <Link href="/dashboard/history"
+          className="flex items-center gap-3 bg-white rounded-2xl shadow-sm px-5 py-4 active:scale-95 transition">
+          <span className="text-2xl">📋</span>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-800">Completion History</p>
+            <p className="text-xs text-gray-400">See past tasks & undo if needed</p>
+          </div>
+          <span className="text-gray-300 text-xl">›</span>
+        </Link>
 
         {/* Family name */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
