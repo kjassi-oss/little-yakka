@@ -37,7 +37,6 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
       style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
 
-      {/* Floating star decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
         {['⭐','🌟','✨','💫','⭐','🌟'].map((s, i) => (
           <span key={i} className="absolute text-4xl opacity-10"
@@ -48,19 +47,17 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-sm relative">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <Logo size={96} className="shadow-2xl mb-4"/>
           <h1 className="text-4xl font-black text-white tracking-tight">
             Little <span className="text-yellow-300">Yakka</span>
           </h1>
-          <p className="text-white/75 mt-1">Welcome back! 👋</p>
+          <p className="text-white/75 mt-1">Family tasks made fun</p>
         </div>
 
         <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
           <h2 className="text-xl font-bold text-gray-800">Sign in</h2>
 
-          {/* Google */}
           <button onClick={handleGoogle} disabled={googleLoading}
             className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 rounded-2xl py-3 font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 transition disabled:opacity-60">
             {googleLoading ? (
