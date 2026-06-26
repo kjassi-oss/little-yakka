@@ -107,6 +107,7 @@ export default async function DashboardPage() {
   })
 
   const leaderboard = [...childData].sort((a, b) => b.weekStars - a.weekStars)
+  const tileScroll = childData.length > 3 // ≤3 fill the frame; 4+ scroll horizontally
 
   // Upcoming tasks today = any task with at least one assigned kid not yet done
   const upcoming = (tasks || [])
@@ -171,16 +172,17 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Kids tiles — 3 per row, aligned with leaderboard width */}
+        {/* Kids tiles — fill the frame up to 3, scroll for more */}
         {childData.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5'}>
             {childData.map(({ child, balance, streak, myTasks, myDone }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
               const firstName = child.name.split(' ')[0]
               return (
-                <div key={child.id} className="relative bg-white rounded-2xl shadow-sm">
+                <div key={child.id}
+                  className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px]' : 'flex-1 min-w-0'}`}>
                   {/* Praise heart, top-right */}
                   <div className="absolute top-1.5 right-1.5 z-10">
                     <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
