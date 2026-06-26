@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 
-const EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🌿','🗑️','🛁','🧼','🪥','🍳','🚿','🧽','👕','🎒','🏃','🌙','⭐','🎨']
+const EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🌿','🗑️','🛁','🧼','🪥','🍳','🚿','🧽','👕','🎒','🏃','🌙','🎨','🪀']
 const TIME_OPTIONS = [
+  { value: 'anytime',   label: '📋 Anytime' },
   { value: 'morning',   label: '🌅 Morning' },
   { value: 'afternoon', label: '☀️ Afternoon' },
   { value: 'evening',   label: '🌙 Evening' },
@@ -29,6 +30,7 @@ interface Task {
   requires_photo: boolean; requires_benchmark_photo: boolean
   benchmark_differs_per_child: boolean
   frequency: 'daily' | 'weekly' | 'monthly'; carry_over: boolean
+  start_date?: string | null; requires_approval?: boolean
 }
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface HistoryRow {
@@ -58,9 +60,10 @@ export default function ChoresPage() {
 
   // Form state
   const [title, setTitle] = useState('')
-  const [emoji, setEmoji] = useState('⭐')
+  const [emoji, setEmoji] = useState('🧹')
   const [type, setType] = useState<'chore' | 'routine'>('chore')
-  const [timeOfDay, setTimeOfDay] = useState('morning')
+  const [timeOfDay, setTimeOfDay] = useState('anytime')
+  const [startDate, setStartDate] = useState('')
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(true)
   const [starValue, setStarValue] = useState(3)
@@ -155,8 +158,9 @@ export default function ChoresPage() {
 
   function openNewForm() {
     setEditingTaskId(null)
-    setTitle(''); setEmoji('⭐'); setType('chore'); setTimeOfDay('morning')
+    setTitle(''); setEmoji('🧹'); setType('chore'); setTimeOfDay('anytime')
     setFrequency('daily'); setCarryOver(true); setStarValue(3)
+    setStartDate('')
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
@@ -168,9 +172,10 @@ export default function ChoresPage() {
   async function openEditForm(task: Task) {
     setEditingTaskId(task.id)
     setTitle(task.title); setEmoji(task.emoji); setType(task.type)
-    setTimeOfDay(task.time_of_day || 'morning')
+    setTimeOfDay(task.time_of_day || 'anytime')
     setFrequency(task.frequency || 'daily'); setCarryOver(task.carry_over ?? true)
     setStarValue(task.star_value); setRequiresPhoto(task.requires_photo)
+    setStartDate(task.start_date || '')
     setRequiresBenchmarkPhoto(task.requires_benchmark_photo || false)
     setBenchmarkDiffersPerChild(task.benchmark_differs_per_child || false)
     setBenchmarkFiles([]); setBenchmarkVideo(null)
@@ -193,8 +198,9 @@ export default function ChoresPage() {
     const supabase = createClient()
     const payload = {
       title: title.trim(), emoji, type,
-      time_of_day: type === 'routine' ? timeOfDay : null,
+      time_of_day: timeOfDay === 'anytime' ? null : timeOfDay,
       star_value: starValue,
+      start_date: startDate || null,
       requires_photo: requiresPhoto || requiresBenchmarkPhoto,
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
@@ -386,20 +392,24 @@ export default function ChoresPage() {
               </div>
             </div>
 
-            {type === 'routine' && (
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Time of day</p>
-                <div className="flex gap-2">
-                  {TIME_OPTIONS.map(opt => (
-                    <button key={opt.value} onClick={() => setTimeOfDay(opt.value)}
-                      className={`flex-1 py-2 rounded-2xl text-xs font-semibold transition ${timeOfDay === opt.value ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-                      style={timeOfDay === opt.value ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-2">Time of day</p>
+              <div className="grid grid-cols-2 gap-2">
+                {TIME_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={() => setTimeOfDay(opt.value)}
+                    className={`py-2 rounded-2xl text-xs font-semibold transition ${timeOfDay === opt.value ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                    style={timeOfDay === opt.value ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-500 mb-2">Start date <span className="text-gray-300">(optional — defaults to today)</span></p>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+            </div>
 
             <div className="flex items-center justify-between py-1">
               <div><p className="text-sm font-medium text-gray-700">Carry over if missed ↩️</p><p className="text-xs text-gray-400">{carryOver ? 'Shows as overdue' : 'Marked expired'}</p></div>
@@ -414,23 +424,6 @@ export default function ChoresPage() {
               <p className="text-xs text-gray-500 mb-2">Stars to earn: <span className="font-bold text-yellow-500">⭐ {starValue}</span></p>
               <input type="range" min={1} max={10} value={starValue} onChange={e => setStarValue(Number(e.target.value))} className="w-full"/>
               <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>10</span></div>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Difficulty</p>
-              <div className="flex gap-2">
-                {([
-                  { value: 'easy',   label: '🟢 Easy',   color: '#10B981' },
-                  { value: 'medium', label: '🔵 Medium', color: '#3B82F6' },
-                  { value: 'hard',   label: '🔴 Hard',   color: '#EF4444' },
-                ] as const).map(opt => (
-                  <button key={opt.value} onClick={() => setDifficulty(opt.value)}
-                    className={`flex-1 py-2 rounded-2xl text-xs font-bold transition border-2 ${difficulty === opt.value ? 'text-white border-transparent' : 'bg-gray-50 border-gray-100 text-gray-500'}`}
-                    style={difficulty === opt.value ? { backgroundColor: opt.color, borderColor: opt.color } : {}}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="flex items-center justify-between py-1">
@@ -533,24 +526,39 @@ export default function ChoresPage() {
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Assign to</p>
-              <div className="flex gap-2 flex-wrap">
-                {children.map(child => (
-                  <button key={child.id}
-                    onClick={() => setAssignedChildren(prev => prev.includes(child.id) ? prev.filter(id => id !== child.id) : [...prev, child.id])}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition ${assignedChildren.includes(child.id) ? 'ring-2 ring-purple-400' : 'opacity-50'}`}
-                    style={{ backgroundColor: child.colour + '33' }}>
-                    {child.avatar} {child.name}
-                  </button>
-                ))}
+              <div className="grid grid-cols-4 gap-3">
+                {children.map(child => {
+                  const sel = assignedChildren.includes(child.id)
+                  return (
+                    <button key={child.id}
+                      onClick={() => setAssignedChildren(prev => prev.includes(child.id) ? prev.filter(id => id !== child.id) : [...prev, child.id])}
+                      className="flex flex-col items-center gap-1 active:scale-95 transition">
+                      {child.avatar_url
+                        ? <img src={child.avatar_url} alt={child.name} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                            style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
+                        : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                            style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
+                            {child.avatar}
+                          </div>}
+                      <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
             {formError && <p className="text-red-500 text-sm">{formError}</p>}
-            <button onClick={saveTask} disabled={saving}
-              className="w-full text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-              {saving ? 'Saving...' : editingTaskId ? 'Update Task ✓' : 'Save Task ✓'}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={closeForm}
+                className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold active:scale-95 transition">
+                Cancel
+              </button>
+              <button onClick={saveTask} disabled={saving}
+                className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                {saving ? 'Saving...' : editingTaskId ? 'Update Task ✓' : 'Save Task ✓'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -575,11 +583,6 @@ export default function ChoresPage() {
                       </div>
                       <p className="text-xs font-bold text-gray-700 text-center leading-tight line-clamp-2">{task.title}</p>
                       <p className="text-xs text-yellow-500 font-bold">⭐ {task.star_value}</p>
-                      {(task as any).difficulty && (task as any).difficulty !== 'medium' && (
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${(task as any).difficulty === 'easy' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
-                          {(task as any).difficulty === 'easy' ? '🟢 Easy' : '🔴 Hard'}
-                        </span>
-                      )}
                       {task.requires_benchmark_photo && <span className="text-[9px] bg-purple-50 text-purple-400 font-semibold px-1 py-0.5 rounded-full">AI check</span>}
                       {(task as any).requires_approval && <span className="text-[9px] bg-amber-50 text-amber-500 font-semibold px-1 py-0.5 rounded-full">🕓 OK</span>}
                       <div className="flex -space-x-1.5 justify-center">

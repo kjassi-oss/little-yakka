@@ -52,6 +52,7 @@ export default function ChildTaskView({
   const [floatingBadges, setFloatingBadges] = useState<FloatingBadge[]>([])
   const [encouragement, setEncouragement] = useState<string | null>(null)
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null)
+  const [claimBurst, setClaimBurst] = useState<{ stars: number; emoji: string } | null>(null)
   const [photoTask, setPhotoTask] = useState<Task | null>(null)
   const [validating, setValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<{ pass: boolean; feedback: string } | null>(null)
@@ -166,14 +167,9 @@ export default function ChildTaskView({
       setEncouragement('🕓 Sent to a grown-up to check!')
       setTimeout(() => setEncouragement(null), 2200)
     } else {
-      const badgeId = Date.now()
-      const topPct = 30 + Math.random() * 20
-      setFloatingBadges(prev => [...prev, { id: badgeId, value: task.star_value, top: topPct }])
-      setTimeout(() => setFloatingBadges(prev => prev.filter(b => b.id !== badgeId)), 1500)
-
-      const msg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]
-      setEncouragement(msg)
-      setTimeout(() => setEncouragement(null), 1800)
+      // Big claim celebration 🎉
+      setClaimBurst({ stars: task.star_value, emoji: task.emoji })
+      setTimeout(() => setClaimBurst(null), 1900)
       setStarBalance(prev => prev + task.star_value)
     }
 
@@ -318,6 +314,8 @@ export default function ChildTaskView({
         </div>
       )}
 
+      {claimBurst && <ClaimBurst stars={claimBurst.stars} emoji={claimBurst.emoji} colour={child.colour} />}
+
       {/* Header */}
       <div className="pt-10 pb-4 px-4 text-center">
         <div className="text-7xl mb-2 drop-shadow-lg">{child.avatar}</div>
@@ -372,12 +370,12 @@ export default function ChildTaskView({
                 {task.requires_approval && <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-1.5 py-0.5 rounded-full">🕓 needs OK</span>}
               </div>
             </div>
-            <div className="flex-shrink-0 text-center">
-              <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center"
-                style={{ backgroundColor: child.colour + '22' }}>
-                <p className="text-xl font-black text-yellow-500">+{task.star_value}</p>
-                <p className="text-[10px] text-gray-400 font-semibold">stars</p>
+            <div className="flex-shrink-0 flex flex-col items-center gap-1">
+              <div className="px-4 py-2.5 rounded-2xl text-white font-black text-sm shadow active:scale-95 transition"
+                style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
+                Claim
               </div>
+              <p className="text-[11px] font-bold text-yellow-500">+{task.star_value} ⭐</p>
             </div>
           </button>
         ))}
@@ -551,6 +549,30 @@ function RewardsPanel({ rewards, starBalance, pendingRewardIds, requestingId, ju
             )
           })}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ClaimBurst({ stars, emoji, colour }: { stars: number; emoji: string; colour: string }) {
+  const colors = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', colour]
+  const pieces = Array.from({ length: 30 }, (_, i) => ({
+    left: Math.random() * 100,
+    bg: colors[i % colors.length],
+    dur: 1.0 + Math.random() * 1.0,
+    delay: Math.random() * 0.2,
+    rot: Math.random() * 360,
+  }))
+  return (
+    <div className="fixed inset-0 z-[55] pointer-events-none flex items-center justify-center overflow-hidden">
+      {pieces.map((p, i) => (
+        <span key={i} className="confetti-piece"
+          style={{ left: `${p.left}%`, backgroundColor: p.bg, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s`, transform: `rotate(${p.rot}deg)` }}/>
+      ))}
+      <div className="claim-pop bg-white rounded-3xl px-8 py-6 shadow-2xl text-center">
+        <div className="text-6xl mb-1">{emoji}</div>
+        <p className="text-3xl font-black text-yellow-500">+{stars} ⭐</p>
+        <p className="text-sm font-bold text-gray-500 mt-1">Nice one! 🎉</p>
       </div>
     </div>
   )

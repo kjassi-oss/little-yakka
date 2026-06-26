@@ -3,10 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* Default theme: Candy Pop */
-  --theme-from: #EC4899;
-  --theme-to: #8B5CF6;
-  --theme-gradient: linear-gradient(135deg, #EC4899, #8B5CF6);
+  /* Default theme: Rainbow */
+  --theme-from: #D6336C;
+  --theme-to: #7048E8;
+  --theme-gradient: linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93);
 }
 
 @theme inline {
@@ -91,3 +91,37 @@ body {
   100% { transform: scale(1); }
 }
 .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards; }
+
+/* Onboarding demo animations (loop while a slide is shown) */
+@keyframes demoRipple { 0% { transform: scale(0); opacity: 0.45; } 100% { transform: scale(2.4); opacity: 0; } }
+.demo-ripple { animation: demoRipple 1.6s ease-out infinite; }
+
+@keyframes demoFloat { 0% { opacity: 0; transform: translateY(8px) scale(0.8); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-34px) scale(1.15); } }
+.demo-float { animation: demoFloat 1.8s ease-out infinite; }
+
+@keyframes demoTap { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(5px); } }
+.demo-tap { animation: demoTap 1.6s ease-in-out infinite; }
+
+@keyframes demoPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+.demo-pulse { animation: demoPulse 1.3s ease-in-out infinite; }
+
+@keyframes demoCheck { 0%, 35% { transform: scale(0); opacity: 0; } 55% { transform: scale(1.2); opacity: 1; } 70%, 100% { transform: scale(1); opacity: 1; } }
+.demo-check { animation: demoCheck 1.8s ease-out infinite; }
+
+@keyframes demoSlideIn { 0% { opacity: 0; transform: translateX(14px); } 30%, 100% { opacity: 1; transform: translateX(0); } }
+.demo-slide-in { animation: demoSlideIn 1.8s ease-out infinite; }
+
+/* Claim celebration confetti */
+@keyframes confettiFall {
+  0%   { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 1; }
+}
+.confetti-piece { position: fixed; top: 0; width: 10px; height: 14px; border-radius: 2px; will-change: transform; animation: confettiFall linear forwards; }
+
+@keyframes claimPop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  40%  { transform: scale(1.25); opacity: 1; }
+  60%  { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.claim-pop { animation: claimPop 0.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }

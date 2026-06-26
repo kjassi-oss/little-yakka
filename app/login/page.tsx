@@ -34,14 +34,9 @@ export default function LoginPage() {
   }
 
   const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
-  const STEPS = [
-    { emoji: '📋', title: 'Add tasks', sub: 'Set chores & routines' },
-    { emoji: '⭐', title: 'Earn stars', sub: 'Kids tick them off' },
-    { emoji: '🎁', title: 'Win rewards', sub: 'Swap stars for treats' },
-  ]
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-20 relative overflow-hidden"
       style={{ background: RAINBOW }}>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
@@ -54,9 +49,9 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-xs relative">
-        {/* Big logo, sized to the wordmark width */}
+        {/* Rainbow logo, same width as the sign-in card below */}
         <div className="flex flex-col items-center mb-5">
-          <Logo size={200} className="shadow-2xl mb-3 w-[72%] h-auto"/>
+          <Logo size={240} rainbow className="shadow-2xl mb-3 w-[78%] h-auto"/>
           <h1 className="text-5xl font-black text-white tracking-tight"
             style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
             Little Yakka
@@ -97,6 +92,10 @@ export default function LoginPage() {
               className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
               placeholder="Password" required/>
 
+            <div className="text-right -mt-0.5">
+              <Link href="/forgot-password" className="text-xs font-semibold text-pink-500">Forgot password?</Link>
+            </div>
+
             {error && <p className="text-red-500 text-xs bg-red-50 rounded-2xl p-2.5">{error}</p>}
 
             <button type="submit" disabled={loading}
@@ -110,23 +109,6 @@ export default function LoginPage() {
             New here?{' '}
             <Link href="/signup" className="font-bold text-pink-500">Create an account</Link>
           </p>
-        </div>
-
-        {/* How it works — playful 3-step infographic */}
-        <div className="mt-5">
-          <p className="text-center text-white/85 text-xs font-bold uppercase tracking-wider mb-2">How it works</p>
-          <div className="flex items-stretch justify-center gap-1.5">
-            {STEPS.map((s, i) => (
-              <div key={s.title} className="flex items-center gap-1.5">
-                <div className="bg-white/95 rounded-2xl px-2.5 py-3 w-[88px] text-center shadow-lg">
-                  <div className="text-2xl mb-1">{s.emoji}</div>
-                  <p className="text-[11px] font-black text-gray-800 leading-tight">{s.title}</p>
-                  <p className="text-[9px] text-gray-400 leading-tight mt-0.5">{s.sub}</p>
-                </div>
-                {i < STEPS.length - 1 && <span className="text-white/80 font-black text-lg">›</span>}
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>

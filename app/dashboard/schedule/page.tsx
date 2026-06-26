@@ -5,11 +5,27 @@ import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
 
-interface Task { id: string; title: string; emoji: string; type: string; time_of_day: string | null; star_value: number }
+interface Task {
+  id: string; title: string; emoji: string; type: string; time_of_day: string | null; star_value: number
+  frequency?: 'daily' | 'weekly' | 'monthly'; start_date?: string | null; created_at?: string
+}
 interface Child { id: string; name: string; avatar: string; avatar_url?: string; colour: string }
 
 const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+// Does a recurring task land on this calendar day? Respects frequency + start date.
+function occursOn(task: Task, d: Date): boolean {
+  const ymd = d.toISOString().split('T')[0]
+  const anchorStr = task.start_date || (task.created_at ? task.created_at.split('T')[0] : null)
+  if (anchorStr && ymd < anchorStr) return false
+  const freq = task.frequency || 'daily'
+  if (freq === 'daily') return true
+  const anchor = anchorStr ? new Date(anchorStr + 'T00:00:00') : d
+  if (freq === 'weekly') return d.getDay() === anchor.getDay()
+  if (freq === 'monthly') return d.getDate() === anchor.getDate()
+  return true
+}
 const TIME_GROUPS = [
   { key: 'morning',   label: '🌅 Morning' },
   { key: 'afternoon', label: '☀️ Afternoon' },
@@ -35,9 +51,14 @@ export default function SchedulePage() {
   const selectedStr = selectedDate.toISOString().split('T')[0]
   const isToday = selectedStr === todayStr
 
-  const week = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() + i); return d
-  })
+  // Week strip runs Monday → Sunday of the current week
+  const week = (() => {
+    const now = new Date()
+    const dow = now.getDay() // 0=Sun
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + (dow === 0 ? -6 : 1 - dow))
+    return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d })
+  })()
 
   useEffect(() => { loadData() }, [])
 
@@ -143,22 +164,27 @@ export default function SchedulePage() {
           {tasks.length === 0 && (
             <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500">No tasks yet</p></div>
           )}
-          {tasks.length > 0 && Array.from({ length: 14 }, (_, i) => {
-            const d = new Date(); d.setDate(d.getDate() + i)
+          {(() => {
+            const days = Array.from({ length: 21 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d })
+              .map((d, i) => ({ d, i, occurs: tasks.filter(t => occursOn(t, d)) }))
+              .filter(x => x.occurs.length > 0)
+            if (tasks.length > 0 && days.length === 0) return (
+              <div className="text-center py-16"><div className="text-6xl mb-4">🎉</div><p className="text-gray-500">Nothing scheduled in the next 3 weeks</p></div>
+            )
+            return days.map(({ d, i, occurs }) => {
             const ds = d.toISOString().split('T')[0]
             const isToday = i === 0
-            const ordered = [...tasks].sort((a, b) => {
+            const dayName = isToday ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'long' })
+            const dayDate = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+            const ordered = [...occurs].sort((a, b) => {
               const order: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
               return (order[a.time_of_day ?? ''] ?? 3) - (order[b.time_of_day ?? ''] ?? 3)
             })
             return (
               <div key={ds} className="bg-white rounded-3xl p-4 shadow-sm"
                 style={isToday ? { boxShadow: '0 0 0 2px var(--theme-from)' } : {}}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="font-black text-gray-800">
-                    {isToday ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'long' })}
-                  </p>
-                  <p className="text-xs font-semibold text-gray-400">{d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}</p>
+                <div className="mb-3">
+                  <p className="font-black text-gray-800 text-lg">{dayName} · {dayDate}</p>
                 </div>
                 <div className="space-y-2">
                   {ordered.map(task => {
@@ -190,7 +216,8 @@ export default function SchedulePage() {
                 </div>
               </div>
             )
-          })}
+          })
+          })()}
         </div>
       )}
 
@@ -221,7 +248,7 @@ export default function SchedulePage() {
             {isToday && <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--theme-from)' }}>Today — live completion status</p>}
             {TIME_GROUPS.map(group => {
               const groupTasks = tasks.filter(t =>
-                group.key === null ? !t.time_of_day : t.time_of_day === group.key
+                occursOn(t, selectedDate) && (group.key === null ? !t.time_of_day : t.time_of_day === group.key)
               )
               if (!groupTasks.length) return null
               return (

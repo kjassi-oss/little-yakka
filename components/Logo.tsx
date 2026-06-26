@@ -1,4 +1,4 @@
-export default function Logo({ size = 72, className = '' }: { size?: number; className?: string }) {
+export default function Logo({ size = 72, className = '', rainbow = false }: { size?: number; className?: string; rainbow?: boolean }) {
   return (
     <svg
       viewBox="0 0 200 200"
@@ -10,8 +10,20 @@ export default function Logo({ size = 72, className = '' }: { size?: number; cla
     >
       <defs>
         <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--theme-from, #7C3AED)"/>
-          <stop offset="100%" stopColor="var(--theme-to, #EC4899)"/>
+          {rainbow ? (
+            <>
+              <stop offset="0%" stopColor="#FF595E"/>
+              <stop offset="28%" stopColor="#FFCA3A"/>
+              <stop offset="52%" stopColor="#8AC926"/>
+              <stop offset="78%" stopColor="#1982C4"/>
+              <stop offset="100%" stopColor="#6A4C93"/>
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="var(--theme-from, #7C3AED)"/>
+              <stop offset="100%" stopColor="var(--theme-to, #EC4899)"/>
+            </>
+          )}
         </linearGradient>
         <linearGradient id="logoGlow" x1="0.5" y1="0" x2="0.5" y2="1">
           <stop offset="0%" stopColor="white" stopOpacity="0.15"/>

@@ -23,12 +23,13 @@ export default function SettingsPage() {
   const [familyName, setFamilyName] = useState('')
   const [familyId, setFamilyId] = useState('')
   const [loading, setLoading] = useState(true)
-  const [activeTheme, setActiveTheme] = useState<ThemeKey>('candy')
+  const [activeTheme, setActiveTheme] = useState<ThemeKey>('rainbow')
   const [themeOpen, setThemeOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newChild, setNewChild] = useState({ name: '', avatar: '🐨', colour: '#FF6B6B' })
+  const [newChildPhoto, setNewChildPhoto] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
   const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null)
@@ -36,7 +37,15 @@ export default function SettingsPage() {
   const [inviteLink, setInviteLink] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [parentPin, setParentPin] = useState('')
+  const [adjustChild, setAdjustChild] = useState<Child | null>(null)
+  const [adjustAmount, setAdjustAmount] = useState('')
+  const [adjustReason, setAdjustReason] = useState('')
+  const [adjustPin, setAdjustPin] = useState('')
+  const [adjustError, setAdjustError] = useState('')
+  const [adjustSaving, setAdjustSaving] = useState(false)
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const newChildPhotoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadData(); setActiveTheme(getStoredTheme()) }, [])
 
@@ -44,9 +53,10 @@ export default function SettingsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data: guardian } = await supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single()
+    const { data: guardian } = await supabase.from('guardians').select('family_id, parent_pin').eq('auth_user_id', user.id).single()
     if (!guardian) return
     setFamilyId(guardian.family_id)
+    setParentPin(guardian.parent_pin || '')
     const [{ data: childrenData }, { data: familyData }] = await Promise.all([
       supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
       supabase.from('families').select('name').eq('id', guardian.family_id).single(),
@@ -65,9 +75,35 @@ export default function SettingsPage() {
   async function addChild() {
     if (!newChild.name.trim()) return
     setSaving(true)
-    await createClient().from('children').insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
-    setNewChild({ name: '', avatar: '🐨', colour: '#FF6B6B' })
+    const supabase = createClient()
+    const { data: created } = await supabase.from('children')
+      .insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
+      .select('id').single()
+    if (created && newChildPhoto) {
+      const ext = newChildPhoto.name.split('.').pop()
+      const path = `${familyId}/${created.id}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, newChildPhoto, { upsert: true })
+      if (!upErr) {
+        const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
+        await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
+      }
+    }
+    setNewChild({ name: '', avatar: '🐨', colour: '#FF6B6B' }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
+  }
+
+  async function applyStarAdjust() {
+    if (!adjustChild) return
+    const amount = parseInt(adjustAmount, 10)
+    if (!amount || isNaN(amount)) { setAdjustError('Enter a number (e.g. 5 or -5).'); return }
+    if (adjustPin !== parentPin) { setAdjustError('Wrong PIN.'); return }
+    setAdjustSaving(true); setAdjustError('')
+    await createClient().from('star_ledger').insert({
+      child_id: adjustChild.id, delta: amount,
+      reason: adjustReason.trim() || (amount > 0 ? 'Bonus stars' : 'Stars removed'),
+      source_type: 'manual',
+    })
+    setAdjustChild(null); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustSaving(false)
   }
 
   async function saveEditChild() {
@@ -264,8 +300,20 @@ export default function SettingsPage() {
 
           {showAddForm && (
             <div className="border border-gray-100 rounded-2xl p-4 mb-4 space-y-3">
-              <input type="text" value={newChild.name} onChange={e => setNewChild({ ...newChild, name: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
+              {/* Photo + name */}
+              <div className="flex items-center gap-3">
+                <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
+                  {newChildPhoto
+                    ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
+                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: newChild.colour + '33' }}>{newChild.avatar}</div>}
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
+                </button>
+                <input type="file" accept="image/*" className="hidden" ref={newChildPhotoRef}
+                  onChange={e => e.target.files?.[0] && setNewChildPhoto(e.target.files[0])}/>
+                <input type="text" value={newChild.name} onChange={e => setNewChild({ ...newChild, name: e.target.value })}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
+              </div>
+              <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
               <div>
                 <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
                 <div className="grid grid-cols-6 gap-1">
@@ -346,11 +394,13 @@ export default function SettingsPage() {
                         onChange={e => e.target.files?.[0] && uploadChildPhoto(child.id, e.target.files[0])}/>
                     </div>
                     <p className="font-semibold text-gray-800 flex-1">{child.name}</p>
+                    <button onClick={() => { setAdjustChild(child); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustError('') }}
+                      aria-label="Adjust stars" className="text-sm font-bold px-2.5 py-1.5 rounded-xl bg-yellow-50 text-yellow-600">⭐ ±</button>
                     <button onClick={() => { setEditingChild(child); setShowAddForm(false) }}
                       className="text-sm font-semibold px-3 py-1.5 rounded-xl" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>
                       Edit
                     </button>
-                    <button onClick={() => deleteChild(child.id)} className="text-red-400 text-sm font-semibold px-3 py-1.5 bg-red-50 rounded-xl">Remove</button>
+                    <button onClick={() => deleteChild(child.id)} className="text-red-400 text-sm font-semibold px-2.5 py-1.5 bg-red-50 rounded-xl">✕</button>
                   </div>
                 )}
               </div>
@@ -364,6 +414,48 @@ export default function SettingsPage() {
           Sign Out
         </button>
       </div>
+
+      {/* Manual star adjust — PIN protected */}
+      {adjustChild && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setAdjustChild(null)}>
+          <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
+            <h3 className="font-black text-gray-800 text-lg mb-1">Adjust {adjustChild.name.split(' ')[0]}'s stars ⭐</h3>
+            <p className="text-gray-400 text-sm mb-4">Give or remove stars. Use a minus for removing (e.g. -5).</p>
+
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => setAdjustAmount(a => String((parseInt(a, 10) || 0) - 1))}
+                className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-600 text-2xl font-black active:scale-90 transition">−</button>
+              <input type="number" inputMode="numeric" value={adjustAmount} onChange={e => setAdjustAmount(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-2xl px-4 text-center text-2xl font-black text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                placeholder="0"/>
+              <button onClick={() => setAdjustAmount(a => String((parseInt(a, 10) || 0) + 1))}
+                className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-600 text-2xl font-black active:scale-90 transition">+</button>
+            </div>
+
+            <input type="text" value={adjustReason} onChange={e => setAdjustReason(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 mb-3 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+              placeholder="Reason (optional) — e.g. helped a neighbour"/>
+
+            <input type="password" inputMode="numeric" maxLength={6} value={adjustPin} onChange={e => setAdjustPin(e.target.value.replace(/\D/g, ''))}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-xl tracking-widest text-gray-800 mb-2 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+              placeholder="Parent PIN"/>
+
+            {adjustError && <p className="text-red-500 text-xs mb-2">{adjustError}</p>}
+
+            <div className="flex gap-2">
+              <button onClick={() => setAdjustChild(null)}
+                className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold active:scale-95 transition">Cancel</button>
+              <button onClick={applyStarAdjust} disabled={adjustSaving}
+                className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
+                style={{ background: 'var(--theme-gradient)' }}>
+                {adjustSaving ? 'Saving...' : 'Apply'}
+              </button>
+            </div>
+            {!parentPin && <p className="text-[11px] text-amber-500 mt-2 text-center">No parent PIN set yet — set one during setup to protect this.</p>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
