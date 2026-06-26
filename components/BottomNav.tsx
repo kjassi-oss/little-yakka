@@ -56,14 +56,6 @@ export default function BottomNav() {
           <span className="text-[10px] font-semibold">Calendar</span>
         </Link>
 
-        <Link href="/kid-mode" className="flex flex-col items-center gap-1 -translate-y-5">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
-            style={{ background: 'var(--theme-gradient, linear-gradient(135deg, #EC4899, #8B5CF6))' }}>
-            <span className="text-3xl">⭐</span>
-          </div>
-          <span className="text-[10px] font-semibold" style={{ color: 'var(--theme-from)' }}>Kid Mode</span>
-        </Link>
-
         <Link href="/dashboard/rewards"
           className={`flex flex-col items-center gap-1 transition relative ${active('/dashboard/rewards') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/rewards') ? { color: 'var(--theme-from)' } : {}}>

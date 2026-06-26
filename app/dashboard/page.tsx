@@ -123,15 +123,23 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
-      {/* Header — centered wordmark + profile */}
+      {/* Header — centered wordmark + Kid Mode & profile */}
       <div className="relative px-4 pt-12 pb-3">
         <h1 className="wordmark text-center text-3xl">Little Yakka</h1>
-        <Link href="/dashboard/settings"
-          aria-label="Profile & settings"
-          className="absolute top-11 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md active:scale-95 transition"
-          style={{ background: 'var(--theme-gradient)' }}>
-          {guardianInitial}
-        </Link>
+        <div className="absolute top-11 right-4 flex items-center gap-2">
+          <Link href="/kid-mode"
+            aria-label="Kid Mode"
+            className="w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-95 transition"
+            style={{ background: 'var(--theme-gradient)' }}>
+            <span className="text-xl">⭐</span>
+          </Link>
+          <Link href="/dashboard/settings"
+            aria-label="Profile & settings"
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-black shadow-md active:scale-95 transition"
+            style={{ color: 'var(--theme-from)' }}>
+            {guardianInitial}
+          </Link>
+        </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 space-y-4">
@@ -163,64 +171,59 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Kids tiles — narrow, horizontally scrollable */}
+        {/* Kids tiles — 3 per row, aligned with leaderboard width */}
         {childData.length > 0 ? (
-          <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-1 snap-x">
-            {childData.map(({ child, balance, streak, level, myTasks, myDone }) => {
+          <div className="grid grid-cols-3 gap-2.5">
+            {childData.map(({ child, balance, streak, myTasks, myDone }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
               const firstName = child.name.split(' ')[0]
               return (
-                <div key={child.id} className="relative w-40 shrink-0 snap-start bg-white rounded-3xl shadow-sm">
+                <div key={child.id} className="relative bg-white rounded-2xl shadow-sm">
                   {/* Praise heart, top-right */}
-                  <div className="absolute top-2 right-2 z-10">
+                  <div className="absolute top-1.5 right-1.5 z-10">
                     <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
                   </div>
 
-                  <Link href={`/kid-mode/${child.id}`} className="block p-3 active:bg-gray-50 transition rounded-3xl">
+                  <Link href={`/kid-mode/${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
                     {/* Avatar */}
-                    <div className="relative w-16 h-16 mb-2">
+                    <div className="relative w-14 h-14 mx-auto mb-1.5">
                       {child.avatar_url
-                        ? <img src={child.avatar_url} className="w-16 h-16 rounded-2xl object-cover"
+                        ? <img src={child.avatar_url} className="w-14 h-14 rounded-2xl object-cover"
                             style={{ border: `3px solid ${child.colour}` }} alt=""/>
-                        : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
+                        : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
                             style={{ backgroundColor: child.colour + '25', border: `3px solid ${child.colour}40` }}>
                             {child.avatar}
                           </div>
                       }
                       {allDone && (
-                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow">
-                          <span className="text-white text-xs font-black">✓</span>
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow">
+                          <span className="text-white text-[10px] font-black">✓</span>
                         </div>
                       )}
                     </div>
 
-                    <p className="font-black text-gray-800 text-lg leading-tight truncate">{firstName}</p>
-                    <p className="text-[11px] font-semibold mb-1 truncate" style={{ color: child.colour }}>{LEVEL_TITLES[level]}</p>
-                    <p className="text-2xl font-black text-yellow-500 leading-none mb-2">⭐ {balance}</p>
+                    <p className="font-black text-gray-800 text-sm leading-tight truncate">{firstName}</p>
+                    <p className="text-base font-black text-yellow-500 leading-none my-1">⭐ {balance}</p>
 
                     {streak > 0 && (
-                      <span className="inline-block text-[10px] font-bold bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full mb-2">🔥 {streak}d</span>
+                      <p className="text-[10px] font-bold text-orange-500 mb-1">🔥 {streak}d</p>
                     )}
 
                     {total > 0 && (
-                      <div className="mb-2">
-                        <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
-                          <span>Today {myDone}/{total}</span>
-                          {allDone && <span className="text-green-500 font-bold">Done!</span>}
-                        </div>
+                      <div className="mb-1.5">
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${progressPct}%`, backgroundColor: allDone ? '#22c55e' : child.colour }}/>
                         </div>
+                        <p className="text-[9px] text-gray-400 mt-0.5">{allDone ? 'All done!' : `${myDone}/${total} today`}</p>
                       </div>
                     )}
 
                     {/* Enter zone star CTA */}
-                    <div className="flex items-center gap-1.5 mt-1 text-white text-xs font-bold px-2.5 py-2 rounded-2xl"
+                    <div className="flex items-center justify-center gap-1 text-white text-[11px] font-bold py-1.5 rounded-xl"
                       style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
-                      <span className="text-sm">⭐</span>
-                      <span className="truncate">Enter {firstName} Zone</span>
+                      <span>⭐</span><span>Enter</span>
                     </div>
                   </Link>
                 </div>
