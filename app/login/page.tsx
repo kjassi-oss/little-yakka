@@ -33,38 +33,46 @@ export default function LoginPage() {
     if (error) { setError(error.message); setGoogleLoading(false) }
   }
 
+  const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
+  const STEPS = [
+    { emoji: '📋', title: 'Add tasks', sub: 'Set chores & routines' },
+    { emoji: '⭐', title: 'Earn stars', sub: 'Kids tick them off' },
+    { emoji: '🎁', title: 'Win rewards', sub: 'Swap stars for treats' },
+  ]
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+      style={{ background: RAINBOW }}>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
         {['⭐','🌟','✨','💫','⭐','🌟'].map((s, i) => (
-          <span key={i} className="absolute text-4xl opacity-10"
-            style={{ top: `${8 + i * 15}%`, left: i % 2 === 0 ? `${4 + i * 3}%` : 'auto', right: i % 2 !== 0 ? `${4 + i * 2}%` : 'auto', transform: `rotate(${i % 2 === 0 ? -15 : 20}deg)` }}>
+          <span key={i} className="absolute text-4xl opacity-15"
+            style={{ top: `${6 + i * 15}%`, left: i % 2 === 0 ? `${4 + i * 3}%` : 'auto', right: i % 2 !== 0 ? `${4 + i * 2}%` : 'auto', transform: `rotate(${i % 2 === 0 ? -15 : 20}deg)` }}>
             {s}
           </span>
         ))}
       </div>
 
-      <div className="w-full max-w-sm relative">
-        <div className="flex flex-col items-center mb-8">
-          <Logo size={96} className="shadow-2xl mb-4"/>
-          <h1 className="text-4xl font-black text-white tracking-tight">
-            Little <span className="text-yellow-300">Yakka</span>
+      <div className="w-full max-w-xs relative">
+        {/* Big logo, sized to the wordmark width */}
+        <div className="flex flex-col items-center mb-5">
+          <Logo size={200} className="shadow-2xl mb-3 w-[72%] h-auto"/>
+          <h1 className="text-5xl font-black text-white tracking-tight"
+            style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
+            Little Yakka
           </h1>
-          <p className="text-white/75 mt-1">Family tasks made fun</p>
+          <p className="text-white/80 mt-1 text-sm font-semibold">Family chores made fun</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
-          <h2 className="text-xl font-bold text-gray-800">Sign in</h2>
-
+        {/* Compact sign-in card */}
+        <div className="bg-white rounded-3xl shadow-2xl p-4 space-y-2.5">
           <button onClick={handleGoogle} disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 rounded-2xl py-3 font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 transition disabled:opacity-60">
+            className="w-full flex items-center justify-center gap-2.5 border-2 border-gray-200 rounded-2xl py-2.5 font-semibold text-gray-700 text-sm hover:bg-gray-50 active:scale-95 transition disabled:opacity-60">
             {googleLoading ? (
               <span className="text-sm">Redirecting...</span>
             ) : (
               <>
-                <svg viewBox="0 0 24 24" width="20" height="20">
+                <svg viewBox="0 0 24 24" width="18" height="18">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -81,35 +89,44 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-gray-200"/>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-3">
-            <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-1.5">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50"
-                placeholder="you@example.com" required/>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-1.5">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50"
-                placeholder="••••••••" required/>
-            </div>
+          <form onSubmit={handleLogin} className="space-y-2.5">
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
+              placeholder="Email" required/>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
+              placeholder="Password" required/>
 
-            {error && <p className="text-red-500 text-sm bg-red-50 rounded-2xl p-3">{error}</p>}
+            {error && <p className="text-red-500 text-xs bg-red-50 rounded-2xl p-2.5">{error}</p>}
 
             <button type="submit" disabled={loading}
-              className="w-full text-white font-bold py-3.5 rounded-2xl shadow-md active:scale-95 transition disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
+              className="w-full text-white font-bold py-3 rounded-2xl shadow-md active:scale-95 transition disabled:opacity-60"
+              style={{ background: RAINBOW }}>
               {loading ? 'Signing in...' : 'Sign in ✓'}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-400">
-            New to Little Yakka?{' '}
-            <Link href="/signup" className="font-bold" style={{ color: 'var(--theme-from, #7C3AED)' }}>
-              Create an account
-            </Link>
+          <p className="text-center text-xs text-gray-400">
+            New here?{' '}
+            <Link href="/signup" className="font-bold text-pink-500">Create an account</Link>
           </p>
+        </div>
+
+        {/* How it works — playful 3-step infographic */}
+        <div className="mt-5">
+          <p className="text-center text-white/85 text-xs font-bold uppercase tracking-wider mb-2">How it works</p>
+          <div className="flex items-stretch justify-center gap-1.5">
+            {STEPS.map((s, i) => (
+              <div key={s.title} className="flex items-center gap-1.5">
+                <div className="bg-white/95 rounded-2xl px-2.5 py-3 w-[88px] text-center shadow-lg">
+                  <div className="text-2xl mb-1">{s.emoji}</div>
+                  <p className="text-[11px] font-black text-gray-800 leading-tight">{s.title}</p>
+                  <p className="text-[9px] text-gray-400 leading-tight mt-0.5">{s.sub}</p>
+                </div>
+                {i < STEPS.length - 1 && <span className="text-white/80 font-black text-lg">›</span>}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

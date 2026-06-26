@@ -2,8 +2,12 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ChildTaskView from './ChildTaskView'
 
-export default async function ChildPage({ params }: { params: Promise<{ childId: string }> }) {
+export default async function ChildPage({ params, searchParams }: {
+  params: Promise<{ childId: string }>
+  searchParams: Promise<{ task?: string }>
+}) {
   const { childId } = await params
+  const { task: highlightTaskId } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -66,6 +70,7 @@ export default async function ChildPage({ params }: { params: Promise<{ childId:
       pendingRewardIds={pendingRewardIds}
       canSpin={canSpin}
       unseenPraises={unseenPraises || []}
+      highlightTaskId={highlightTaskId || null}
     />
   )
 }

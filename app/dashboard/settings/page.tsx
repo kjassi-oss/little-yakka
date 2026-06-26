@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
+import ProfileButton from '@/components/ProfileButton'
 
 const AVATARS = [
   '🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉',
@@ -24,6 +25,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [activeTheme, setActiveTheme] = useState<ThemeKey>('candy')
   const [themeOpen, setThemeOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newChild, setNewChild] = useState({ name: '', avatar: '🐨', colour: '#FF6B6B' })
@@ -121,17 +123,58 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="pt-12 pb-8 px-4" style={{ background: 'var(--theme-gradient)' }}>
-        <div className="max-w-sm mx-auto flex items-center gap-2">
-          <span className="text-2xl">⚙️</span>
-          <div>
-            <h1 className="text-lg font-bold text-white">Settings</h1>
-            <p className="text-white/70 text-xs">Manage your family</p>
+      <div className="pt-11 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
+        <div className="max-w-sm mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">⚙️</span>
+            <div>
+              <h1 className="text-lg font-bold text-white">Settings</h1>
+              <p className="text-white/70 text-xs">Manage your family</p>
+            </div>
           </div>
+          <ProfileButton/>
         </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 mt-4 space-y-6">
+
+        {/* How it works — collapsible visual guide */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <button onClick={() => setGuideOpen(o => !o)} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📖</span>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-800 leading-tight">How Little Yakka works</h2>
+                <p className="text-xs text-gray-400">A quick visual guide</p>
+              </div>
+            </div>
+            <span className={`text-gray-300 text-xl transition-transform ${guideOpen ? 'rotate-90' : ''}`}>›</span>
+          </button>
+
+          {guideOpen && (
+            <div className="mt-4 space-y-3">
+              {[
+                { e: '👶', t: 'Add your kids', d: 'Create a profile and photo for each child below.' },
+                { e: '📋', t: 'Create tasks', d: 'Add chores & routines, set stars, assign to kids. Tap + on the Tasks page.' },
+                { e: '⭐', t: 'Kids earn stars', d: 'Open Kid Mode (⭐, top-right) — kids tap tasks to tick them off and collect stars.' },
+                { e: '🕓', t: 'Approve if needed', d: 'Tasks marked "needs approval" wait for your OK before stars are given.' },
+                { e: '🎁', t: 'Spend on rewards', d: 'Set up rewards; kids swap stars for them. You approve each request.' },
+                { e: '📅', t: 'Plan with Calendar', d: 'See an agenda, week or month view of what\'s coming up.' },
+                { e: '📊', t: 'Track with Stats', d: 'Completion %, streaks and star charts — weekly or monthly, per kid.' },
+                { e: '🎨', t: 'Make it yours', d: 'Pick a colour theme below to restyle the whole app.' },
+              ].map(s => (
+                <div key={s.t} className="flex gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{s.e}</div>
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">{s.t}</p>
+                    <p className="text-xs text-gray-400 leading-snug">{s.d}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Colour theme — collapsible */}
         <div className="bg-white rounded-3xl shadow-sm p-5">

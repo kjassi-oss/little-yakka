@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import ProfileButton from '@/components/ProfileButton'
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 type Period = 'week' | 'month'
@@ -125,20 +126,23 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="pt-12 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
-        <div className="max-w-sm mx-auto flex items-center justify-between">
+      <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
+        <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📊</span>
-            <h1 className="text-lg font-bold text-white">Analytics</h1>
+            <h1 className="text-lg font-bold text-white">Stats</h1>
           </div>
-          <div className="flex bg-white/20 rounded-2xl p-1">
-            {(['week', 'month'] as Period[]).map(p => (
-              <button key={p} onClick={() => setPeriod(p)}
-                className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition ${period === p ? 'bg-white' : 'text-white'}`}
-                style={period === p ? { color: 'var(--theme-from)' } : {}}>
-                {p === 'week' ? 'Weekly' : 'Monthly'}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-white/20 rounded-2xl p-1">
+              {(['week', 'month'] as Period[]).map(p => (
+                <button key={p} onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${period === p ? 'bg-white' : 'text-white'}`}
+                  style={period === p ? { color: 'var(--theme-from)' } : {}}>
+                  {p === 'week' ? 'Week' : 'Month'}
+                </button>
+              ))}
+            </div>
+            <ProfileButton/>
           </div>
         </div>
       </div>

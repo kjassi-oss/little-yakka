@@ -10,12 +10,13 @@ export default function BottomNav() {
   const active = (path: string, exact = false) =>
     exact ? pathname === path : pathname.startsWith(path)
   const [pendingCount, setPendingCount] = useState(0)
+  const [approvalCount, setApprovalCount] = useState(0)
 
   useEffect(() => {
-    loadPendingRedemptions()
+    loadBadges()
   }, [pathname])
 
-  async function loadPendingRedemptions() {
+  async function loadBadges() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -25,11 +26,15 @@ export default function BottomNav() {
     const { data: children } = await supabase
       .from('children').select('id').eq('family_id', guardian.family_id)
     if (!children?.length) return
-    const { count } = await supabase
-      .from('redemptions').select('id', { count: 'exact', head: true })
-      .eq('status', 'requested')
-      .in('child_id', children.map(c => c.id))
-    setPendingCount(count || 0)
+    const ids = children.map(c => c.id)
+    const [{ count: redeemCount }, { count: approveCount }] = await Promise.all([
+      supabase.from('redemptions').select('id', { count: 'exact', head: true })
+        .eq('status', 'requested').in('child_id', ids),
+      supabase.from('completions').select('id', { count: 'exact', head: true })
+        .eq('status', 'pending').in('child_id', ids),
+    ])
+    setPendingCount(redeemCount || 0)
+    setApprovalCount(approveCount || 0)
   }
 
   return (
@@ -43,9 +48,16 @@ export default function BottomNav() {
         </Link>
 
         <Link href="/dashboard/chores"
-          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition relative ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/chores') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">📋</span>
+          <div className="relative">
+            <span className="text-2xl">📋</span>
+            {approvalCount > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-[9px] font-black">{approvalCount > 9 ? '9+' : approvalCount}</span>
+              </div>
+            )}
+          </div>
           <span className="text-[10px] font-semibold">Tasks</span>
         </Link>
 

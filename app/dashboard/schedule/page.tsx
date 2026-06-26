@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import ProfileButton from '@/components/ProfileButton'
+import TaskLauncher from '@/components/TaskLauncher'
 
 interface Task { id: string; title: string; emoji: string; type: string; time_of_day: string | null; star_value: number }
 interface Child { id: string; name: string; avatar: string; avatar_url?: string; colour: string }
@@ -113,21 +115,24 @@ export default function SchedulePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="pt-12 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
-        <div className="max-w-sm mx-auto flex items-center justify-between mb-1">
+      <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
+        <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📅</span>
             <h1 className="text-lg font-bold text-white">Calendar</h1>
           </div>
-          {/* View toggle */}
-          <div className="flex bg-white/20 rounded-2xl p-1 gap-0.5">
-            {(['roll', 'week', 'month'] as View[]).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${view === v ? 'bg-white' : 'text-white'}`}
-                style={view === v ? { color: 'var(--theme-from)' } : {}}>
-                {VIEW_LABELS[v]}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex bg-white/20 rounded-2xl p-1 gap-0.5">
+              {(['roll', 'week', 'month'] as View[]).map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${view === v ? 'bg-white' : 'text-white'}`}
+                  style={view === v ? { color: 'var(--theme-from)' } : {}}>
+                  {VIEW_LABELS[v]}
+                </button>
+              ))}
+            </div>
+            <ProfileButton/>
           </div>
         </div>
       </div>
@@ -161,23 +166,25 @@ export default function SchedulePage() {
                     const allDone = isToday && assignedKids.length > 0 && assignedKids.every(k => completedSet.has(`${task.id}-${k.id}`))
                     const upcoming = isToday && !allDone
                     return (
-                      <div key={task.id} className="flex items-center gap-3 rounded-2xl p-2"
-                        style={upcoming ? { backgroundColor: 'color-mix(in srgb, var(--theme-from) 10%, white)' } : {}}>
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-gray-50">{task.emoji}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-semibold text-sm truncate ${allDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{task.title}</p>
-                          <p className="text-[11px] text-gray-400">{task.time_of_day ? task.time_of_day : 'anytime'} · ⭐ {task.star_value}</p>
+                      <TaskLauncher key={task.id} taskId={task.id} kids={assignedKids as any}>
+                        <div className="flex items-center gap-3 rounded-2xl p-2 active:scale-[0.98] transition"
+                          style={upcoming ? { backgroundColor: 'color-mix(in srgb, var(--theme-from) 10%, white)' } : {}}>
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-gray-50">{task.emoji}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold text-sm truncate ${allDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{task.title}</p>
+                            <p className="text-[11px] text-gray-400">{task.time_of_day ? task.time_of_day : 'anytime'} · ⭐ {task.star_value}</p>
+                          </div>
+                          <div className="flex -space-x-1.5 flex-shrink-0">
+                            {assignedKids.map(child => {
+                              const done = isToday && completedSet.has(`${task.id}-${child.id}`)
+                              return child.avatar_url
+                                ? <img key={child.id} src={child.avatar_url} className={`w-7 h-7 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
+                                : <div key={child.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white ${done ? 'opacity-50' : ''}`}
+                                    style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
+                            })}
+                          </div>
                         </div>
-                        <div className="flex -space-x-1.5 flex-shrink-0">
-                          {assignedKids.map(child => {
-                            const done = isToday && completedSet.has(`${task.id}-${child.id}`)
-                            return child.avatar_url
-                              ? <img key={child.id} src={child.avatar_url} className={`w-7 h-7 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
-                              : <div key={child.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white ${done ? 'opacity-50' : ''}`}
-                                  style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
-                          })}
-                        </div>
-                      </div>
+                      </TaskLauncher>
                     )
                   })}
                 </div>

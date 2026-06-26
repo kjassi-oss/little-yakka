@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Fredoka } from "next/font/google"
+import { Baloo_2, Nunito } from "next/font/google"
 import ThemeProvider from "@/components/ThemeProvider"
 import "./globals.css"
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
-const fredoka = Fredoka({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700"] })
+// Playful, friendly type: Nunito for body, Baloo 2 for the chunky display wordmark
+const nunito = Nunito({ variable: "--font-body", subsets: ["latin"], weight: ["400", "600", "700", "800"] })
+const baloo = Baloo_2({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700", "800"] })
 
 export const metadata: Metadata = {
   title: "Little Yakka",
@@ -15,10 +16,7 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Little Yakka",
   },
-  icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
-  },
+  // Icons are provided by app/icon.tsx and app/apple-icon.tsx (generated PNGs)
 }
 
 export const viewport: Viewport = {
@@ -31,10 +29,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${fredoka.variable} h-full antialiased`}>
-      <head>
-        <link rel="apple-touch-icon" href="/icon.svg" />
-      </head>
+    <html lang="en" className={`${nunito.variable} ${baloo.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>
       </body>

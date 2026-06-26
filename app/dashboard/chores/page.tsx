@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import ProfileButton from '@/components/ProfileButton'
 
 const EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🌿','🗑️','🛁','🧼','🪥','🍳','🚿','🧽','👕','🎒','🏃','🌙','⭐','🎨']
 const TIME_OPTIONS = [
@@ -52,6 +53,8 @@ export default function ChoresPage() {
   const [mainTab, setMainTab] = useState<MainTab>('tasks')
   const [filterChildId, setFilterChildId] = useState<string | null>(null)
   const [showChildPicker, setShowChildPicker] = useState(false)
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
+  const [pendingApprovals, setPendingApprovals] = useState<HistoryRow[]>([])
 
   // Form state
   const [title, setTitle] = useState('')
@@ -69,6 +72,7 @@ export default function ChoresPage() {
   const [existingBenchmarks, setExistingBenchmarks] = useState<{ id: string; url: string; media_type: string }[]>([])
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
+  const [requiresApproval, setRequiresApproval] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
@@ -103,21 +107,50 @@ export default function ChoresPage() {
     ))
     setPageLoading(false)
 
-    // Completion history (moved here from the old History page)
+    // Completion history + pending approvals (moved here from the old History page)
     const childIds = childrenData?.map(c => c.id) || []
-    const { data: historyData } = await supabase
-      .from('completions')
-      .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
-      .in('child_id', childIds.length ? childIds : ['none'])
-      .order('created_at', { ascending: false })
-      .limit(120)
+    const [{ data: historyData }, { data: approvalData }] = await Promise.all([
+      supabase.from('completions')
+        .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
+        .eq('status', 'approved')
+        .in('child_id', childIds.length ? childIds : ['none'])
+        .order('created_at', { ascending: false })
+        .limit(120),
+      supabase.from('completions')
+        .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
+        .eq('status', 'pending')
+        .in('child_id', childIds.length ? childIds : ['none'])
+        .order('created_at', { ascending: false }),
+    ])
     setHistory((historyData as any) || [])
+    setPendingApprovals((approvalData as any) || [])
   }
 
-  function handleTaskClick() {
-    // Tapping a task jumps into the kid zone.
-    if (filterChildId) router.push(`/kid-mode/${filterChildId}`)
-    else setShowChildPicker(true)
+  function handleTaskClick(task: Task) {
+    // Tapping a task jumps into the kid zone, deep-linked to that task.
+    const kids = assignments[task.id] || []
+    if (filterChildId) router.push(`/kid-mode/${filterChildId}?task=${task.id}`)
+    else if (kids.length === 1) router.push(`/kid-mode/${kids[0]}?task=${task.id}`)
+    else { setPendingTaskId(task.id); setShowChildPicker(true) }
+  }
+
+  async function approveCompletion(row: HistoryRow) {
+    const supabase = createClient()
+    await supabase.from('completions').update({ status: 'approved' }).eq('id', row.id)
+    await supabase.from('star_ledger').insert({
+      child_id: row.child_id,
+      delta: row.tasks?.star_value || 0,
+      reason: `Approved: ${row.tasks?.title}`,
+      source_type: 'completion',
+      source_id: row.id,
+    })
+    loadData()
+  }
+
+  async function rejectCompletion(row: HistoryRow) {
+    if (!confirm(`Reject "${row.tasks?.title}" for ${row.children?.name}? No stars will be given.`)) return
+    await createClient().from('completions').delete().eq('id', row.id)
+    loadData()
   }
 
   function openNewForm() {
@@ -127,6 +160,7 @@ export default function ChoresPage() {
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
+    setRequiresApproval(false)
     setFormError('')
     setShowForm(true)
   }
@@ -142,6 +176,7 @@ export default function ChoresPage() {
     setBenchmarkFiles([]); setBenchmarkVideo(null)
     setAssignedChildren(assignments[task.id] || [])
     setDifficulty((task as any).difficulty || 'medium')
+    setRequiresApproval((task as any).requires_approval || false)
     setFormError('')
     setShowForm(true)
     const supabase = createClient()
@@ -164,6 +199,7 @@ export default function ChoresPage() {
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
       frequency, carry_over: carryOver, difficulty,
+      requires_approval: requiresApproval,
     }
 
     let taskId = editingTaskId
@@ -241,35 +277,34 @@ export default function ChoresPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Compact header */}
-      <div className="pt-10 pb-3 px-4" style={{ background: 'var(--theme-gradient)' }}>
+      <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📋</span>
             <h1 className="text-lg font-bold text-white">Tasks</h1>
           </div>
-          <button onClick={showForm ? closeForm : openNewForm}
-            className="bg-white font-bold px-4 py-2 rounded-2xl text-sm shadow active:scale-95 transition"
-            style={{ color: 'var(--theme-from)' }}>
-            {showForm ? '✕ Close' : '+ Add Task'}
-          </button>
+          <ProfileButton/>
         </div>
 
         {/* Tab toggle */}
-        <div className="max-w-sm mx-auto mt-3 flex bg-white/20 rounded-2xl p-1 gap-1">
+        <div className="max-w-sm mx-auto mt-2.5 flex bg-white/20 rounded-2xl p-1 gap-1">
           {([['tasks', '📋 All'], ['today', '📅 Today'], ['history', '✅ Done']] as const).map(([tab, label]) => (
             <button key={tab} onClick={() => setMainTab(tab)}
-              className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'bg-white' : 'text-white'}`}
+              className={`relative flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'bg-white' : 'text-white'}`}
               style={mainTab === tab ? { color: 'var(--theme-from)' } : {}}>
               {label}
+              {tab === 'history' && pendingApprovals.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold">{pendingApprovals.length}</span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Kid filter — round photo thumbnails, ~3 per row */}
+      {/* Kid filter — round photo thumbnails, 4 per row */}
       {children.length > 0 && mainTab !== 'history' && (
         <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-          <div className="max-w-sm mx-auto grid grid-cols-3 gap-3 sm:grid-cols-4">
+          <div className="max-w-sm mx-auto grid grid-cols-4 gap-3">
             {/* All */}
             <button onClick={() => setFilterChildId(null)} className="flex flex-col items-center gap-1 active:scale-95 transition">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black ${!filterChildId ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
@@ -399,6 +434,15 @@ export default function ChoresPage() {
             </div>
 
             <div className="flex items-center justify-between py-1">
+              <div><p className="text-sm font-medium text-gray-700">Needs parent approval 🕓</p><p className="text-xs text-gray-400">{requiresApproval ? 'Stars given after you approve' : 'Stars awarded automatically'}</p></div>
+              <button onClick={() => setRequiresApproval(!requiresApproval)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${requiresApproval ? '' : 'bg-gray-200'}`}
+                style={requiresApproval ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${requiresApproval ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between py-1">
               <div><p className="text-sm font-medium text-gray-700">Requires photo proof 📷</p><p className="text-xs text-gray-400">Kid snaps a photo when done</p></div>
               <button onClick={() => setRequiresPhoto(!requiresPhoto)}
                 className={`w-12 h-6 rounded-full transition-colors relative ${requiresPhoto ? '' : 'bg-gray-200'}`}
@@ -519,7 +563,7 @@ export default function ChoresPage() {
                 {visibleTasks.map(task => {
                   const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
                   return (
-                    <div key={task.id} onClick={handleTaskClick}
+                    <div key={task.id} onClick={() => handleTaskClick(task)}
                       className="bg-white rounded-2xl p-2.5 shadow-sm flex flex-col items-center gap-1.5 relative cursor-pointer active:scale-95 transition">
                       <div className="absolute top-1.5 right-1.5 flex gap-0.5 z-10">
                         <button onClick={e => { e.stopPropagation(); openEditForm(task) }} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
@@ -537,6 +581,7 @@ export default function ChoresPage() {
                         </span>
                       )}
                       {task.requires_benchmark_photo && <span className="text-[9px] bg-purple-50 text-purple-400 font-semibold px-1 py-0.5 rounded-full">AI check</span>}
+                      {(task as any).requires_approval && <span className="text-[9px] bg-amber-50 text-amber-500 font-semibold px-1 py-0.5 rounded-full">🕓 OK</span>}
                       <div className="flex -space-x-1.5 justify-center">
                         {assignedKids.map(child => (
                           child.avatar_url
@@ -617,6 +662,39 @@ export default function ChoresPage() {
         {/* ── DONE / HISTORY TAB ── */}
         {mainTab === 'history' && !showForm && (
           <div className="space-y-5">
+            {/* Needs parent approval */}
+            {pendingApprovals.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--theme-from)' }}>🕓 Needs your OK ({pendingApprovals.length})</p>
+                <div className="space-y-2">
+                  {pendingApprovals.map(p => (
+                    <div key={p.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-amber-100">
+                      <div className="flex items-center gap-3 mb-2">
+                        {p.children?.avatar_url
+                          ? <img src={p.children.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
+                          : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                              style={{ backgroundColor: (p.children?.colour || '#ccc') + '33' }}>{p.children?.avatar}</div>}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span>{p.tasks?.emoji}</span>
+                            <p className="font-semibold text-gray-800 text-sm truncate">{p.tasks?.title}</p>
+                          </div>
+                          <p className="text-xs text-gray-400">{p.children?.name} · ⭐ {p.tasks?.star_value}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => rejectCompletion(p)}
+                          className="flex-1 border-2 border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm hover:border-red-300 hover:text-red-500 transition">Reject ✗</button>
+                        <button onClick={() => approveCompletion(p)}
+                          className="flex-1 text-white font-bold py-2 rounded-xl text-sm shadow active:scale-95 transition"
+                          style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>Approve ✓</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {(() => {
               const grouped: Record<string, HistoryRow[]> = {}
               history.forEach(h => { (grouped[h.date] ||= []).push(h) })
@@ -659,16 +737,25 @@ export default function ChoresPage() {
         )}
       </div>
 
+      {/* Large + FAB — add a task / reward */}
+      {!showForm && (
+        <button onClick={openNewForm} aria-label="Add task"
+          className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-90 transition z-40"
+          style={{ background: 'var(--theme-gradient)' }}>
+          <span className="text-3xl leading-none mb-0.5">+</span>
+        </button>
+      )}
+
       {/* Child picker — shown when tapping a task with no kid filter selected */}
       {showChildPicker && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowChildPicker(false)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => { setShowChildPicker(false); setPendingTaskId(null) }}>
           <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
-            <h3 className="font-black text-gray-800 text-lg mb-1">Who's doing tasks? ⭐</h3>
+            <h3 className="font-black text-gray-800 text-lg mb-1">Who's doing this? ⭐</h3>
             <p className="text-gray-400 text-sm mb-4">Tap a child to enter their zone</p>
             <div className="grid grid-cols-3 gap-3 mb-3">
-              {children.map(child => (
-                <button key={child.id} onClick={() => router.push(`/kid-mode/${child.id}`)}
+              {(pendingTaskId ? (assignments[pendingTaskId] || []).map(id => childMap[id]).filter(Boolean) : children).map(child => (
+                <button key={child.id} onClick={() => router.push(`/kid-mode/${child.id}${pendingTaskId ? `?task=${pendingTaskId}` : ''}`)}
                   className="flex flex-col items-center gap-1.5 p-2 rounded-2xl active:scale-95 transition">
                   {child.avatar_url
                     ? <img src={child.avatar_url} className="w-16 h-16 rounded-2xl object-cover" style={{ border: `3px solid ${child.colour}` }} alt=""/>
@@ -678,7 +765,7 @@ export default function ChoresPage() {
                 </button>
               ))}
             </div>
-            <button onClick={() => setShowChildPicker(false)}
+            <button onClick={() => { setShowChildPicker(false); setPendingTaskId(null) }}
               className="w-full text-gray-500 font-semibold py-3 rounded-2xl border border-gray-200 active:scale-95 transition">
               ← Back to tasks
             </button>

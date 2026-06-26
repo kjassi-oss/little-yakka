@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import PraiseButton from '@/components/PraiseButton'
+import ProfileButton from '@/components/ProfileButton'
+import TaskLauncher from '@/components/TaskLauncher'
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -108,6 +110,10 @@ export default async function DashboardPage() {
 
   const leaderboard = [...childData].sort((a, b) => b.weekStars - a.weekStars)
   const tileScroll = childData.length > 3 // ≤3 fill the frame; 4+ scroll horizontally
+  const maxWeek = Math.max(...childData.map(c => c.weekStars), 1)
+  const rankMap: Record<string, number> = {}
+  leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
+  const MEDALS = ['🥇', '🥈', '🥉']
 
   // Upcoming tasks today = any task with at least one assigned kid not yet done
   const upcoming = (tasks || [])
@@ -119,70 +125,42 @@ export default async function DashboardPage() {
     .filter(u => u.kids.length > 0 && u.pending.length > 0)
     .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
 
-  const guardianInitial = (guardian.name || 'P').trim().charAt(0).toUpperCase()
-
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
       {/* Header — centered wordmark + Kid Mode & profile */}
-      <div className="relative px-4 pt-12 pb-3">
+      <div className="relative px-4 pt-11 pb-2">
         <h1 className="wordmark text-center text-3xl">Little Yakka</h1>
-        <div className="absolute top-11 right-4 flex items-center gap-2">
+        <div className="absolute top-10 right-4 flex items-center gap-2">
           <Link href="/kid-mode"
             aria-label="Kid Mode"
-            className="w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-95 transition"
+            className="w-9 h-9 rounded-full flex items-center justify-center shadow-md active:scale-95 transition"
             style={{ background: 'var(--theme-gradient)' }}>
-            <span className="text-xl">⭐</span>
+            <span className="text-lg">⭐</span>
           </Link>
-          <Link href="/dashboard/settings"
-            aria-label="Profile & settings"
-            className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-black shadow-md active:scale-95 transition"
-            style={{ color: 'var(--theme-from)' }}>
-            {guardianInitial}
-          </Link>
+          <ProfileButton/>
         </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 space-y-4">
 
-        {/* This week leaderboard — only if multiple kids */}
-        {childData.length > 1 && (
-          <div className="bg-white rounded-3xl shadow-sm p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">🏆 This week's leaderboard</p>
-            <div className="space-y-2">
-              {leaderboard.map((cd, i) => (
-                <div key={cd.child.id} className="flex items-center gap-3">
-                  <span className="text-lg w-6 text-center">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
-                  {cd.child.avatar_url
-                    ? <img src={cd.child.avatar_url} className="w-8 h-8 rounded-full object-cover" alt=""/>
-                    : <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                        style={{ backgroundColor: cd.child.colour + '33' }}>{cd.child.avatar}</div>
-                  }
-                  <p className="font-bold text-gray-700 flex-1 text-sm">{cd.child.name.split(' ')[0]}</p>
-                  <div className="flex items-center gap-1">
-                    <div className="h-2 rounded-full" style={{
-                      width: `${Math.max(20, (cd.weekStars / Math.max(...leaderboard.map(l => l.weekStars), 1)) * 80)}px`,
-                      backgroundColor: cd.child.colour
-                    }}/>
-                    <span className="text-xs font-bold text-yellow-500 w-12 text-right">⭐ {cd.weekStars}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Kids tiles — fill the frame up to 3, scroll for more */}
         {childData.length > 0 ? (
           <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5'}>
-            {childData.map(({ child, balance, streak, myTasks, myDone }) => {
+            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
               const firstName = child.name.split(' ')[0]
+              const rank = rankMap[child.id]
+              const showMedal = childData.length > 1 && rank < 3 && weekStars > 0
               return (
                 <div key={child.id}
                   className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px]' : 'flex-1 min-w-0'}`}>
+                  {/* Weekly rank medal, top-left */}
+                  {showMedal && (
+                    <div className="absolute top-1.5 left-1.5 z-10 text-base drop-shadow-sm">{MEDALS[rank]}</div>
+                  )}
                   {/* Praise heart, top-right */}
                   <div className="absolute top-1.5 right-1.5 z-10">
                     <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
@@ -209,17 +187,20 @@ export default async function DashboardPage() {
                     <p className="font-black text-gray-800 text-sm leading-tight truncate">{firstName}</p>
                     <p className="text-base font-black text-yellow-500 leading-none my-1">⭐ {balance}</p>
 
+                    {/* This week's tracking (consolidated leaderboard) */}
+                    <div className="mb-1.5">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.max(8, (weekStars / maxWeek) * 100)}%`, background: 'var(--theme-gradient)' }}/>
+                      </div>
+                      <p className="text-[9px] font-semibold text-gray-400 mt-0.5">+{weekStars} ⭐ this week</p>
+                    </div>
+
                     {streak > 0 && (
-                      <p className="text-[10px] font-bold text-orange-500 mb-1">🔥 {streak}d</p>
+                      <p className="text-[10px] font-bold text-orange-500 mb-1">🔥 {streak}d streak</p>
                     )}
 
                     {total > 0 && (
-                      <div className="mb-1.5">
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${progressPct}%`, backgroundColor: allDone ? '#22c55e' : child.colour }}/>
-                        </div>
-                        <p className="text-[9px] text-gray-400 mt-0.5">{allDone ? 'All done!' : `${myDone}/${total} today`}</p>
-                      </div>
+                      <p className="text-[9px] text-gray-400 mb-1.5">{allDone ? '✅ All tasks done!' : `${myDone}/${total} tasks today`}</p>
                     )}
 
                     {/* Enter zone star CTA */}
@@ -258,25 +239,27 @@ export default async function DashboardPage() {
             ) : (
               <div className="max-h-[42vh] overflow-y-auto space-y-2 -mr-1 pr-1">
                 {upcoming.map(({ task, pending }) => (
-                  <div key={task.id} className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2.5">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                      style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
-                      <p className="text-[11px] text-gray-400">
-                        {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
-                      </p>
+                  <TaskLauncher key={task.id} taskId={task.id} kids={pending}>
+                    <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2.5 active:scale-[0.98] transition">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
+                        <p className="text-[11px] text-gray-400">
+                          {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
+                        </p>
+                      </div>
+                      <div className="flex -space-x-2 flex-shrink-0">
+                        {pending.slice(0, 3).map((k: any) => (
+                          k.avatar_url
+                            ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt=""/>
+                            : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
+                                style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
+                        ))}
+                        {pending.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{pending.length - 3}</div>}
+                      </div>
                     </div>
-                    <div className="flex -space-x-2 flex-shrink-0">
-                      {pending.slice(0, 3).map((k: any) => (
-                        k.avatar_url
-                          ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt=""/>
-                          : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
-                              style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
-                      ))}
-                      {pending.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{pending.length - 3}</div>}
-                    </div>
-                  </div>
+                  </TaskLauncher>
                 ))}
               </div>
             )}

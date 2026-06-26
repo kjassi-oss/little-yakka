@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import ProfileButton from '@/components/ProfileButton'
 
 const REWARD_EMOJIS = ['🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🎪','🏆','⚽','🎭','🎠']
 
@@ -134,8 +135,8 @@ export default function RewardsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="pt-12 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
-        <div className="max-w-sm mx-auto flex items-center justify-between mb-4">
+      <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
+        <div className="max-w-sm mx-auto flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎁</span>
             <div>
@@ -143,13 +144,7 @@ export default function RewardsPage() {
               <p className="text-white/70 text-xs">{rewards.length} in catalogue</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-white font-bold px-4 py-2 rounded-2xl text-sm shadow active:scale-95 transition"
-            style={{ color: 'var(--theme-from)' }}
-          >
-            {showForm ? '✕ Close' : '+ Add Reward'}
-          </button>
+          <ProfileButton/>
         </div>
 
         <div className="max-w-sm mx-auto flex bg-white/20 rounded-2xl p-1 gap-1">
@@ -357,6 +352,13 @@ export default function RewardsPage() {
           </div>
         )}
       </div>
+
+      {/* Large + FAB */}
+      <button onClick={() => setShowForm(!showForm)} aria-label={showForm ? 'Close' : 'Add reward'}
+        className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-90 transition z-40"
+        style={{ background: 'var(--theme-gradient)' }}>
+        <span className="text-3xl leading-none mb-0.5">{showForm ? '×' : '+'}</span>
+      </button>
     </div>
   )
 }

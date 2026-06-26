@@ -10,6 +10,7 @@ interface Task {
   id: string; title: string; emoji: string; type: string
   time_of_day: string | null; star_value: number
   requires_photo: boolean; requires_benchmark_photo: boolean
+  requires_approval?: boolean
 }
 interface Child { id: string; name: string; avatar: string; colour: string }
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
@@ -17,7 +18,7 @@ interface Praise { id: string; message: string }
 interface Props {
   child: Child; tasks: Task[]; completedTaskIds: string[]
   starBalance: number; parentPin: string; rewards: Reward[]; pendingRewardIds: string[]
-  canSpin: boolean; unseenPraises: Praise[]
+  canSpin: boolean; unseenPraises: Praise[]; highlightTaskId?: string | null
 }
 
 const ENCOURAGEMENTS = [
@@ -33,9 +34,10 @@ interface FloatingBadge { id: number; value: number; top: number }
 export default function ChildTaskView({
   child, tasks, completedTaskIds: initial, starBalance: initialBalance,
   parentPin, rewards, pendingRewardIds: initialPending,
-  canSpin: initialCanSpin, unseenPraises,
+  canSpin: initialCanSpin, unseenPraises, highlightTaskId,
 }: Props) {
   const router = useRouter()
+  const [pulseId, setPulseId] = useState<string | null>(highlightTaskId ?? null)
   const [completedIds, setCompletedIds] = useState(new Set(initial))
   const [starBalance, setStarBalance] = useState(initialBalance)
   const [pendingRewardIds, setPendingRewardIds] = useState(new Set(initialPending))
@@ -60,6 +62,15 @@ export default function ChildTaskView({
 
   const sessionCompleted = useRef(new Set<string>())
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // Deep link: scroll to and pulse the tapped task
+  useEffect(() => {
+    if (!highlightTaskId || currentPraise) return
+    const el = document.getElementById(`task-${highlightTaskId}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setPulseId(null), 2400)
+    return () => clearTimeout(t)
+  }, [highlightTaskId, currentPraise])
 
   // Mark praises seen
   async function dismissPraise() {
@@ -131,32 +142,42 @@ export default function ChildTaskView({
     if (completedIds.has(task.id)) return
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
+    const needsApproval = !!task.requires_approval
 
+    // Approval tasks go in as "pending" with no stars until a grown-up approves.
     const { data: completion } = await supabase.from('completions').insert({
-      task_id: task.id, child_id: child.id, date: today, status: 'approved',
+      task_id: task.id, child_id: child.id, date: today,
+      status: needsApproval ? 'pending' : 'approved',
     }).select('id').single()
 
-    await supabase.from('star_ledger').insert({
-      child_id: child.id, delta: task.star_value,
-      reason: `Completed: ${task.title}`, source_type: 'completion',
-      source_id: completion?.id,
-    })
+    if (!needsApproval) {
+      await supabase.from('star_ledger').insert({
+        child_id: child.id, delta: task.star_value,
+        reason: `Completed: ${task.title}`, source_type: 'completion',
+        source_id: completion?.id,
+      })
+    }
 
     sessionCompleted.current.add(task.id)
     setJustCompletedId(task.id)
     setTimeout(() => setJustCompletedId(null), 600)
 
-    const badgeId = Date.now()
-    const topPct = 30 + Math.random() * 20
-    setFloatingBadges(prev => [...prev, { id: badgeId, value: task.star_value, top: topPct }])
-    setTimeout(() => setFloatingBadges(prev => prev.filter(b => b.id !== badgeId)), 1500)
+    if (needsApproval) {
+      setEncouragement('🕓 Sent to a grown-up to check!')
+      setTimeout(() => setEncouragement(null), 2200)
+    } else {
+      const badgeId = Date.now()
+      const topPct = 30 + Math.random() * 20
+      setFloatingBadges(prev => [...prev, { id: badgeId, value: task.star_value, top: topPct }])
+      setTimeout(() => setFloatingBadges(prev => prev.filter(b => b.id !== badgeId)), 1500)
 
-    const msg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]
-    setEncouragement(msg)
-    setTimeout(() => setEncouragement(null), 1800)
+      const msg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]
+      setEncouragement(msg)
+      setTimeout(() => setEncouragement(null), 1800)
+      setStarBalance(prev => prev + task.star_value)
+    }
 
     setCompletedIds(prev => new Set([...prev, task.id]))
-    setStarBalance(prev => prev + task.star_value)
 
     if (incomplete.length === 1) setTimeout(() => setShowCelebration(true), 700)
   }
@@ -336,18 +357,19 @@ export default function ChildTaskView({
       {/* Incomplete tasks */}
       <div className="px-4 space-y-3">
         {incomplete.map((task, i) => (
-          <button key={task.id} onClick={() => handleTaskTap(task)}
-            className={`w-full flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm text-left transition-all duration-300 active:scale-95 ${justCompletedId === task.id ? 'scale-90 opacity-50' : ''}`}
-            style={{ animationDelay: `${i * 0.05}s` }}>
+          <button key={task.id} id={`task-${task.id}`} onClick={() => handleTaskTap(task)}
+            className={`w-full flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm text-left transition-all duration-300 active:scale-95 ${justCompletedId === task.id ? 'scale-90 opacity-50' : ''} ${pulseId === task.id ? 'bounce-in' : ''}`}
+            style={{ animationDelay: `${i * 0.05}s`, ...(pulseId === task.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}) }}>
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0"
               style={{ backgroundColor: child.colour + '22' }}>
               {task.emoji}
             </div>
             <div className="flex-1">
               <p className="font-bold text-gray-800 text-base">{task.title}</p>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {task.time_of_day && <p className="text-sm text-gray-400 capitalize">{task.time_of_day}</p>}
                 {task.requires_benchmark_photo && <span className="text-xs bg-purple-50 text-purple-400 font-semibold px-1.5 py-0.5 rounded-full">📷 photo check</span>}
+                {task.requires_approval && <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-1.5 py-0.5 rounded-full">🕓 needs OK</span>}
               </div>
             </div>
             <div className="flex-shrink-0 text-center">
