@@ -14,7 +14,8 @@ const TIME_GROUPS = [
   { key: 'evening',   label: '🌙 Evening' },
   { key: null,        label: '📋 Anytime' },
 ]
-type View = 'week' | 'month'
+type View = 'roll' | 'week' | 'month'
+const VIEW_LABELS: Record<View, string> = { roll: 'Agenda', week: 'Week', month: 'Month' }
 
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -22,7 +23,7 @@ export default function SchedulePage() {
   const [assignments, setAssignments] = useState<Record<string, string[]>>({})
   const [completedSet, setCompletedSet] = useState(new Set<string>())
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [view, setView] = useState<View>('week')
+  const [view, setView] = useState<View>('roll')
   const [calMonth, setCalMonth] = useState(new Date())
   const [monthCompletions, setMonthCompletions] = useState<Record<string, number>>({}) // date -> completed count
   const [monthTaskCount, setMonthTaskCount] = useState(0)
@@ -112,24 +113,79 @@ export default function SchedulePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="pt-12 pb-4 px-4" style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
-        <div className="max-w-sm mx-auto flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Schedule</h1>
-            <p className="text-white/70 text-sm">Tasks for each day</p>
+      <div className="pt-12 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
+        <div className="max-w-sm mx-auto flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">📅</span>
+            <h1 className="text-lg font-bold text-white">Calendar</h1>
           </div>
           {/* View toggle */}
-          <div className="flex bg-white/20 rounded-2xl p-1">
-            {(['week', 'month'] as View[]).map(v => (
+          <div className="flex bg-white/20 rounded-2xl p-1 gap-0.5">
+            {(['roll', 'week', 'month'] as View[]).map(v => (
               <button key={v} onClick={() => setView(v)}
-                className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition capitalize ${view === v ? 'bg-white' : 'text-white'}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${view === v ? 'bg-white' : 'text-white'}`}
                 style={view === v ? { color: 'var(--theme-from)' } : {}}>
-                {v}
+                {VIEW_LABELS[v]}
               </button>
             ))}
           </div>
         </div>
       </div>
+
+      {/* ──── ROLL / AGENDA VIEW ──── */}
+      {view === 'roll' && (
+        <div className="max-w-sm mx-auto px-4 mt-4 space-y-3">
+          {tasks.length === 0 && (
+            <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500">No tasks yet</p></div>
+          )}
+          {tasks.length > 0 && Array.from({ length: 14 }, (_, i) => {
+            const d = new Date(); d.setDate(d.getDate() + i)
+            const ds = d.toISOString().split('T')[0]
+            const isToday = i === 0
+            const ordered = [...tasks].sort((a, b) => {
+              const order: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
+              return (order[a.time_of_day ?? ''] ?? 3) - (order[b.time_of_day ?? ''] ?? 3)
+            })
+            return (
+              <div key={ds} className="bg-white rounded-3xl p-4 shadow-sm"
+                style={isToday ? { boxShadow: '0 0 0 2px var(--theme-from)' } : {}}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-black text-gray-800">
+                    {isToday ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'long' })}
+                  </p>
+                  <p className="text-xs font-semibold text-gray-400">{d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}</p>
+                </div>
+                <div className="space-y-2">
+                  {ordered.map(task => {
+                    const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
+                    const allDone = isToday && assignedKids.length > 0 && assignedKids.every(k => completedSet.has(`${task.id}-${k.id}`))
+                    const upcoming = isToday && !allDone
+                    return (
+                      <div key={task.id} className="flex items-center gap-3 rounded-2xl p-2"
+                        style={upcoming ? { backgroundColor: 'color-mix(in srgb, var(--theme-from) 10%, white)' } : {}}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-gray-50">{task.emoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold text-sm truncate ${allDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{task.title}</p>
+                          <p className="text-[11px] text-gray-400">{task.time_of_day ? task.time_of_day : 'anytime'} · ⭐ {task.star_value}</p>
+                        </div>
+                        <div className="flex -space-x-1.5 flex-shrink-0">
+                          {assignedKids.map(child => {
+                            const done = isToday && completedSet.has(`${task.id}-${child.id}`)
+                            return child.avatar_url
+                              ? <img key={child.id} src={child.avatar_url} className={`w-7 h-7 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
+                              : <div key={child.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white ${done ? 'opacity-50' : ''}`}
+                                  style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ──── WEEK VIEW ──── */}
       {view === 'week' && (

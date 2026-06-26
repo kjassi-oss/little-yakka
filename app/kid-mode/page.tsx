@@ -25,7 +25,7 @@ export default async function KidModePage() {
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-400 to-orange-300 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'var(--theme-gradient)' }}>
       <Link href="/dashboard" className="absolute top-8 left-6 bg-white/20 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-white/30 transition">
         ← Exit
       </Link>

@@ -33,10 +33,11 @@ export default function RewardsPage() {
   const [rewards, setRewards] = useState<Reward[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [pending, setPending] = useState<Redemption[]>([])
+  const [redeemed, setRedeemed] = useState<Redemption[]>([])
   const [familyId, setFamilyId] = useState('')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [activeTab, setActiveTab] = useState<'catalogue' | 'requests'>('catalogue')
+  const [activeTab, setActiveTab] = useState<'catalogue' | 'requests' | 'redeemed'>('catalogue')
 
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('🎁')
@@ -61,18 +62,25 @@ export default function RewardsPage() {
       .from('children').select('*').eq('family_id', guardian.family_id).order('name')
     const childIds = childrenData?.map(c => c.id) || []
 
-    const [{ data: rewardsData }, { data: pendingData }] = await Promise.all([
+    const [{ data: rewardsData }, { data: pendingData }, { data: redeemedData }] = await Promise.all([
       supabase.from('rewards').select('*').eq('family_id', guardian.family_id).order('star_cost'),
       supabase.from('redemptions')
-        .select('*, rewards(title, emoji, star_cost), children(name, avatar, colour)')
+        .select('*, rewards(title, emoji, star_cost), children(name, avatar, colour, avatar_url)')
         .eq('status', 'requested')
         .in('child_id', childIds.length ? childIds : ['none'])
         .order('created_at', { ascending: false }),
+      supabase.from('redemptions')
+        .select('*, rewards(title, emoji, star_cost), children(name, avatar, colour, avatar_url)')
+        .eq('status', 'approved')
+        .in('child_id', childIds.length ? childIds : ['none'])
+        .order('created_at', { ascending: false })
+        .limit(80),
     ])
 
     setChildren(childrenData || [])
     setRewards(rewardsData || [])
     setPending(pendingData as any || [])
+    setRedeemed(redeemedData as any || [])
     setLoading(false)
   }
 
@@ -126,38 +134,39 @@ export default function RewardsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="bg-gradient-to-br from-pink-500 to-orange-400 pt-12 pb-4 px-4">
+      <div className="pt-12 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
         <div className="max-w-sm mx-auto flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Rewards</h1>
-            <p className="text-pink-100 text-sm">{rewards.length} in catalogue</p>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🎁</span>
+            <div>
+              <h1 className="text-lg font-bold text-white">Rewards</h1>
+              <p className="text-white/70 text-xs">{rewards.length} in catalogue</p>
+            </div>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-white text-pink-600 font-bold px-4 py-2 rounded-2xl text-sm shadow active:scale-95 transition"
+            className="bg-white font-bold px-4 py-2 rounded-2xl text-sm shadow active:scale-95 transition"
+            style={{ color: 'var(--theme-from)' }}
           >
             {showForm ? '✕ Close' : '+ Add Reward'}
           </button>
         </div>
 
-        <div className="max-w-sm mx-auto flex bg-white/20 rounded-2xl p-1">
-          <button
-            onClick={() => setActiveTab('catalogue')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${activeTab === 'catalogue' ? 'bg-white text-pink-600' : 'text-white'}`}
-          >
-            Catalogue
-          </button>
-          <button
-            onClick={() => setActiveTab('requests')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition relative ${activeTab === 'requests' ? 'bg-white text-pink-600' : 'text-white'}`}
-          >
-            Requests
-            {pending.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
-                {pending.length}
-              </span>
-            )}
-          </button>
+        <div className="max-w-sm mx-auto flex bg-white/20 rounded-2xl p-1 gap-1">
+          {([['catalogue', 'Catalogue'], ['requests', 'Requests'], ['redeemed', 'Redeemed']] as const).map(([tab, lbl]) => (
+            <button key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition relative ${activeTab === tab ? 'bg-white' : 'text-white'}`}
+              style={activeTab === tab ? { color: 'var(--theme-from)' } : {}}
+            >
+              {lbl}
+              {tab === 'requests' && pending.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
+                  {pending.length}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -223,7 +232,8 @@ export default function RewardsPage() {
             </div>
 
             <button onClick={saveReward} disabled={saving || !title.trim()}
-              className="w-full bg-gradient-to-r from-pink-500 to-orange-400 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60">
+              className="w-full text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
+              style={{ background: 'var(--theme-gradient)' }}>
               {saving ? 'Saving...' : 'Save Reward ✓'}
             </button>
           </div>
@@ -313,6 +323,35 @@ export default function RewardsPage() {
                 <div className="text-6xl mb-4">✅</div>
                 <p className="text-gray-500 font-medium">No pending requests</p>
                 <p className="text-gray-400 text-sm mt-1">Kids can request rewards in Kid Mode</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Redeemed history tab */}
+        {activeTab === 'redeemed' && (
+          <div className="space-y-2">
+            {redeemed.map(r => (
+              <div key={r.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
+                {(r.children as any)?.avatar_url
+                  ? <img src={(r.children as any).avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
+                  : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                      style={{ backgroundColor: ((r.children as any)?.colour || '#ccc') + '33' }}>{(r.children as any)?.avatar}</div>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span>{(r.rewards as any)?.emoji}</span>
+                    <p className="font-semibold text-gray-800 text-sm truncate">{(r.rewards as any)?.title}</p>
+                  </div>
+                  <p className="text-xs text-gray-400">{(r.children as any)?.name}</p>
+                </div>
+                <span className="text-xs font-bold text-gray-400 flex-shrink-0">−{(r.rewards as any)?.star_cost} ⭐</span>
+              </div>
+            ))}
+            {redeemed.length === 0 && (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">🎁</div>
+                <p className="text-gray-500 font-medium">No rewards redeemed yet</p>
+                <p className="text-gray-400 text-sm mt-1">Approved rewards will show up here</p>
               </div>
             )}
           </div>

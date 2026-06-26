@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next"
-import { Geist } from "next/font/google"
+import { Geist, Fredoka } from "next/font/google"
 import ThemeProvider from "@/components/ThemeProvider"
 import "./globals.css"
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
+const fredoka = Fredoka({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700"] })
 
 export const metadata: Metadata = {
   title: "Little Yakka",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#7C3AED",
+  themeColor: "#EC4899",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -30,7 +31,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="en" className={`${geistSans.variable} ${fredoka.variable} h-full antialiased`}>
       <head>
         <link rel="apple-touch-icon" href="/icon.svg" />
       </head>

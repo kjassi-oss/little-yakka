@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🌿','🗑️','🛁','🧼','🪥','🍳','🚿','🧽','👕','🎒','🏃','🌙','⭐','🎨']
@@ -29,20 +30,28 @@ interface Task {
   frequency: 'daily' | 'weekly' | 'monthly'; carry_over: boolean
 }
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
+interface HistoryRow {
+  id: string; date: string; child_id: string; star_value: number
+  tasks: { title: string; emoji: string; star_value: number } | null
+  children: { name: string; avatar: string; colour: string; avatar_url?: string } | null
+}
 
-type MainTab = 'tasks' | 'today'
+type MainTab = 'tasks' | 'today' | 'history'
 
 export default function ChoresPage() {
+  const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [assignments, setAssignments] = useState<Record<string, string[]>>({})
   const [completedSet, setCompletedSet] = useState(new Set<string>())
+  const [history, setHistory] = useState<HistoryRow[]>([])
   const [familyId, setFamilyId] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [mainTab, setMainTab] = useState<MainTab>('tasks')
   const [filterChildId, setFilterChildId] = useState<string | null>(null)
+  const [showChildPicker, setShowChildPicker] = useState(false)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -93,6 +102,22 @@ export default function ChoresPage() {
         .map(c => `${c.task_id}-${c.child_id}`) || []
     ))
     setPageLoading(false)
+
+    // Completion history (moved here from the old History page)
+    const childIds = childrenData?.map(c => c.id) || []
+    const { data: historyData } = await supabase
+      .from('completions')
+      .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
+      .in('child_id', childIds.length ? childIds : ['none'])
+      .order('created_at', { ascending: false })
+      .limit(120)
+    setHistory((historyData as any) || [])
+  }
+
+  function handleTaskClick() {
+    // Tapping a task jumps into the kid zone.
+    if (filterChildId) router.push(`/kid-mode/${filterChildId}`)
+    else setShowChildPicker(true)
   }
 
   function openNewForm() {
@@ -186,6 +211,19 @@ export default function ChoresPage() {
     loadData()
   }
 
+  async function undoCompletion(row: HistoryRow) {
+    if (!confirm(`Undo "${row.tasks?.title}" for ${row.children?.name}? This removes the stars.`)) return
+    const supabase = createClient()
+    await supabase.from('completions').delete().eq('id', row.id)
+    await supabase.from('star_ledger').insert({
+      child_id: row.child_id,
+      delta: -(row.tasks?.star_value || 0),
+      reason: `Undo: ${row.tasks?.title}`,
+      source_type: 'undo',
+    })
+    loadData()
+  }
+
   const childMap: Record<string, Child> = {}
   children.forEach(c => { childMap[c.id] = c })
 
@@ -197,16 +235,16 @@ export default function ChoresPage() {
   const dateLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
 
   if (pageLoading) return (
-    <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">✅</div></div>
+    <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">📋</div></div>
   )
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Compact header */}
-      <div className="pt-10 pb-3 px-4" style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+      <div className="pt-10 pb-3 px-4" style={{ background: 'var(--theme-gradient)' }}>
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">✅</span>
+            <span className="text-2xl">📋</span>
             <h1 className="text-lg font-bold text-white">Tasks</h1>
           </div>
           <button onClick={showForm ? closeForm : openNewForm}
@@ -218,7 +256,7 @@ export default function ChoresPage() {
 
         {/* Tab toggle */}
         <div className="max-w-sm mx-auto mt-3 flex bg-white/20 rounded-2xl p-1 gap-1">
-          {([['tasks', '📋 Tasks'], ['today', '📅 Today']] as const).map(([tab, label]) => (
+          {([['tasks', '📋 All'], ['today', '📅 Today'], ['history', '✅ Done']] as const).map(([tab, label]) => (
             <button key={tab} onClick={() => setMainTab(tab)}
               className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'bg-white' : 'text-white'}`}
               style={mainTab === tab ? { color: 'var(--theme-from)' } : {}}>
@@ -228,26 +266,37 @@ export default function ChoresPage() {
         </div>
       </div>
 
-      {/* Kid filter */}
-      {children.length > 0 && (
-        <div className="bg-white border-b border-gray-100 px-4 py-2 shadow-sm">
-          <div className="max-w-sm mx-auto flex gap-2 overflow-x-auto">
-            <button onClick={() => setFilterChildId(null)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition ${!filterChildId ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-              style={!filterChildId ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
-              All
+      {/* Kid filter — round photo thumbnails, ~3 per row */}
+      {children.length > 0 && mainTab !== 'history' && (
+        <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
+          <div className="max-w-sm mx-auto grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {/* All */}
+            <button onClick={() => setFilterChildId(null)} className="flex flex-col items-center gap-1 active:scale-95 transition">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black ${!filterChildId ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                style={!filterChildId ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>
+                All
+              </div>
+              <span className={`text-[11px] font-bold ${!filterChildId ? '' : 'text-gray-400'}`}
+                style={!filterChildId ? { color: 'var(--theme-from)' } : {}}>Everyone</span>
             </button>
-            {children.map(child => (
-              <button key={child.id} onClick={() => setFilterChildId(filterChildId === child.id ? null : child.id)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold transition border-2 ${filterChildId === child.id ? '' : 'border-transparent bg-gray-100 text-gray-600'}`}
-                style={filterChildId === child.id ? { backgroundColor: child.colour + '25', borderColor: child.colour, color: child.colour } : {}}>
-                {child.avatar_url
-                  ? <img src={child.avatar_url} className="w-5 h-5 rounded-full object-cover" alt=""/>
-                  : <span>{child.avatar}</span>
-                }
-                {child.name.split(' ')[0]}
-              </button>
-            ))}
+            {children.map(child => {
+              const sel = filterChildId === child.id
+              return (
+                <button key={child.id} onClick={() => setFilterChildId(sel ? null : child.id)}
+                  className="flex flex-col items-center gap-1 active:scale-95 transition">
+                  {child.avatar_url
+                    ? <img src={child.avatar_url} alt={child.name} className="w-14 h-14 rounded-full object-cover"
+                        style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
+                    : <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
+                        style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
+                        {child.avatar}
+                      </div>
+                  }
+                  <span className="text-[11px] font-bold truncate max-w-[56px]"
+                    style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -464,36 +513,43 @@ export default function ChoresPage() {
         {/* ── TASKS TAB ── */}
         {mainTab === 'tasks' && !showForm && (
           visibleTasks.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2">
-              {visibleTasks.map(task => {
-                const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
-                return (
-                  <div key={task.id} className="bg-white rounded-2xl p-2.5 shadow-sm flex flex-col items-center gap-1.5 relative">
-                    <div className="absolute top-1.5 right-1.5 flex gap-0.5">
-                      <button onClick={() => openEditForm(task)} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
-                      <button onClick={() => deleteTask(task.id)} className="text-gray-300 text-sm font-bold leading-none active:scale-90 transition">×</button>
+            <>
+              <p className="text-[11px] text-gray-400 text-center -mt-1">Tap a task to jump into Kid Mode ⭐</p>
+              <div className="grid grid-cols-3 gap-2">
+                {visibleTasks.map(task => {
+                  const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
+                  return (
+                    <div key={task.id} onClick={handleTaskClick}
+                      className="bg-white rounded-2xl p-2.5 shadow-sm flex flex-col items-center gap-1.5 relative cursor-pointer active:scale-95 transition">
+                      <div className="absolute top-1.5 right-1.5 flex gap-0.5 z-10">
+                        <button onClick={e => { e.stopPropagation(); openEditForm(task) }} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
+                        <button onClick={e => { e.stopPropagation(); deleteTask(task.id) }} className="text-gray-300 text-sm font-bold leading-none active:scale-90 transition">×</button>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl mt-1"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>
+                        {task.emoji}
+                      </div>
+                      <p className="text-xs font-bold text-gray-700 text-center leading-tight line-clamp-2">{task.title}</p>
+                      <p className="text-xs text-yellow-500 font-bold">⭐ {task.star_value}</p>
+                      {(task as any).difficulty && (task as any).difficulty !== 'medium' && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${(task as any).difficulty === 'easy' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
+                          {(task as any).difficulty === 'easy' ? '🟢 Easy' : '🔴 Hard'}
+                        </span>
+                      )}
+                      {task.requires_benchmark_photo && <span className="text-[9px] bg-purple-50 text-purple-400 font-semibold px-1 py-0.5 rounded-full">AI check</span>}
+                      <div className="flex -space-x-1.5 justify-center">
+                        {assignedKids.map(child => (
+                          child.avatar_url
+                            ? <img key={child.id} src={child.avatar_url} className="w-6 h-6 rounded-full object-cover border-2 border-white" alt=""/>
+                            : <div key={child.id} className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white"
+                                style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl mt-1"
-                      style={{ backgroundColor: 'var(--theme-from)15' }}>
-                      {task.emoji}
-                    </div>
-                    <p className="text-xs font-bold text-gray-700 text-center leading-tight line-clamp-2">{task.title}</p>
-                    <p className="text-xs text-yellow-500 font-bold">⭐ {task.star_value}</p>
-                    {(task as any).difficulty && (task as any).difficulty !== 'medium' && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${(task as any).difficulty === 'easy' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
-                        {(task as any).difficulty === 'easy' ? '🟢 Easy' : '🔴 Hard'}
-                      </span>
-                    )}
-                    {task.requires_benchmark_photo && <span className="text-[9px] bg-purple-50 text-purple-400 font-semibold px-1 py-0.5 rounded-full">AI check</span>}
-                    <div className="flex gap-0.5 flex-wrap justify-center">
-                      {assignedKids.map(child => (
-                        <span key={child.id} className="text-sm">{child.avatar}</span>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </>
           ) : (
             <div className="text-center py-16">
               <div className="text-6xl mb-4">📋</div>
@@ -522,7 +578,8 @@ export default function ChoresPage() {
                       const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
                       return (
                         <div key={task.id} className="bg-white rounded-2xl p-3 shadow-sm flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-xl flex-shrink-0">{task.emoji}</div>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-gray-800 text-sm">{task.title}</p>
                             <p className="text-xs text-gray-400">⭐ {task.star_value}</p>
@@ -556,7 +613,78 @@ export default function ChoresPage() {
             )}
           </div>
         )}
+
+        {/* ── DONE / HISTORY TAB ── */}
+        {mainTab === 'history' && !showForm && (
+          <div className="space-y-5">
+            {(() => {
+              const grouped: Record<string, HistoryRow[]> = {}
+              history.forEach(h => { (grouped[h.date] ||= []).push(h) })
+              const dates = Object.keys(grouped).sort().reverse()
+              const fmt = (iso: string) => {
+                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+                if (iso === todayStr) return 'Today'
+                if (iso === yesterday) return 'Yesterday'
+                return new Date(iso + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
+              }
+              if (dates.length === 0) return (
+                <div className="text-center py-16"><div className="text-6xl mb-4">✅</div><p className="text-gray-500 font-medium">No completed tasks yet</p></div>
+              )
+              return dates.map(date => (
+                <div key={date}>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{fmt(date)}</p>
+                  <div className="space-y-2">
+                    {grouped[date].map(h => (
+                      <div key={h.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
+                        {h.children?.avatar_url
+                          ? <img src={h.children.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
+                          : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                              style={{ backgroundColor: (h.children?.colour || '#ccc') + '33' }}>{h.children?.avatar}</div>}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span>{h.tasks?.emoji}</span>
+                            <p className="font-semibold text-gray-800 text-sm truncate">{h.tasks?.title}</p>
+                          </div>
+                          <p className="text-xs text-gray-400">{h.children?.name} · <span className="text-yellow-500 font-semibold">+{h.tasks?.star_value} ⭐</span></p>
+                        </div>
+                        <button onClick={() => undoCompletion(h)}
+                          className="text-xs text-gray-300 hover:text-red-400 font-semibold transition px-2 py-1 rounded-lg hover:bg-red-50 flex-shrink-0">Undo</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            })()}
+          </div>
+        )}
       </div>
+
+      {/* Child picker — shown when tapping a task with no kid filter selected */}
+      {showChildPicker && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowChildPicker(false)}>
+          <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
+            <h3 className="font-black text-gray-800 text-lg mb-1">Who's doing tasks? ⭐</h3>
+            <p className="text-gray-400 text-sm mb-4">Tap a child to enter their zone</p>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {children.map(child => (
+                <button key={child.id} onClick={() => router.push(`/kid-mode/${child.id}`)}
+                  className="flex flex-col items-center gap-1.5 p-2 rounded-2xl active:scale-95 transition">
+                  {child.avatar_url
+                    ? <img src={child.avatar_url} className="w-16 h-16 rounded-2xl object-cover" style={{ border: `3px solid ${child.colour}` }} alt=""/>
+                    : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                        style={{ backgroundColor: child.colour + '25', border: `3px solid ${child.colour}40` }}>{child.avatar}</div>}
+                  <span className="text-xs font-bold text-gray-700 truncate max-w-full">{child.name.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowChildPicker(false)}
+              className="w-full text-gray-500 font-semibold py-3 rounded-2xl border border-gray-200 active:scale-95 transition">
+              ← Back to tasks
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

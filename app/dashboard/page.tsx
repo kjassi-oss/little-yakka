@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import Logo from '@/components/Logo'
 import PraiseButton from '@/components/PraiseButton'
 
 function computeStreak(dates: string[]): number {
@@ -39,6 +38,9 @@ function getLevel(stars: number) {
   return lvl
 }
 
+const TIME_ORDER: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
+const TIME_LABEL: Record<string, string> = { morning: '🌅 Morning', afternoon: '☀️ Afternoon', evening: '🌙 Evening' }
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -48,10 +50,9 @@ export default async function DashboardPage() {
     .from('guardians').select('name, family_id').eq('auth_user_id', user.id).single()
   if (!guardian) redirect('/setup')
 
-  const [{ data: family }, { data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
-    supabase.from('families').select('name').eq('id', guardian.family_id).single(),
+  const [{ data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
     supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-    supabase.from('tasks').select('id, star_value').eq('family_id', guardian.family_id),
+    supabase.from('tasks').select('id, title, emoji, star_value, time_of_day').eq('family_id', guardian.family_id),
     supabase.from('task_assignments').select('task_id, child_id'),
     supabase.from('star_ledger').select('child_id, delta'),
   ])
@@ -60,7 +61,6 @@ export default async function DashboardPage() {
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
   const childIds = children?.map(c => c.id) || []
 
-  // This week's stars (for leaderboard)
   const now = new Date()
   const dayOfWeek = now.getDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -90,7 +90,9 @@ export default async function DashboardPage() {
     assignmentMap[a.task_id].push(a.child_id)
   })
 
-  // Per-child computed data
+  const childMap: Record<string, any> = {}
+  ;(children || []).forEach(c => { childMap[c.id] = c })
+
   const childData = (children || []).map(child => {
     const balance = allStarData?.filter(s => s.child_id === child.id).reduce((sum, s) => sum + s.delta, 0) || 0
     const weekStars = weekStarData?.filter(s => s.child_id === child.id).reduce((sum, s) => sum + s.delta, 0) || 0
@@ -104,30 +106,32 @@ export default async function DashboardPage() {
     return { child, balance, weekStars, streak, badges, level, myTasks, myDone }
   })
 
-  // Leaderboard: sort by this week's stars
   const leaderboard = [...childData].sort((a, b) => b.weekStars - a.weekStars)
 
-  const dateLabel = now.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
+  // Upcoming tasks today = any task with at least one assigned kid not yet done
+  const upcoming = (tasks || [])
+    .map(t => {
+      const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
+      const pending = kids.filter(k => !completedSet.has(`${t.id}-${k.id}`))
+      return { task: t, kids, pending }
+    })
+    .filter(u => u.kids.length > 0 && u.pending.length > 0)
+    .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
+
+  const guardianInitial = (guardian.name || 'P').trim().charAt(0).toUpperCase()
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f3f0ff 0%, #fdf4ff 50%, #f9fafb 100%)' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
-      {/* Compact header */}
-      <div className="px-4 pt-10 pb-4">
-        <div className="max-w-sm mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo size={36}/>
-            <div>
-              <p className="text-xs text-gray-400 font-medium">{dateLabel}</p>
-              <p className="text-sm font-bold text-gray-700">{family?.name}</p>
-            </div>
-          </div>
-          <Link href="/dashboard/report"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white rounded-full shadow-sm"
-            style={{ color: 'var(--theme-from)' }}>
-            📊 Report
-          </Link>
-        </div>
+      {/* Header — centered wordmark + profile */}
+      <div className="relative px-4 pt-12 pb-3">
+        <h1 className="wordmark text-center text-3xl">Little Yakka</h1>
+        <Link href="/dashboard/settings"
+          aria-label="Profile & settings"
+          className="absolute top-11 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md active:scale-95 transition"
+          style={{ background: 'var(--theme-gradient)' }}>
+          {guardianInitial}
+        </Link>
       </div>
 
       <div className="max-w-sm mx-auto px-4 space-y-4">
@@ -159,110 +163,66 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Kids cards */}
+        {/* Kids tiles — narrow, horizontally scrollable */}
         {childData.length > 0 ? (
-          <div className="space-y-3">
-            {childData.map(({ child, balance, weekStars, streak, badges, level, myTasks, myDone }) => {
+          <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-1 snap-x">
+            {childData.map(({ child, balance, streak, level, myTasks, myDone }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
-              const nextThreshold = LEVEL_THRESHOLDS[level + 1]
-
+              const firstName = child.name.split(' ')[0]
               return (
-                <div key={child.id} className="bg-white rounded-3xl shadow-sm overflow-hidden">
-                  {/* Main content — tappable to enter kid mode */}
-                  <Link href={`/kid-mode/${child.id}`} className="block p-4 active:bg-gray-50 transition">
-                    <div className="flex items-start gap-4">
-                      {/* Avatar */}
-                      <div className="relative flex-shrink-0">
-                        {child.avatar_url
-                          ? <img src={child.avatar_url} className="w-20 h-20 rounded-2xl object-cover"
-                              style={{ border: `3px solid ${child.colour}` }} alt=""/>
-                          : <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-5xl"
-                              style={{ backgroundColor: child.colour + '25', border: `3px solid ${child.colour}40` }}>
-                              {child.avatar}
-                            </div>
-                        }
-                        {allDone && (
-                          <div className="absolute -top-1 -right-1 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center shadow-md">
-                            <span className="text-white text-sm font-black">✓</span>
-                          </div>
-                        )}
-                      </div>
+                <div key={child.id} className="relative w-40 shrink-0 snap-start bg-white rounded-3xl shadow-sm">
+                  {/* Praise heart, top-right */}
+                  <div className="absolute top-2 right-2 z-10">
+                    <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
+                  </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <h2 className="text-xl font-black text-gray-800">{child.name.split(' ')[0]}</h2>
-                          {streak > 0 && (
-                            <span className="text-xs font-bold bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full">🔥 {streak} day streak</span>
-                          )}
+                  <Link href={`/kid-mode/${child.id}`} className="block p-3 active:bg-gray-50 transition rounded-3xl">
+                    {/* Avatar */}
+                    <div className="relative w-16 h-16 mb-2">
+                      {child.avatar_url
+                        ? <img src={child.avatar_url} className="w-16 h-16 rounded-2xl object-cover"
+                            style={{ border: `3px solid ${child.colour}` }} alt=""/>
+                        : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
+                            style={{ backgroundColor: child.colour + '25', border: `3px solid ${child.colour}40` }}>
+                            {child.avatar}
+                          </div>
+                      }
+                      {allDone && (
+                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow">
+                          <span className="text-white text-xs font-black">✓</span>
                         </div>
-
-                        {/* Level */}
-                        <p className="text-xs font-semibold mb-1" style={{ color: child.colour }}>{LEVEL_TITLES[level]}</p>
-
-                        {/* Stars */}
-                        <div className="flex items-baseline gap-1.5 mb-1">
-                          <span className="text-3xl font-black text-yellow-500">⭐ {balance}</span>
-                          {childData.length === 1 && weekStars > 0 && (
-                            <span className="text-xs text-gray-400">+{weekStars} this week</span>
-                          )}
-                        </div>
-
-                        {/* Level progress */}
-                        {nextThreshold && (
-                          <div className="mb-2">
-                            <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
-                              <span>{balance} / {nextThreshold} to next level</span>
-                            </div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full"
-                                style={{ width: `${Math.min(100, (balance / nextThreshold) * 100)}%`, backgroundColor: child.colour }}/>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Today's tasks */}
-                        {total > 0 && (
-                          <div>
-                            <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-                              <span>Today: {myDone}/{total} tasks</span>
-                              {allDone ? <span className="text-green-500 font-bold">All done! 🎉</span> : <span>{total - myDone} to go 💪</span>}
-                            </div>
-                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full transition-all"
-                                style={{ width: `${progressPct}%`, backgroundColor: allDone ? '#22c55e' : child.colour }}/>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
 
-                    {/* Badges row */}
-                    {badges.length > 0 && (
-                      <div className="flex gap-1 mt-3 flex-wrap">
-                        {badges.map((b, i) => (
-                          <span key={i} className="text-xl" title="Badge">{b}</span>
-                        ))}
+                    <p className="font-black text-gray-800 text-lg leading-tight truncate">{firstName}</p>
+                    <p className="text-[11px] font-semibold mb-1 truncate" style={{ color: child.colour }}>{LEVEL_TITLES[level]}</p>
+                    <p className="text-2xl font-black text-yellow-500 leading-none mb-2">⭐ {balance}</p>
+
+                    {streak > 0 && (
+                      <span className="inline-block text-[10px] font-bold bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full mb-2">🔥 {streak}d</span>
+                    )}
+
+                    {total > 0 && (
+                      <div className="mb-2">
+                        <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
+                          <span>Today {myDone}/{total}</span>
+                          {allDone && <span className="text-green-500 font-bold">Done!</span>}
+                        </div>
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${progressPct}%`, backgroundColor: allDone ? '#22c55e' : child.colour }}/>
+                        </div>
                       </div>
                     )}
 
-                    {/* Enter tap hint */}
-                    <div className="mt-3 flex items-center justify-between px-1">
-                      <span className="text-xs font-bold" style={{ color: child.colour }}>
-                        Tap to enter {child.name.split(' ')[0]}'s zone →
-                      </span>
+                    {/* Enter zone star CTA */}
+                    <div className="flex items-center gap-1.5 mt-1 text-white text-xs font-bold px-2.5 py-2 rounded-2xl"
+                      style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
+                      <span className="text-sm">⭐</span>
+                      <span className="truncate">Enter {firstName} Zone</span>
                     </div>
                   </Link>
-
-                  {/* Praise button row */}
-                  <div className="px-4 py-2.5 border-t border-gray-50 flex items-center justify-between"
-                    style={{ background: `${child.colour}08` }}>
-                    <PraiseButton childId={child.id} childName={child.name} childColour={child.colour}/>
-                    {weekStars > 0 && childData.length > 1 && (
-                      <span className="text-xs text-gray-400">+{weekStars} ⭐ this week</span>
-                    )}
-                  </div>
                 </div>
               )
             })}
@@ -277,21 +237,46 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Quick links */}
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { href: '/dashboard/chores',  emoji: '✅', label: 'Tasks' },
-            { href: '/dashboard/rewards', emoji: '🎁', label: 'Rewards' },
-            { href: '/dashboard/history', emoji: '📋', label: 'History' },
-            { href: '/dashboard/report',  emoji: '📊', label: 'Report' },
-          ].map(item => (
-            <Link key={item.href} href={item.href}
-              className="bg-white rounded-2xl p-3 flex flex-col items-center gap-1 shadow-sm active:scale-95 transition">
-              <span className="text-xl">{item.emoji}</span>
-              <span className="text-[10px] font-semibold text-gray-600">{item.label}</span>
-            </Link>
-          ))}
-        </div>
+        {/* Upcoming tasks today */}
+        {childData.length > 0 && (
+          <div className="bg-white rounded-3xl shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">📋 Upcoming today</p>
+              {upcoming.length > 0 && <span className="text-xs font-semibold text-gray-400">{upcoming.length} left</span>}
+            </div>
+
+            {upcoming.length === 0 ? (
+              <div className="text-center py-6">
+                <div className="text-4xl mb-1">🎉</div>
+                <p className="text-sm font-semibold text-gray-600">All tasks done for today!</p>
+              </div>
+            ) : (
+              <div className="max-h-[42vh] overflow-y-auto space-y-2 -mr-1 pr-1">
+                {upcoming.map(({ task, pending }) => (
+                  <div key={task.id} className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2.5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                      style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
+                      </p>
+                    </div>
+                    <div className="flex -space-x-2 flex-shrink-0">
+                      {pending.slice(0, 3).map((k: any) => (
+                        k.avatar_url
+                          ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt=""/>
+                          : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
+                              style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
+                      ))}
+                      {pending.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{pending.length - 3}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

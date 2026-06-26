@@ -45,13 +45,20 @@ export default function BottomNav() {
         <Link href="/dashboard/chores"
           className={`flex flex-col items-center gap-1 transition ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/chores') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">✅</span>
+          <span className="text-2xl">📋</span>
           <span className="text-[10px] font-semibold">Tasks</span>
+        </Link>
+
+        <Link href="/dashboard/schedule"
+          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/schedule') ? '' : 'text-gray-400'}`}
+          style={active('/dashboard/schedule') ? { color: 'var(--theme-from)' } : {}}>
+          <span className="text-2xl">📅</span>
+          <span className="text-[10px] font-semibold">Calendar</span>
         </Link>
 
         <Link href="/kid-mode" className="flex flex-col items-center gap-1 -translate-y-5">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
-            style={{ background: 'linear-gradient(135deg, var(--theme-from, #7C3AED), var(--theme-to, #EC4899))' }}>
+            style={{ background: 'var(--theme-gradient, linear-gradient(135deg, #EC4899, #8B5CF6))' }}>
             <span className="text-3xl">⭐</span>
           </div>
           <span className="text-[10px] font-semibold" style={{ color: 'var(--theme-from)' }}>Kid Mode</span>
@@ -71,11 +78,11 @@ export default function BottomNav() {
           <span className="text-[10px] font-semibold">Rewards</span>
         </Link>
 
-        <Link href="/dashboard/settings"
-          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/settings') ? '' : 'text-gray-400'}`}
-          style={active('/dashboard/settings') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">⚙️</span>
-          <span className="text-[10px] font-semibold">Settings</span>
+        <Link href="/dashboard/report"
+          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/report') ? '' : 'text-gray-400'}`}
+          style={active('/dashboard/report') ? { color: 'var(--theme-from)' } : {}}>
+          <span className="text-2xl">📊</span>
+          <span className="text-[10px] font-semibold">Stats</span>
         </Link>
       </div>
     </nav>

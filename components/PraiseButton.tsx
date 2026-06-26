@@ -18,9 +18,10 @@ interface Props {
   childId: string
   childName: string
   childColour: string
+  variant?: 'pill' | 'icon'
 }
 
-export default function PraiseButton({ childId, childName, childColour }: Props) {
+export default function PraiseButton({ childId, childName, childColour, variant = 'pill' }: Props) {
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('')
   const [sending, setSending] = useState(false)
@@ -37,13 +38,26 @@ export default function PraiseButton({ childId, childName, childColour }: Props)
     setTimeout(() => { setSent(false); setOpen(false) }, 1500)
   }
 
+  function openSheet(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setOpen(true)
+  }
+
   return (
     <>
-      <button onClick={() => setOpen(true)}
-        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-full active:scale-90 transition"
-        style={{ backgroundColor: childColour + '20', color: childColour }}>
-        ❤️ Send praise
-      </button>
+      {variant === 'icon' ? (
+        <button onClick={openSheet} aria-label={`Send praise to ${childName.split(' ')[0]}`}
+          className="w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-sm active:scale-90 transition">
+          ❤️
+        </button>
+      ) : (
+        <button onClick={openSheet}
+          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-full active:scale-90 transition"
+          style={{ backgroundColor: childColour + '20', color: childColour }}>
+          ❤️ Send praise
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setOpen(false)}>

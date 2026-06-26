@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 
@@ -23,7 +22,8 @@ export default function SettingsPage() {
   const [familyName, setFamilyName] = useState('')
   const [familyId, setFamilyId] = useState('')
   const [loading, setLoading] = useState(true)
-  const [activeTheme, setActiveTheme] = useState<ThemeKey>('purple')
+  const [activeTheme, setActiveTheme] = useState<ThemeKey>('candy')
+  const [themeOpen, setThemeOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newChild, setNewChild] = useState({ name: '', avatar: '🐨', colour: '#FF6B6B' })
@@ -121,27 +121,43 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="bg-gradient-to-br from-gray-700 to-gray-900 pt-12 pb-8 px-4">
-        <div className="max-w-sm mx-auto">
-          <h1 className="text-2xl font-bold text-white">Settings</h1>
-          <p className="text-gray-400 text-sm">Manage your family</p>
+      <div className="pt-12 pb-8 px-4" style={{ background: 'var(--theme-gradient)' }}>
+        <div className="max-w-sm mx-auto flex items-center gap-2">
+          <span className="text-2xl">⚙️</span>
+          <div>
+            <h1 className="text-lg font-bold text-white">Settings</h1>
+            <p className="text-white/70 text-xs">Manage your family</p>
+          </div>
         </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 mt-4 space-y-6">
 
-        {/* Colour theme */}
+        {/* Colour theme — collapsible */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
-          <h2 className="font-bold text-gray-800 mb-3">Colour Theme</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {(Object.entries(THEMES) as [ThemeKey, { name: string; from: string; to: string }][]).map(([key, theme]) => (
-              <button key={key} onClick={() => { setActiveTheme(key); setStoredTheme(key) }}
-                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition active:scale-95 ${activeTheme === key ? 'border-gray-700 shadow-md' : 'border-transparent hover:border-gray-200'}`}>
-                <div className="w-10 h-10 rounded-full shadow-md" style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.to})` }}/>
-                <p className="text-xs font-semibold text-gray-600 text-center leading-tight">{theme.name}</p>
-              </button>
-            ))}
-          </div>
+          <button onClick={() => setThemeOpen(o => !o)} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full shadow" style={{ background: THEMES[activeTheme]?.gradient }}/>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-800 leading-tight">Colour Theme</h2>
+                <p className="text-xs text-gray-400">{THEMES[activeTheme]?.emoji} {THEMES[activeTheme]?.name}</p>
+              </div>
+            </div>
+            <span className={`text-gray-300 text-xl transition-transform ${themeOpen ? 'rotate-90' : ''}`}>›</span>
+          </button>
+
+          {themeOpen && (
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              {(Object.entries(THEMES) as [ThemeKey, typeof THEMES[ThemeKey]][]).map(([key, theme]) => (
+                <button key={key} onClick={() => { setActiveTheme(key); setStoredTheme(key) }}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition active:scale-95 ${activeTheme === key ? 'shadow-md' : 'border-transparent hover:border-gray-200'}`}
+                  style={activeTheme === key ? { borderColor: theme.from } : {}}>
+                  <div className="w-10 h-10 rounded-full shadow-md" style={{ background: theme.gradient }}/>
+                  <p className="text-[11px] font-semibold text-gray-600 text-center leading-tight">{theme.emoji} {theme.name}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Invite co-parent */}
@@ -177,16 +193,6 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
-
-        {/* History */}
-        <Link href="/dashboard/history" className="flex items-center gap-3 bg-white rounded-2xl shadow-sm px-5 py-4 active:scale-95 transition">
-          <span className="text-2xl">📋</span>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-800">Completion History</p>
-            <p className="text-xs text-gray-400">See past tasks & undo if needed</p>
-          </div>
-          <span className="text-gray-300 text-xl">›</span>
-        </Link>
 
         {/* Family name */}
         <div className="bg-white rounded-3xl shadow-sm p-5">

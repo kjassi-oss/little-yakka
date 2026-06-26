@@ -3,8 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --theme-from: #7C3AED;
-  --theme-to: #EC4899;
+  /* Default theme: Candy Pop */
+  --theme-from: #EC4899;
+  --theme-to: #8B5CF6;
+  --theme-gradient: linear-gradient(135deg, #EC4899, #8B5CF6);
 }
 
 @theme inline {
@@ -12,6 +14,19 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+}
+
+/* Little Yakka wordmark — playful rounded display font with a themed gradient fill */
+.wordmark {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: var(--theme-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 body {
@@ -20,12 +35,15 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Theme presets */
-[data-theme="ocean"]  { --theme-from: #0EA5E9; --theme-to: #06B6D4; }
-[data-theme="forest"] { --theme-from: #059669; --theme-to: #34D399; }
-[data-theme="sunset"] { --theme-from: #EA580C; --theme-to: #F59E0B; }
-[data-theme="galaxy"] { --theme-from: #4F46E5; --theme-to: #7C3AED; }
-[data-theme="rose"]   { --theme-from: #E11D48; --theme-to: #F97316; }
+/* Theme presets — drive solid accents (from/to) and header/button gradient */
+[data-theme="rainbow"]  { --theme-from: #D6336C; --theme-to: #7048E8; --theme-gradient: linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93); }
+[data-theme="candy"]    { --theme-from: #EC4899; --theme-to: #8B5CF6; --theme-gradient: linear-gradient(135deg, #EC4899, #8B5CF6); }
+[data-theme="princess"] { --theme-from: #E84393; --theme-to: #FF7AC6; --theme-gradient: linear-gradient(135deg, #F368E0, #FF8FB1); }
+[data-theme="rockstar"] { --theme-from: #2563EB; --theme-to: #06B6D4; --theme-gradient: linear-gradient(135deg, #2563EB, #06B6D4); }
+[data-theme="sunshine"] { --theme-from: #F97316; --theme-to: #FBBF24; --theme-gradient: linear-gradient(135deg, #F97316, #FBBF24); }
+[data-theme="mint"]     { --theme-from: #059669; --theme-to: #34D399; --theme-gradient: linear-gradient(135deg, #059669, #34D399); }
+[data-theme="galaxy"]   { --theme-from: #6D28D9; --theme-to: #C026D3; --theme-gradient: linear-gradient(135deg, #6D28D9, #C026D3); }
+[data-theme="ocean"]    { --theme-from: #0EA5E9; --theme-to: #2563EB; --theme-gradient: linear-gradient(135deg, #0EA5E9, #2563EB); }
 
 /* Kid zone animations */
 @keyframes floatUp {
