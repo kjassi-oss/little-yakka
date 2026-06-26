@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PinModal from '@/components/PinModal'
+import SpinWheel from '@/components/SpinWheel'
 
 interface Task {
   id: string; title: string; emoji: string; type: string
@@ -12,9 +13,11 @@ interface Task {
 }
 interface Child { id: string; name: string; avatar: string; colour: string }
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
+interface Praise { id: string; message: string }
 interface Props {
   child: Child; tasks: Task[]; completedTaskIds: string[]
   starBalance: number; parentPin: string; rewards: Reward[]; pendingRewardIds: string[]
+  canSpin: boolean; unseenPraises: Praise[]
 }
 
 const ENCOURAGEMENTS = [
@@ -30,6 +33,7 @@ interface FloatingBadge { id: number; value: number; top: number }
 export default function ChildTaskView({
   child, tasks, completedTaskIds: initial, starBalance: initialBalance,
   parentPin, rewards, pendingRewardIds: initialPending,
+  canSpin: initialCanSpin, unseenPraises,
 }: Props) {
   const router = useRouter()
   const [completedIds, setCompletedIds] = useState(new Set(initial))
@@ -39,6 +43,8 @@ export default function ChildTaskView({
   const [showExitSummary, setShowExitSummary] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [showRewards, setShowRewards] = useState(false)
+  const [showSpin, setShowSpin] = useState(false)
+  const [canSpin, setCanSpin] = useState(initialCanSpin)
   const [requestingId, setRequestingId] = useState<string | null>(null)
   const [justRequestedId, setJustRequestedId] = useState<string | null>(null)
   const [floatingBadges, setFloatingBadges] = useState<FloatingBadge[]>([])
@@ -47,8 +53,23 @@ export default function ChildTaskView({
   const [photoTask, setPhotoTask] = useState<Task | null>(null)
   const [validating, setValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<{ pass: boolean; feedback: string } | null>(null)
+
+  // Praise state
+  const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
+  const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
+
   const sessionCompleted = useRef(new Set<string>())
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // Mark praises seen
+  async function dismissPraise() {
+    if (!currentPraise) return
+    const supabase = createClient()
+    await supabase.from('praises').update({ seen: true }).eq('id', currentPraise.id)
+    const remaining = praiseQueue.slice(1)
+    setPraiseQueue(remaining)
+    setCurrentPraise(remaining[0] ?? null)
+  }
 
   const incomplete = tasks.filter(t => !completedIds.has(t.id))
   const complete = tasks.filter(t => completedIds.has(t.id))
@@ -69,7 +90,6 @@ export default function ChildTaskView({
     setValidating(true)
     const supabase = createClient()
 
-    // Upload completion photo
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `${child.id}/${photoTask.id}/${Date.now()}.${ext}`
     let completionUrl = ''
@@ -79,12 +99,10 @@ export default function ChildTaskView({
       completionUrl = publicUrl
     }
 
-    // Get benchmarks
     const { data: benchmarks } = await supabase.from('task_benchmark_photos')
       .select('url').eq('task_id', photoTask.id).eq('media_type', 'photo').order('sort_order')
     const benchmarkUrls = benchmarks?.map(b => b.url) || []
 
-    // Call AI validation if we have both
     if (benchmarkUrls.length > 0 && completionUrl) {
       try {
         const res = await fetch('/api/validate-task', {
@@ -100,7 +118,7 @@ export default function ChildTaskView({
         }
         return
       } catch {
-        // fall through to complete anyway
+        // fall through
       }
     }
 
@@ -143,6 +161,19 @@ export default function ChildTaskView({
     if (incomplete.length === 1) setTimeout(() => setShowCelebration(true), 700)
   }
 
+  async function handleSpinWin(stars: number) {
+    const supabase = createClient()
+    const today = new Date().toISOString().split('T')[0]
+    const { data: spin } = await supabase.from('spin_results')
+      .insert({ child_id: child.id, stars_won: stars, date: today }).select('id').single()
+    await supabase.from('star_ledger').insert({
+      child_id: child.id, delta: stars,
+      reason: 'Bonus spin!', source_type: 'spin', source_id: spin?.id,
+    })
+    setStarBalance(prev => prev + stars)
+    setCanSpin(false)
+  }
+
   async function requestReward(reward: Reward) {
     if (pendingRewardIds.has(reward.id) || starBalance < reward.star_cost) return
     setRequestingId(reward.id)
@@ -164,19 +195,34 @@ export default function ChildTaskView({
 
   async function checkParentPin(pin: string) { return pin === parentPin }
 
+  // === Praise overlay ===
+  if (currentPraise) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 text-center z-50"
+        style={{ background: `linear-gradient(135deg, ${child.colour}dd, ${child.colour}99)` }}>
+        <div className="text-8xl mb-4 animate-bounce">{child.avatar}</div>
+        <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-xs w-full pop-in">
+          <p className="text-5xl mb-3">💌</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">A message from your parent</p>
+          <p className="text-2xl font-black text-gray-800 leading-snug mb-6">"{currentPraise.message}"</p>
+          <button onClick={dismissPraise}
+            className="w-full text-white font-black text-lg py-4 rounded-2xl active:scale-95 transition"
+            style={{ background: `linear-gradient(135deg, ${child.colour}, #EC4899)` }}>
+            {praiseQueue.length > 1 ? `Next (${praiseQueue.length - 1} more) →` : '❤️ Thanks!'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // === Celebration screen ===
   if (showCelebration) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center relative overflow-hidden"
         style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}bb)` }}>
-        {/* Background floating emojis */}
         {CELEBRATION_EMOJIS.map((e, i) => (
           <span key={i} className="fixed text-5xl animate-bounce select-none pointer-events-none opacity-25"
-            style={{
-              top: `${5 + (i * 9)}%`,
-              left: `${5 + (i * 9)}%`,
-              animationDelay: `${i * 0.15}s`,
-              animationDuration: `${0.8 + i * 0.1}s`,
-            }}>
+            style={{ top: `${5 + (i * 9)}%`, left: `${5 + (i * 9)}%`, animationDelay: `${i * 0.15}s`, animationDuration: `${0.8 + i * 0.1}s` }}>
             {e}
           </span>
         ))}
@@ -189,6 +235,13 @@ export default function ChildTaskView({
             <p className="text-gray-500 text-sm mt-1 font-medium">total stars</p>
           </div>
           <div className="flex flex-col gap-3 w-full max-w-xs">
+            {canSpin && (
+              <button onClick={() => setShowSpin(true)}
+                className="w-full font-black text-xl py-5 rounded-3xl shadow-2xl active:scale-95 transition text-white"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                🎰 Bonus Spin!
+              </button>
+            )}
             {rewards.length > 0 && (
               <button onClick={() => setShowRewards(true)}
                 className="w-full bg-white/25 border-2 border-white text-white font-bold py-4 rounded-2xl text-lg active:scale-95 transition">
@@ -202,6 +255,9 @@ export default function ChildTaskView({
           </div>
         </div>
 
+        {showSpin && (
+          <SpinWheel childColour={child.colour} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
+        )}
         {showExitSummary && (
           <ExitSummary tasks={tasks.filter(t => sessionCompleted.current.has(t.id))}
             onConfirm={() => { setShowExitSummary(false); setShowPin(true) }}
@@ -226,7 +282,6 @@ export default function ChildTaskView({
     <div className="min-h-screen pb-32 relative"
       style={{ background: `linear-gradient(180deg, ${child.colour}55 0%, #f9fafb 30%)` }}>
 
-      {/* Floating "+X ⭐" badges */}
       {floatingBadges.map(badge => (
         <div key={badge.id} className="float-up text-3xl font-black drop-shadow-lg"
           style={{ top: `${badge.top}%`, color: '#FBBF24' }}>
@@ -234,7 +289,6 @@ export default function ChildTaskView({
         </div>
       ))}
 
-      {/* Encouragement popup */}
       {encouragement && (
         <div className="fixed top-24 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="pop-in bg-black/75 backdrop-blur text-white text-xl font-bold px-7 py-3.5 rounded-3xl shadow-2xl">
@@ -259,11 +313,10 @@ export default function ChildTaskView({
         <div className="px-5 mb-6">
           <div className="flex justify-between text-sm font-bold mb-2">
             <span className="text-gray-600">{complete.length} of {tasks.length} done</span>
-            {incomplete.length > 0 ? (
-              <span className="text-gray-400">{incomplete.length} to go 💪</span>
-            ) : (
-              <span className="text-green-500">All done! 🎉</span>
-            )}
+            {incomplete.length > 0
+              ? <span className="text-gray-400">{incomplete.length} to go 💪</span>
+              : <span className="text-green-500">All done! 🎉</span>
+            }
           </div>
           <div className="h-5 bg-white rounded-full overflow-hidden shadow-inner">
             <div className="h-full rounded-full transition-all duration-700 relative"
@@ -276,17 +329,17 @@ export default function ChildTaskView({
         </div>
       )}
 
-      {/* Incomplete tasks */}
-      {/* Hidden photo input for benchmark capture */}
+      {/* Hidden photo input */}
       <input type="file" accept="image/*" capture="environment" className="hidden" ref={photoInputRef}
         onChange={e => { if (e.target.files?.[0]) handlePhotoCapture(e.target.files[0]) }}/>
 
+      {/* Incomplete tasks */}
       <div className="px-4 space-y-3">
         {incomplete.map((task, i) => (
           <button key={task.id} onClick={() => handleTaskTap(task)}
             className={`w-full flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm text-left transition-all duration-300 active:scale-95 ${justCompletedId === task.id ? 'scale-90 opacity-50' : ''}`}
             style={{ animationDelay: `${i * 0.05}s` }}>
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0 transition-transform"
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0"
               style={{ backgroundColor: child.colour + '22' }}>
               {task.emoji}
             </div>

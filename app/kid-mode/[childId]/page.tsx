@@ -46,6 +46,15 @@ export default async function ChildPage({ params }: { params: Promise<{ childId:
     .eq('status', 'requested')
   const pendingRewardIds = pendingRedemptions?.map(r => r.reward_id) || []
 
+  // Has this child already spun today?
+  const { data: spinToday } = await supabase
+    .from('spin_results').select('id').eq('child_id', childId).eq('date', today).maybeSingle()
+  const canSpin = !spinToday
+
+  // Unseen praises
+  const { data: unseenPraises } = await supabase
+    .from('praises').select('id, message').eq('child_id', childId).eq('seen', false).order('created_at')
+
   return (
     <ChildTaskView
       child={child}
@@ -55,6 +64,8 @@ export default async function ChildPage({ params }: { params: Promise<{ childId:
       parentPin={guardian?.parent_pin || ''}
       rewards={rewards || []}
       pendingRewardIds={pendingRewardIds}
+      canSpin={canSpin}
+      unseenPraises={unseenPraises || []}
     />
   )
 }

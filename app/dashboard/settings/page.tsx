@@ -5,8 +5,16 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 
-const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉']
-const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF']
+const AVATARS = [
+  '🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉',
+  '🐵','🐧','🦖','🐉','🦕','🦀','🐳','🐘','🦒','🐆','🦓','🦜',
+  '🧸','🦸','🦹','🧙','🧚','🧜','🧝','🏄','🤸','⭐','🌈','🚀',
+  '🎯','🏆','💎','🌺','🌻','🍀','🎸','🎨','🎮','🦋','🌙','🔥',
+]
+const COLOURS = [
+  '#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF',
+  '#EE5A24','#C0392B','#6C5CE7','#00B894','#E17055','#74B9FF','#A29BFE','#55EFC4',
+]
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 

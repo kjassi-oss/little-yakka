@@ -59,6 +59,7 @@ export default function ChoresPage() {
   const [benchmarkVideo, setBenchmarkVideo] = useState<File | null>(null)
   const [existingBenchmarks, setExistingBenchmarks] = useState<{ id: string; url: string; media_type: string }[]>([])
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
@@ -100,7 +101,7 @@ export default function ChoresPage() {
     setFrequency('daily'); setCarryOver(true); setStarValue(3)
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
-    setExistingBenchmarks([]); setAssignedChildren([])
+    setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
     setFormError('')
     setShowForm(true)
   }
@@ -115,6 +116,7 @@ export default function ChoresPage() {
     setBenchmarkDiffersPerChild(task.benchmark_differs_per_child || false)
     setBenchmarkFiles([]); setBenchmarkVideo(null)
     setAssignedChildren(assignments[task.id] || [])
+    setDifficulty((task as any).difficulty || 'medium')
     setFormError('')
     setShowForm(true)
     const supabase = createClient()
@@ -136,7 +138,7 @@ export default function ChoresPage() {
       requires_photo: requiresPhoto || requiresBenchmarkPhoto,
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
-      frequency, carry_over: carryOver,
+      frequency, carry_over: carryOver, difficulty,
     }
 
     let taskId = editingTaskId
@@ -330,6 +332,23 @@ export default function ChoresPage() {
               <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>10</span></div>
             </div>
 
+            <div>
+              <p className="text-xs text-gray-500 mb-2">Difficulty</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 'easy',   label: '🟢 Easy',   color: '#10B981' },
+                  { value: 'medium', label: '🔵 Medium', color: '#3B82F6' },
+                  { value: 'hard',   label: '🔴 Hard',   color: '#EF4444' },
+                ] as const).map(opt => (
+                  <button key={opt.value} onClick={() => setDifficulty(opt.value)}
+                    className={`flex-1 py-2 rounded-2xl text-xs font-bold transition border-2 ${difficulty === opt.value ? 'text-white border-transparent' : 'bg-gray-50 border-gray-100 text-gray-500'}`}
+                    style={difficulty === opt.value ? { backgroundColor: opt.color, borderColor: opt.color } : {}}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between py-1">
               <div><p className="text-sm font-medium text-gray-700">Requires photo proof 📷</p><p className="text-xs text-gray-400">Kid snaps a photo when done</p></div>
               <button onClick={() => setRequiresPhoto(!requiresPhoto)}
@@ -460,6 +479,11 @@ export default function ChoresPage() {
                     </div>
                     <p className="text-xs font-bold text-gray-700 text-center leading-tight line-clamp-2">{task.title}</p>
                     <p className="text-xs text-yellow-500 font-bold">⭐ {task.star_value}</p>
+                    {(task as any).difficulty && (task as any).difficulty !== 'medium' && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${(task as any).difficulty === 'easy' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
+                        {(task as any).difficulty === 'easy' ? '🟢 Easy' : '🔴 Hard'}
+                      </span>
+                    )}
                     {task.requires_benchmark_photo && <span className="text-[9px] bg-purple-50 text-purple-400 font-semibold px-1 py-0.5 rounded-full">AI check</span>}
                     <div className="flex gap-0.5 flex-wrap justify-center">
                       {assignedKids.map(child => (

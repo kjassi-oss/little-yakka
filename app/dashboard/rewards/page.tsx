@@ -231,27 +231,49 @@ export default function RewardsPage() {
 
         {/* Catalogue tab */}
         {activeTab === 'catalogue' && (
-          <div>
-            <div className="grid grid-cols-3 gap-3">
-              {rewards.map(reward => (
-                <div key={reward.id} className="bg-white rounded-3xl shadow-sm p-3 flex flex-col items-center gap-2 relative">
-                  <button onClick={() => deleteReward(reward.id)}
-                    className="absolute top-2 right-2 text-gray-200 hover:text-red-400 text-lg font-bold leading-none transition">×</button>
-                  <div className="w-14 h-14 bg-pink-50 rounded-2xl flex items-center justify-center text-4xl mt-1">
-                    {reward.emoji}
+          <div className="space-y-5">
+            {(() => {
+              const tiers = [
+                { label: '🌱 Quick Wins', sub: '1–20 stars', items: rewards.filter(r => r.star_cost <= 20), color: '#10B981' },
+                { label: '🌟 Weekly Goals', sub: '21–75 stars', items: rewards.filter(r => r.star_cost > 20 && r.star_cost <= 75), color: '#F59E0B' },
+                { label: '🏆 Big Prizes', sub: '76+ stars', items: rewards.filter(r => r.star_cost > 75), color: '#EF4444' },
+              ]
+              const hasTiered = tiers.some(t => t.items.length > 0)
+
+              if (!hasTiered && rewards.length === 0) return (
+                !showForm && (
+                  <div className="text-center py-16">
+                    <div className="text-6xl mb-4">🎁</div>
+                    <p className="text-gray-500 font-medium">No rewards yet</p>
+                    <p className="text-gray-400 text-sm mt-1">Tap "+ Add Reward" to create some</p>
                   </div>
-                  <p className="font-semibold text-gray-800 text-xs text-center leading-tight">{reward.title}</p>
-                  <p className="text-xs text-yellow-500 font-bold">⭐ {reward.star_cost}</p>
+                )
+              )
+
+              return tiers.map(tier => tier.items.length === 0 ? null : (
+                <div key={tier.label}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-base font-black text-gray-700">{tier.label}</span>
+                    <span className="text-xs text-gray-400 font-medium">{tier.sub}</span>
+                    <div className="flex-1 h-px bg-gray-100"/>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {tier.items.map(reward => (
+                      <div key={reward.id} className="bg-white rounded-3xl shadow-sm p-3 flex flex-col items-center gap-2 relative">
+                        <button onClick={() => deleteReward(reward.id)}
+                          className="absolute top-2 right-2 text-gray-200 hover:text-red-400 text-lg font-bold leading-none transition">×</button>
+                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-4xl mt-1"
+                          style={{ backgroundColor: tier.color + '18' }}>
+                          {reward.emoji}
+                        </div>
+                        <p className="font-semibold text-gray-800 text-xs text-center leading-tight">{reward.title}</p>
+                        <p className="text-xs font-bold" style={{ color: tier.color }}>⭐ {reward.star_cost}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-            {rewards.length === 0 && !showForm && (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">🎁</div>
-                <p className="text-gray-500 font-medium">No rewards yet</p>
-                <p className="text-gray-400 text-sm mt-1">Tap "+ Add Reward" to create some</p>
-              </div>
-            )}
+              ))
+            })()}
           </div>
         )}
 
