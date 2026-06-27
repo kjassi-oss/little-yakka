@@ -119,7 +119,6 @@ export default function SettingsPage() {
     if (!adjustChild) return
     const amount = parseInt(adjustAmount, 10)
     if (!amount || isNaN(amount)) { setAdjustError('Enter a number (e.g. 5 or -5).'); return }
-    if (adjustPin !== parentPin) { setAdjustError('Wrong PIN.'); return }
     setAdjustSaving(true); setAdjustError('')
     await createClient().from('star_ledger').insert({
       child_id: adjustChild.id, delta: amount,
@@ -481,10 +480,6 @@ export default function SettingsPage() {
               className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 mb-3 focus:outline-none focus:ring-2 focus:ring-yellow-300"
               placeholder="Reason (optional) — e.g. helped a neighbour"/>
 
-            <input type="password" inputMode="numeric" maxLength={6} value={adjustPin} onChange={e => setAdjustPin(e.target.value.replace(/\D/g, ''))}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-xl tracking-widest text-gray-800 mb-2 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-              placeholder="Parent PIN"/>
-
             {adjustError && <p className="text-red-500 text-xs mb-2">{adjustError}</p>}
 
             <div className="flex gap-2">
@@ -496,7 +491,6 @@ export default function SettingsPage() {
                 {adjustSaving ? 'Saving...' : 'Apply'}
               </button>
             </div>
-            {!parentPin && <p className="text-[11px] text-amber-500 mt-2 text-center">No parent PIN set yet — set one during setup to protect this.</p>}
           </div>
         </div>
       )}

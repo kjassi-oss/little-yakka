@@ -9,12 +9,13 @@ const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙',
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF']
 const TASK_EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🪥','🚿','👕','🎒','🏃','🎨']
 const REWARD_EMOJIS = ['🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','🍫','🎪','🏆','⚽']
+const FREQ = [{ v: 'daily', l: '📅 Daily' }, { v: 'weekly', l: '🗓️ Weekly' }, { v: 'monthly', l: '📆 Monthly' }] as const
+const TIMES = [{ v: 'anytime', l: '📋 Anytime' }, { v: 'morning', l: '🌅 Morning' }, { v: 'afternoon', l: '☀️ Afternoon' }, { v: 'evening', l: '🌙 Evening' }] as const
 
 interface ChildDraft { name: string; avatar: string; colour: string; photo?: File }
-interface TaskDraft { title: string; emoji: string; star_value: number }
+interface TaskDraft { title: string; emoji: string; star_value: number; frequency: string; time_of_day: string; start_date: string }
 interface RewardDraft { title: string; emoji: string; star_cost: number }
 
-// Module-scope so they keep a stable identity (no remount / focus loss while typing)
 function Shell({ icon, n, title, sub, children: body }: { icon: string; n: string; title: string; sub: string; children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: RAINBOW }}>
@@ -47,16 +48,12 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false)
 
   const [familyName, setFamilyName] = useState('')
-  const [parentPin, setParentPin] = useState('')
-  const [confirmPin, setConfirmPin] = useState('')
-
   const [children, setChildren] = useState<ChildDraft[]>([])
   const [tasks, setTasks] = useState<TaskDraft[]>([])
   const [rewards, setRewards] = useState<RewardDraft[]>([])
 
-  // current drafts
   const [child, setChild] = useState<ChildDraft>({ name: '', avatar: '🐨', colour: '#FF6B6B' })
-  const [task, setTask] = useState<TaskDraft>({ title: '', emoji: '🛏️', star_value: 3 })
+  const [task, setTask] = useState<TaskDraft>({ title: '', emoji: '🛏️', star_value: 3, frequency: 'daily', time_of_day: 'anytime', start_date: '' })
   const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '🎁', star_cost: 10 })
   const photoRef = useRef<HTMLInputElement>(null)
 
@@ -68,7 +65,7 @@ export default function SetupPage() {
   function addTask() {
     if (!task.title.trim()) return
     setTasks([...tasks, { ...task, title: task.title.trim() }])
-    setTask({ title: '', emoji: '🛏️', star_value: 3 })
+    setTask({ title: '', emoji: '🛏️', star_value: 3, frequency: 'daily', time_of_day: 'anytime', start_date: '' })
   }
   function addReward() {
     if (!reward.title.trim()) return
@@ -77,23 +74,22 @@ export default function SetupPage() {
   }
 
   async function handleFinish() {
-    if (children.length === 0) { setError('Please add at least one child.'); setStep(3); return }
+    if (children.length === 0) { setError('Please add at least one child.'); setStep(2); return }
     setLoading(true); setError('')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { data: family, error: famErr } = await supabase.from('families').insert({ name: familyName || "My Family" }).select('id').single()
+    const { data: family, error: famErr } = await supabase.from('families').insert({ name: familyName || 'My Family' }).select('id').single()
     if (famErr || !family) { setError(famErr?.message || 'Failed to create family'); setLoading(false); return }
 
     const { error: gErr } = await supabase.from('guardians').insert({
       family_id: family.id, auth_user_id: user.id,
       name: user.user_metadata?.name || user.user_metadata?.full_name || 'Parent',
-      email: user.email, parent_pin: parentPin,
+      email: user.email, parent_pin: '',
     })
     if (gErr) { setError(gErr.message); setLoading(false); return }
 
-    // Children (one by one to get ids + upload photos)
     const childIds: string[] = []
     for (const c of children) {
       const { data: created } = await supabase.from('children')
@@ -111,18 +107,18 @@ export default function SetupPage() {
       }
     }
 
-    // Tasks (assigned to all children)
     for (const t of tasks) {
       const { data: createdTask } = await supabase.from('tasks').insert({
         family_id: family.id, title: t.title, emoji: t.emoji, star_value: t.star_value,
-        type: 'chore', time_of_day: null, frequency: 'daily', recurrence: 'daily', carry_over: true,
+        type: 'chore', time_of_day: t.time_of_day === 'anytime' ? null : t.time_of_day,
+        frequency: t.frequency, recurrence: t.frequency, carry_over: true,
+        start_date: t.start_date || null,
       }).select('id').single()
       if (createdTask && childIds.length) {
         await supabase.from('task_assignments').insert(childIds.map(cid => ({ task_id: createdTask.id, child_id: cid })))
       }
     }
 
-    // Rewards (family-wide)
     for (const r of rewards) {
       await supabase.from('rewards').insert({
         family_id: family.id, title: r.title, emoji: r.emoji, star_cost: r.star_cost, scope: 'family', child_id: null,
@@ -134,7 +130,7 @@ export default function SetupPage() {
 
   // STEP 1 — family name
   if (step === 1) return (
-    <Shell icon="🏠" n="Step 1 of 5" title="Your family" sub="What should we call it?">
+    <Shell icon="🏠" n="Step 1 of 4" title="Your family" sub="What should we call it?">
       <input type="text" value={familyName} onChange={e => setFamilyName(e.target.value)}
         className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
         placeholder="e.g. The Jassi Family" onKeyDown={e => e.key === 'Enter' && familyName.trim() && setStep(2)}/>
@@ -144,31 +140,9 @@ export default function SetupPage() {
     </Shell>
   )
 
-  // STEP 2 — parent PIN
+  // STEP 2 — children
   if (step === 2) return (
-    <Shell icon="🔐" n="Step 2 of 5" title="Parent PIN" sub="Keeps Kid Mode safe">
-      <p className="text-sm text-gray-500">A 4-digit PIN to exit Kid Mode and approve things. Keep it secret!</p>
-      <input type="password" inputMode="numeric" maxLength={4} value={parentPin}
-        onChange={e => setParentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-        className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-pink-300" placeholder="••••"/>
-      <input type="password" inputMode="numeric" maxLength={4} value={confirmPin}
-        onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-        className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-pink-300" placeholder="Confirm"/>
-      {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-      <div className="flex gap-2">
-        <button onClick={() => { setError(''); setStep(1) }} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
-        <button onClick={() => {
-          if (parentPin.length !== 4) { setError('PIN must be 4 digits.'); return }
-          if (parentPin !== confirmPin) { setError("PINs don't match."); return }
-          setError(''); setStep(3)
-        }} className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>Next →</button>
-      </div>
-    </Shell>
-  )
-
-  // STEP 3 — children
-  if (step === 3) return (
-    <Shell icon="👧👦" n="Step 3 of 5" title="Add your kids" sub="Add one or more children">
+    <Shell icon="👧👦" n="Step 2 of 4" title="Add your kids" sub="Add one or more children">
       {children.length > 0 && (
         <div className="space-y-2">
           {children.map((c, i) => (
@@ -211,22 +185,25 @@ export default function SetupPage() {
 
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       <div className="flex gap-2">
-        <button onClick={() => { setError(''); setStep(2) }} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
-        <button onClick={() => children.length > 0 ? (setError(''), setStep(4)) : setError('Add at least one child to continue.')}
+        <button onClick={() => { setError(''); setStep(1) }} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
+        <button onClick={() => children.length > 0 ? (setError(''), setStep(3)) : setError('Add at least one child to continue.')}
           className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>Next →</button>
       </div>
     </Shell>
   )
 
-  // STEP 4 — first task(s)
-  if (step === 4) return (
-    <Shell icon="📋" n="Step 4 of 5" title="Create your first task!" sub="Optional — you can add more later">
+  // STEP 3 — first task(s), full options
+  if (step === 3) return (
+    <Shell icon="📋" n="Step 3 of 4" title="Create your first task!" sub="Optional — you can add more later">
       {tasks.length > 0 && (
         <div className="space-y-2">
           {tasks.map((t, i) => (
             <div key={i} className="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50">
               <span className="text-2xl">{t.emoji}</span>
-              <span className="font-semibold text-gray-800 flex-1">{t.title}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-800 text-sm truncate">{t.title}</p>
+                <p className="text-[11px] text-gray-400">{t.frequency} · {t.time_of_day}</p>
+              </div>
               <span className="text-yellow-500 font-bold text-sm">⭐ {t.star_value}</span>
               <button onClick={() => setTasks(tasks.filter((_, j) => j !== i))} className="text-gray-300 hover:text-red-400 text-xl font-bold">×</button>
             </div>
@@ -238,10 +215,40 @@ export default function SetupPage() {
         <input type="text" value={task.title} onChange={e => setTask({ ...task, title: e.target.value })}
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300" placeholder="e.g. Make bed"/>
         {emojiGrid(TASK_EMOJIS, task.emoji, e => setTask({ ...task, emoji: e }))}
+
+        <div>
+          <p className="text-xs text-gray-500 mb-1">How often?</p>
+          <div className="flex gap-2">
+            {FREQ.map(o => (
+              <button key={o.v} onClick={() => setTask({ ...task, frequency: o.v })}
+                className={`flex-1 py-2 rounded-2xl text-xs font-semibold transition ${task.frequency === o.v ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                style={task.frequency === o.v ? { background: RAINBOW } : {}}>{o.l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Time of day</p>
+          <div className="grid grid-cols-2 gap-2">
+            {TIMES.map(o => (
+              <button key={o.v} onClick={() => setTask({ ...task, time_of_day: o.v })}
+                className={`py-2 rounded-2xl text-xs font-semibold transition ${task.time_of_day === o.v ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                style={task.time_of_day === o.v ? { background: RAINBOW } : {}}>{o.l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Start date <span className="text-gray-300">(optional)</span></p>
+          <input type="date" value={task.start_date} onChange={e => setTask({ ...task, start_date: e.target.value })}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+        </div>
+
         <div>
           <p className="text-xs text-gray-500 mb-1">Stars: <span className="font-bold text-yellow-500">⭐ {task.star_value}</span></p>
           <input type="range" min={1} max={10} value={task.star_value} onChange={e => setTask({ ...task, star_value: Number(e.target.value) })} className="w-full"/>
         </div>
+
         <button onClick={addTask} disabled={!task.title.trim()}
           className="w-full font-bold py-2.5 rounded-xl text-sm active:scale-95 transition disabled:opacity-40 text-white" style={{ background: RAINBOW }}>
           {tasks.length > 0 ? '＋ Add another task' : 'Save task'}
@@ -249,17 +256,17 @@ export default function SetupPage() {
         <p className="text-[11px] text-gray-400 text-center">Tasks are assigned to all your kids — fine-tune later in the Tasks tab.</p>
       </div>
 
-      <div className="flex gap-2">
-        <button onClick={() => setStep(3)} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
-        <button onClick={() => setStep(5)} className="px-4 py-3 rounded-2xl text-gray-500 font-semibold">Skip</button>
-        <button onClick={() => setStep(5)} className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>Next →</button>
+      <div className="flex items-center gap-3">
+        <button onClick={() => setStep(2)} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
+        <button onClick={() => setStep(4)} className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>Next →</button>
       </div>
+      <button onClick={() => setStep(4)} className="w-full text-center text-gray-400 text-sm font-semibold underline">Skip for now</button>
     </Shell>
   )
 
-  // STEP 5 — rewards
+  // STEP 4 — rewards
   return (
-    <Shell icon="🎁" n="Step 5 of 5" title="Create your rewards!" sub="What can kids spend stars on?">
+    <Shell icon="🎁" n="Step 4 of 4" title="Create your rewards!" sub="What can kids spend stars on?">
       {rewards.length > 0 && (
         <div className="space-y-2">
           {rewards.map((r, i) => (
@@ -288,13 +295,14 @@ export default function SetupPage() {
       </div>
 
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-      <div className="flex gap-2">
-        <button onClick={() => setStep(4)} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
+      <div className="flex items-center gap-3">
+        <button onClick={() => setStep(3)} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">← Back</button>
         <button onClick={handleFinish} disabled={loading}
           className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60" style={{ background: RAINBOW }}>
           {loading ? 'Setting up...' : "Finish — let's go! 🚀"}
         </button>
       </div>
+      <button onClick={handleFinish} disabled={loading} className="w-full text-center text-gray-400 text-sm font-semibold underline">Skip & finish</button>
     </Shell>
   )
 }

@@ -3,53 +3,46 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import PinModal from '@/components/PinModal'
 import SpinWheel from '@/components/SpinWheel'
 
 interface Task {
   id: string; title: string; emoji: string; type: string
   time_of_day: string | null; star_value: number
   requires_photo: boolean; requires_benchmark_photo: boolean
-  requires_approval?: boolean
 }
-interface Child { id: string; name: string; avatar: string; colour: string }
+interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
 interface Praise { id: string; message: string }
 interface Props {
   child: Child; tasks: Task[]; completedTaskIds: string[]
-  starBalance: number; parentPin: string; rewards: Reward[]; pendingRewardIds: string[]
-  canSpin: boolean; unseenPraises: Praise[]; highlightTaskId?: string | null
+  starBalance: number; rewards: Reward[]; pendingRewardIds: string[]
+  canSpin: boolean; spinTier: 'low' | 'mid' | 'high'; unseenPraises: Praise[]; highlightTaskId?: string | null
 }
 
-const ENCOURAGEMENTS = [
-  '⭐ Amazing!', '🔥 On fire!', '💪 Keep going!', '🏆 Champion!',
-  '🎉 Brilliant!', '🦁 You legend!', '🌟 Superstar!', '🎈 Awesome!',
-  '🚀 Crushing it!', '💡 So smart!', '🥳 Way to go!', '🤩 Unreal!',
-]
-
 const CELEBRATION_EMOJIS = ['⭐','🎉','✨','🌟','🎊','💫','🏆','🥳','🎈','🌈']
-
-interface FloatingBadge { id: number; value: number; top: number }
+const TIME_GROUPS = [
+  { key: 'morning',   label: '🌅 Morning' },
+  { key: 'afternoon', label: '☀️ Afternoon' },
+  { key: 'evening',   label: '🌙 Evening' },
+  { key: null,        label: '📋 Anytime' },
+]
 
 export default function ChildTaskView({
   child, tasks, completedTaskIds: initial, starBalance: initialBalance,
-  parentPin, rewards, pendingRewardIds: initialPending,
-  canSpin: initialCanSpin, unseenPraises, highlightTaskId,
+  rewards, pendingRewardIds: initialPending,
+  canSpin: initialCanSpin, spinTier, unseenPraises, highlightTaskId,
 }: Props) {
   const router = useRouter()
   const [pulseId, setPulseId] = useState<string | null>(highlightTaskId ?? null)
   const [completedIds, setCompletedIds] = useState(new Set(initial))
   const [starBalance, setStarBalance] = useState(initialBalance)
   const [pendingRewardIds, setPendingRewardIds] = useState(new Set(initialPending))
-  const [showPin, setShowPin] = useState(false)
-  const [showExitSummary, setShowExitSummary] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [showRewards, setShowRewards] = useState(false)
   const [showSpin, setShowSpin] = useState(false)
   const [canSpin, setCanSpin] = useState(initialCanSpin)
   const [requestingId, setRequestingId] = useState<string | null>(null)
   const [justRequestedId, setJustRequestedId] = useState<string | null>(null)
-  const [floatingBadges, setFloatingBadges] = useState<FloatingBadge[]>([])
   const [encouragement, setEncouragement] = useState<string | null>(null)
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null)
   const [claimBurst, setClaimBurst] = useState<{ stars: number; emoji: string } | null>(null)
@@ -57,14 +50,12 @@ export default function ChildTaskView({
   const [validating, setValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<{ pass: boolean; feedback: string } | null>(null)
 
-  // Praise state
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
 
   const sessionCompleted = useRef(new Set<string>())
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  // Deep link: scroll to and pulse the tapped task
   useEffect(() => {
     if (!highlightTaskId || currentPraise) return
     const el = document.getElementById(`task-${highlightTaskId}`)
@@ -73,7 +64,6 @@ export default function ChildTaskView({
     return () => clearTimeout(t)
   }, [highlightTaskId, currentPraise])
 
-  // Mark praises seen
   async function dismissPraise() {
     if (!currentPraise) return
     const supabase = createClient()
@@ -143,35 +133,24 @@ export default function ChildTaskView({
     if (completedIds.has(task.id)) return
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
-    const needsApproval = !!task.requires_approval
 
-    // Approval tasks go in as "pending" with no stars until a grown-up approves.
     const { data: completion } = await supabase.from('completions').insert({
-      task_id: task.id, child_id: child.id, date: today,
-      status: needsApproval ? 'pending' : 'approved',
+      task_id: task.id, child_id: child.id, date: today, status: 'approved',
     }).select('id').single()
 
-    if (!needsApproval) {
-      await supabase.from('star_ledger').insert({
-        child_id: child.id, delta: task.star_value,
-        reason: `Completed: ${task.title}`, source_type: 'completion',
-        source_id: completion?.id,
-      })
-    }
+    await supabase.from('star_ledger').insert({
+      child_id: child.id, delta: task.star_value,
+      reason: `Completed: ${task.title}`, source_type: 'completion',
+      source_id: completion?.id,
+    })
 
     sessionCompleted.current.add(task.id)
     setJustCompletedId(task.id)
     setTimeout(() => setJustCompletedId(null), 600)
 
-    if (needsApproval) {
-      setEncouragement('🕓 Sent to a grown-up to check!')
-      setTimeout(() => setEncouragement(null), 2200)
-    } else {
-      // Big claim celebration 🎉
-      setClaimBurst({ stars: task.star_value, emoji: task.emoji })
-      setTimeout(() => setClaimBurst(null), 1900)
-      setStarBalance(prev => prev + task.star_value)
-    }
+    setClaimBurst({ stars: task.star_value, emoji: task.emoji })
+    setTimeout(() => setClaimBurst(null), 1900)
+    setStarBalance(prev => prev + task.star_value)
 
     setCompletedIds(prev => new Set([...prev, task.id]))
 
@@ -202,22 +181,14 @@ export default function ChildTaskView({
     setRequestingId(null)
   }
 
-  function handleExit() {
-    if (sessionCompleted.current.size === 0) {
-      router.push('/dashboard')
-    } else {
-      setShowExitSummary(true)
-    }
-  }
-
-  async function checkParentPin(pin: string) { return pin === parentPin }
+  function handleExit() { router.push('/dashboard') }
 
   // === Praise overlay ===
   if (currentPraise) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center p-8 text-center z-50"
         style={{ background: `linear-gradient(135deg, ${child.colour}dd, ${child.colour}99)` }}>
-        <div className="text-8xl mb-4 animate-bounce">{child.avatar}</div>
+        <div className="text-8xl mb-4 animate-bounce">{child.avatar_url ? <img src={child.avatar_url} className="w-28 h-28 rounded-3xl object-cover mx-auto" alt=""/> : child.avatar}</div>
         <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-xs w-full pop-in">
           <p className="text-5xl mb-3">💌</p>
           <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">A message from your parent</p>
@@ -244,7 +215,9 @@ export default function ChildTaskView({
           </span>
         ))}
         <div className="relative z-10 flex flex-col items-center">
-          <div className="text-[100px] bounce-in mb-2 drop-shadow-2xl">{child.avatar}</div>
+          <div className="text-[100px] bounce-in mb-2 drop-shadow-2xl">
+            {child.avatar_url ? <img src={child.avatar_url} className="w-28 h-28 rounded-3xl object-cover" alt=""/> : child.avatar}
+          </div>
           <h1 className="text-4xl font-black text-white drop-shadow-lg mb-1">You did it!</h1>
           <p className="text-xl text-white/90 mb-8">{child.name} finished everything! 🎉</p>
           <div className="bg-white rounded-3xl px-10 py-5 mb-6 shadow-2xl pop-in">
@@ -256,7 +229,7 @@ export default function ChildTaskView({
               <button onClick={() => setShowSpin(true)}
                 className="w-full font-black text-xl py-5 rounded-3xl shadow-2xl active:scale-95 transition text-white"
                 style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
-                🎰 Bonus Spin!
+                🎰 Sunday Bonus Spin!
               </button>
             )}
             {rewards.length > 0 && (
@@ -273,16 +246,7 @@ export default function ChildTaskView({
         </div>
 
         {showSpin && (
-          <SpinWheel childColour={child.colour} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
-        )}
-        {showExitSummary && (
-          <ExitSummary tasks={tasks.filter(t => sessionCompleted.current.has(t.id))}
-            onConfirm={() => { setShowExitSummary(false); setShowPin(true) }}
-            onCancel={() => setShowExitSummary(false)}/>
-        )}
-        {showPin && (
-          <PinModal title="Exit Kid Mode" onSuccess={() => router.push('/dashboard')}
-            onCancel={() => setShowPin(false)} checkPin={checkParentPin}/>
+          <SpinWheel childColour={child.colour} tier={spinTier} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
         )}
         {showRewards && (
           <RewardsPanel rewards={rewards} starBalance={starBalance} pendingRewardIds={pendingRewardIds}
@@ -299,13 +263,6 @@ export default function ChildTaskView({
     <div className="min-h-screen pb-32 relative"
       style={{ background: `linear-gradient(180deg, ${child.colour}55 0%, #f9fafb 30%)` }}>
 
-      {floatingBadges.map(badge => (
-        <div key={badge.id} className="float-up text-3xl font-black drop-shadow-lg"
-          style={{ top: `${badge.top}%`, color: '#FBBF24' }}>
-          +{badge.value} ⭐
-        </div>
-      ))}
-
       {encouragement && (
         <div className="fixed top-24 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="pop-in bg-black/75 backdrop-blur text-white text-xl font-bold px-7 py-3.5 rounded-3xl shadow-2xl">
@@ -318,7 +275,11 @@ export default function ChildTaskView({
 
       {/* Header */}
       <div className="pt-10 pb-4 px-4 text-center">
-        <div className="text-7xl mb-2 drop-shadow-lg">{child.avatar}</div>
+        <div className="mb-2 flex justify-center">
+          {child.avatar_url
+            ? <img src={child.avatar_url} className="w-20 h-20 rounded-3xl object-cover drop-shadow-lg" style={{ border: `3px solid ${child.colour}` }} alt=""/>
+            : <div className="text-7xl drop-shadow-lg">{child.avatar}</div>}
+        </div>
         <h1 className="text-2xl font-bold text-gray-800">{child.name}'s Tasks</h1>
         <div className="inline-flex items-center gap-2 bg-white rounded-full px-5 py-2.5 mt-2 shadow-md">
           <span className="text-yellow-400 text-xl">⭐</span>
@@ -329,7 +290,7 @@ export default function ChildTaskView({
 
       {/* Progress */}
       {tasks.length > 0 && (
-        <div className="px-5 mb-6">
+        <div className="px-5 mb-5">
           <div className="flex justify-between text-sm font-bold mb-2">
             <span className="text-gray-600">{complete.length} of {tasks.length} done</span>
             {incomplete.length > 0
@@ -348,37 +309,43 @@ export default function ChildTaskView({
         </div>
       )}
 
-      {/* Hidden photo input */}
       <input type="file" accept="image/*" capture="environment" className="hidden" ref={photoInputRef}
         onChange={e => { if (e.target.files?.[0]) handlePhotoCapture(e.target.files[0]) }}/>
 
-      {/* Incomplete tasks */}
-      <div className="px-4 space-y-3">
-        {incomplete.map((task, i) => (
-          <button key={task.id} id={`task-${task.id}`} onClick={() => handleTaskTap(task)}
-            className={`w-full flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm text-left transition-all duration-300 active:scale-95 ${justCompletedId === task.id ? 'scale-90 opacity-50' : ''} ${pulseId === task.id ? 'bounce-in' : ''}`}
-            style={{ animationDelay: `${i * 0.05}s`, ...(pulseId === task.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}) }}>
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0"
-              style={{ backgroundColor: child.colour + '22' }}>
-              {task.emoji}
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-gray-800 text-base">{task.title}</p>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {task.time_of_day && <p className="text-sm text-gray-400 capitalize">{task.time_of_day}</p>}
-                {task.requires_benchmark_photo && <span className="text-xs bg-purple-50 text-purple-400 font-semibold px-1.5 py-0.5 rounded-full">📷 photo check</span>}
-                {task.requires_approval && <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-1.5 py-0.5 rounded-full">🕓 needs OK</span>}
+      {/* Incomplete tasks grouped by time of day */}
+      <div className="px-4 space-y-5">
+        {TIME_GROUPS.map(group => {
+          const groupTasks = incomplete.filter(t => group.key === null ? !t.time_of_day : t.time_of_day === group.key)
+          if (groupTasks.length === 0) return null
+          return (
+            <div key={group.key ?? 'anytime'}>
+              <p className="text-sm font-black text-gray-500 mb-2 px-1">{group.label}</p>
+              <div className="space-y-3">
+                {groupTasks.map((task, i) => (
+                  <button key={task.id} id={`task-${task.id}`} onClick={() => handleTaskTap(task)}
+                    className={`w-full flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm text-left transition-all duration-300 active:scale-95 ${justCompletedId === task.id ? 'scale-90 opacity-50' : ''} ${pulseId === task.id ? 'bounce-in' : ''}`}
+                    style={{ animationDelay: `${i * 0.05}s`, ...(pulseId === task.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}) }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0"
+                      style={{ backgroundColor: child.colour + '22' }}>
+                      {task.emoji}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-800 text-base">{task.title}</p>
+                      {task.requires_benchmark_photo && <span className="text-xs bg-purple-50 text-purple-400 font-semibold px-1.5 py-0.5 rounded-full">📷 photo check</span>}
+                    </div>
+                    <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                      <div className="px-4 py-2.5 rounded-2xl text-white font-black text-sm shadow active:scale-95 transition"
+                        style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
+                        Claim
+                      </div>
+                      <p className="text-[11px] font-bold text-yellow-500">+{task.star_value} ⭐</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="flex-shrink-0 flex flex-col items-center gap-1">
-              <div className="px-4 py-2.5 rounded-2xl text-white font-black text-sm shadow active:scale-95 transition"
-                style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
-                Claim
-              </div>
-              <p className="text-[11px] font-bold text-yellow-500">+{task.star_value} ⭐</p>
-            </div>
-          </button>
-        ))}
+          )
+        })}
       </div>
 
       {/* Completed tasks */}
@@ -400,8 +367,8 @@ export default function ChildTaskView({
       {tasks.length === 0 && (
         <div className="text-center py-16 px-4">
           <div className="text-6xl mb-4">🎉</div>
-          <p className="text-gray-600 font-semibold">No tasks assigned yet!</p>
-          <p className="text-gray-400 text-sm mt-1">Ask a grown-up to add some tasks.</p>
+          <p className="text-gray-600 font-semibold">Nothing to do right now!</p>
+          <p className="text-gray-400 text-sm mt-1">Check back later for more tasks.</p>
         </div>
       )}
 
@@ -415,9 +382,8 @@ export default function ChildTaskView({
           </button>
         ) : <div/>}
         <button onClick={handleExit}
-          className={`rounded-2xl px-5 py-3 shadow-md font-semibold text-sm border active:scale-95 transition ${sessionCompleted.current.size > 0 ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-100'}`}
-          style={sessionCompleted.current.size > 0 ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
-          {sessionCompleted.current.size > 0 ? '✅ All done!' : '🔐 Exit'}
+          className="rounded-2xl px-5 py-3 shadow-md font-semibold text-sm bg-white text-gray-500 border border-gray-100 active:scale-95 transition">
+          ← Exit
         </button>
       </div>
 
@@ -455,56 +421,11 @@ export default function ChildTaskView({
         </div>
       )}
 
-      {showExitSummary && (
-        <ExitSummary tasks={tasks.filter(t => sessionCompleted.current.has(t.id))}
-          onConfirm={() => { setShowExitSummary(false); setShowPin(true) }}
-          onCancel={() => setShowExitSummary(false)}/>
-      )}
-      {showPin && (
-        <PinModal title="Exit Kid Mode" onSuccess={() => router.push('/dashboard')}
-          onCancel={() => setShowPin(false)} checkPin={checkParentPin}/>
-      )}
       {showRewards && (
         <RewardsPanel rewards={rewards} starBalance={starBalance} pendingRewardIds={pendingRewardIds}
           requestingId={requestingId} justRequestedId={justRequestedId}
           onRequest={requestReward} onClose={() => setShowRewards(false)} colour={child.colour}/>
       )}
-    </div>
-  )
-}
-
-function ExitSummary({ tasks, onConfirm, onCancel }: {
-  tasks: Task[]; onConfirm: () => void; onCancel: () => void
-}) {
-  const totalStars = tasks.reduce((s, t) => s + t.star_value, 0)
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-3xl p-6 pop-in max-h-[80vh] overflow-y-auto">
-        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5"/>
-        <h2 className="text-xl font-black text-gray-800 mb-1">Tasks done this session 🌟</h2>
-        <p className="text-gray-400 text-sm mb-4">Parent confirms these were completed</p>
-        <div className="space-y-2 mb-5">
-          {tasks.map(t => (
-            <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50">
-              <span className="text-2xl">{t.emoji}</span>
-              <span className="font-semibold text-gray-700 flex-1">{t.title}</span>
-              <span className="text-yellow-500 font-bold">+{t.star_value} ⭐</span>
-            </div>
-          ))}
-        </div>
-        <div className="bg-yellow-50 rounded-2xl px-4 py-3 mb-5 flex items-center justify-between">
-          <span className="font-semibold text-gray-600">Total stars earned</span>
-          <span className="text-2xl font-black text-yellow-500">+{totalStars} ⭐</span>
-        </div>
-        <button onClick={onConfirm}
-          className="w-full text-white font-bold py-4 rounded-2xl text-lg active:scale-95 transition mb-3"
-          style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-          Looks good! Exit 🔐
-        </button>
-        <button onClick={onCancel} className="w-full text-gray-400 text-sm py-2 font-semibold">
-          Keep going! 💪
-        </button>
-      </div>
     </div>
   )
 }

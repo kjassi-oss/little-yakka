@@ -5,7 +5,41 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 
-const EMOJIS = ['🛏️','🧹','🍽️','🧺','📚','🐕','🌿','🗑️','🛁','🧼','🪥','🍳','🚿','🧽','👕','🎒','🏃','🌙','🎨','🪀']
+// Searchable emoji set (keywords drive the search box)
+const EMOJI_OPTIONS: { e: string; kw: string }[] = [
+  { e: '🛏️', kw: 'bed make sleep bedroom' }, { e: '🧹', kw: 'sweep broom clean tidy floor' },
+  { e: '🍽️', kw: 'dishes plate dinner table eat clear' }, { e: '🧺', kw: 'laundry washing basket clothes' },
+  { e: '📚', kw: 'books read study homework school' }, { e: '🐕', kw: 'dog pet walk feed' },
+  { e: '🐈', kw: 'cat pet feed litter' }, { e: '🐟', kw: 'fish pet feed tank' },
+  { e: '🌿', kw: 'plant garden water weeds' }, { e: '🗑️', kw: 'bin rubbish trash garbage empty' },
+  { e: '♻️', kw: 'recycle recycling bins' }, { e: '🛁', kw: 'bath wash clean' },
+  { e: '🧼', kw: 'soap wash hands clean' }, { e: '🪥', kw: 'toothbrush teeth brush' },
+  { e: '🍳', kw: 'cook breakfast egg kitchen help' }, { e: '🚿', kw: 'shower wash clean' },
+  { e: '🧽', kw: 'sponge wipe clean scrub' }, { e: '👕', kw: 'shirt clothes get dressed fold' },
+  { e: '🧦', kw: 'socks clothes pairs' }, { e: '👟', kw: 'shoes tidy put away' },
+  { e: '🎒', kw: 'bag school pack backpack' }, { e: '🏃', kw: 'run exercise sport active' },
+  { e: '🌙', kw: 'night bedtime sleep evening' }, { e: '🎨', kw: 'art draw paint craft' },
+  { e: '🪀', kw: 'toys play tidy pack away' }, { e: '🧸', kw: 'toys teddy tidy bedroom' },
+  { e: '🧴', kw: 'lotion sunscreen cream' }, { e: '💊', kw: 'medicine vitamin tablet' },
+  { e: '🥤', kw: 'drink water bottle' }, { e: '🍎', kw: 'fruit apple healthy snack eat' },
+  { e: '🥕', kw: 'veg carrot vegetables eat' }, { e: '🍌', kw: 'banana fruit snack' },
+  { e: '🥣', kw: 'cereal breakfast bowl' }, { e: '🧊', kw: 'fridge ice freezer' },
+  { e: '🪟', kw: 'window clean wipe' }, { e: '🚪', kw: 'door close lock' },
+  { e: '🛒', kw: 'shopping groceries store help' }, { e: '🧻', kw: 'toilet paper roll bathroom' },
+  { e: '🚽', kw: 'toilet clean bathroom' }, { e: '🪣', kw: 'bucket mop clean water' },
+  { e: '🧷', kw: 'tidy organise pin' }, { e: '📝', kw: 'homework write notes school' },
+  { e: '✏️', kw: 'pencil write draw school' }, { e: '🎹', kw: 'piano music practice' },
+  { e: '🎸', kw: 'guitar music practice' }, { e: '⚽', kw: 'soccer football sport play' },
+  { e: '🏀', kw: 'basketball sport play' }, { e: '🚲', kw: 'bike ride cycle' },
+  { e: '🧠', kw: 'study think learn brain' }, { e: '💧', kw: 'water plants drink' },
+  { e: '🌳', kw: 'tree garden outside yard' }, { e: '🍂', kw: 'leaves rake garden yard' },
+  { e: '☀️', kw: 'morning sun wake up' }, { e: '⭐', kw: 'star reward good' },
+  { e: '❤️', kw: 'love kind helpful' }, { e: '🙏', kw: 'manners please thanks pray' },
+  { e: '😴', kw: 'sleep nap bedtime rest' }, { e: '🪴', kw: 'plant pot water garden' },
+  { e: '🧦', kw: 'socks clothes' }, { e: '🍪', kw: 'snack treat baking' },
+  { e: '🐾', kw: 'pet animal feed' }, { e: '🚗', kw: 'car wash tidy' },
+  { e: '🎯', kw: 'goal target focus' }, { e: '📦', kw: 'box pack tidy put away' },
+]
 const TIME_OPTIONS = [
   { value: 'anytime',   label: '📋 Anytime' },
   { value: 'morning',   label: '🌅 Morning' },
@@ -64,6 +98,7 @@ export default function ChoresPage() {
   const [type, setType] = useState<'chore' | 'routine'>('chore')
   const [timeOfDay, setTimeOfDay] = useState('anytime')
   const [startDate, setStartDate] = useState('')
+  const [emojiSearch, setEmojiSearch] = useState('')
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(true)
   const [starValue, setStarValue] = useState(3)
@@ -205,7 +240,7 @@ export default function ChoresPage() {
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
       frequency, carry_over: carryOver, difficulty,
-      requires_approval: requiresApproval,
+      requires_approval: false,
     }
 
     let taskId = editingTaskId
@@ -301,9 +336,6 @@ export default function ChoresPage() {
               className={`relative flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
               style={mainTab === tab ? { background: 'var(--theme-gradient)' } : {}}>
               {label}
-              {tab === 'history' && pendingApprovals.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold">{pendingApprovals.length}</span>
-              )}
             </button>
           ))}
         </div>
@@ -366,19 +398,23 @@ export default function ChoresPage() {
               placeholder={type === 'chore' ? 'e.g. Make bed, Tidy room...' : 'e.g. Brush teeth, Read...'}/>
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">Choose an emoji</p>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {EMOJIS.map(e => (
-                  <button key={e} onClick={() => setEmoji(e)}
-                    className={`text-2xl p-1.5 rounded-xl transition ${emoji === e ? 'ring-2 ring-purple-400' : 'hover:bg-gray-100'}`}
-                    style={emoji === e ? { backgroundColor: 'var(--theme-from)22' } : {}}>
-                    {e}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>{emoji}</div>
+                <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder="🔍 Search icons (e.g. bed, teeth, dog)"/>
               </div>
-              <input type="text" value={emoji} onChange={e => setEmoji(e.target.value)}
-                className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-xl focus:outline-none"
-                maxLength={2} placeholder="✏️"/>
+              <div className="grid grid-cols-7 gap-1 max-h-40 overflow-y-auto p-1 bg-gray-50 rounded-2xl">
+                {EMOJI_OPTIONS
+                  .filter(o => { const q = emojiSearch.trim().toLowerCase(); return !q || o.kw.includes(q) })
+                  .map((o, i) => (
+                    <button key={`${o.e}-${i}`} onClick={() => setEmoji(o.e)}
+                      className={`text-2xl p-1.5 rounded-xl transition ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'hover:bg-white'}`}>
+                      {o.e}
+                    </button>
+                  ))}
+              </div>
             </div>
 
             <div>
@@ -426,24 +462,6 @@ export default function ChoresPage() {
               <p className="text-xs text-gray-500 mb-2">Stars to earn: <span className="font-bold text-yellow-500">⭐ {starValue}</span></p>
               <input type="range" min={1} max={10} value={starValue} onChange={e => setStarValue(Number(e.target.value))} className="w-full"/>
               <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>10</span></div>
-            </div>
-
-            <div className="flex items-center justify-between py-1">
-              <div><p className="text-sm font-medium text-gray-700">Needs parent approval 🕓</p><p className="text-xs text-gray-400">{requiresApproval ? 'Stars given after you approve' : 'Stars awarded automatically'}</p></div>
-              <button onClick={() => setRequiresApproval(!requiresApproval)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${requiresApproval ? '' : 'bg-gray-200'}`}
-                style={requiresApproval ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${requiresApproval ? 'translate-x-6' : 'translate-x-0.5'}`}/>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between py-1">
-              <div><p className="text-sm font-medium text-gray-700">Requires photo proof 📷</p><p className="text-xs text-gray-400">Kid snaps a photo when done</p></div>
-              <button onClick={() => setRequiresPhoto(!requiresPhoto)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${requiresPhoto ? '' : 'bg-gray-200'}`}
-                style={requiresPhoto ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${requiresPhoto ? 'translate-x-6' : 'translate-x-0.5'}`}/>
-              </button>
             </div>
 
             <div className="flex items-center justify-between py-1">
@@ -672,39 +690,6 @@ export default function ChoresPage() {
         {/* ── DONE / HISTORY TAB ── */}
         {mainTab === 'history' && !showForm && (
           <div className="space-y-5">
-            {/* Needs parent approval */}
-            {pendingApprovals.length > 0 && (
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--theme-from)' }}>🕓 Needs your OK ({pendingApprovals.length})</p>
-                <div className="space-y-2">
-                  {pendingApprovals.map(p => (
-                    <div key={p.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-amber-100">
-                      <div className="flex items-center gap-3 mb-2">
-                        {p.children?.avatar_url
-                          ? <img src={p.children.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
-                          : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                              style={{ backgroundColor: (p.children?.colour || '#ccc') + '33' }}>{p.children?.avatar}</div>}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span>{p.tasks?.emoji}</span>
-                            <p className="font-semibold text-gray-800 text-sm truncate">{p.tasks?.title}</p>
-                          </div>
-                          <p className="text-xs text-gray-400">{p.children?.name} · ⭐ {p.tasks?.star_value}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => rejectCompletion(p)}
-                          className="flex-1 border-2 border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm hover:border-red-300 hover:text-red-500 transition">Reject ✗</button>
-                        <button onClick={() => approveCompletion(p)}
-                          className="flex-1 text-white font-bold py-2 rounded-xl text-sm shadow active:scale-95 transition"
-                          style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>Approve ✓</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {(() => {
               const grouped: Record<string, HistoryRow[]> = {}
               history.forEach(h => { (grouped[h.date] ||= []).push(h) })

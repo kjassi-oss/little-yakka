@@ -48,16 +48,9 @@ export default function BottomNav() {
         </Link>
 
         <Link href="/dashboard/chores"
-          className={`flex flex-col items-center gap-1 transition relative ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
+          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/chores') ? { color: 'var(--theme-from)' } : {}}>
-          <div className="relative">
-            <span className="text-2xl">📋</span>
-            {approvalCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-[9px] font-black">{approvalCount > 9 ? '9+' : approvalCount}</span>
-              </div>
-            )}
-          </div>
+          <span className="text-2xl">📋</span>
           <span className="text-[10px] font-semibold">Tasks</span>
         </Link>
 

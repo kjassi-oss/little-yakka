@@ -1,17 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
-const PRIZES = [
-  { stars: 2,  label: '+2', color: '#8B5CF6' },
-  { stars: 1,  label: '+1', color: '#EC4899' },
-  { stars: 5,  label: '+5', color: '#F59E0B' },
-  { stars: 1,  label: '+1', color: '#10B981' },
-  { stars: 3,  label: '+3', color: '#3B82F6' },
-  { stars: 20, label: '🏆', color: '#EF4444' },
-]
+const SEGMENT_COLORS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444']
 
-const N = PRIZES.length
+// Prize amounts scale with the week's performance:
+//   low (few/none done) → 0–1,  mid (about half) → 2–5,  high (all done) → 5–20
+const TIER_STARS: Record<'low' | 'mid' | 'high', number[]> = {
+  low:  [0, 1, 0, 1, 0, 1],
+  mid:  [2, 3, 5, 2, 4, 5],
+  high: [5, 8, 20, 10, 15, 12],
+}
+
+function buildPrizes(tier: 'low' | 'mid' | 'high') {
+  const amounts = TIER_STARS[tier]
+  const max = Math.max(...amounts)
+  return amounts.map((stars, i) => ({
+    stars,
+    label: stars === max && max >= 10 ? '🏆' : `+${stars}`,
+    color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+  }))
+}
+
+const N = 6
 const ANGLE = 360 / N
 const R = 120
 const CX = 150
@@ -31,14 +42,16 @@ function sectorPath(i: number) {
 
 interface Props {
   childColour: string
+  tier: 'low' | 'mid' | 'high'
   onWin: (stars: number) => void
   onClose: () => void
 }
 
-export default function SpinWheel({ childColour, onWin, onClose }: Props) {
+export default function SpinWheel({ childColour, tier, onWin, onClose }: Props) {
+  const PRIZES = useMemo(() => buildPrizes(tier), [tier])
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
-  const [result, setResult] = useState<typeof PRIZES[0] | null>(null)
+  const [result, setResult] = useState<{ stars: number; label: string; color: string } | null>(null)
 
   function spin() {
     if (spinning || result) return

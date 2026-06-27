@@ -43,6 +43,19 @@ function getLevel(stars: number) {
 const TIME_ORDER: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
 const TIME_LABEL: Record<string, string> = { morning: '🌅 Morning', afternoon: '☀️ Afternoon', evening: '🌙 Evening' }
 
+// Is a recurring task due on this day? Respects frequency + start date.
+function occursOn(task: any, d: Date): boolean {
+  const ymd = d.toISOString().split('T')[0]
+  const anchorStr = task.start_date || (task.created_at ? String(task.created_at).split('T')[0] : null)
+  if (anchorStr && ymd < anchorStr) return false
+  const freq = task.frequency || 'daily'
+  if (freq === 'daily') return true
+  const anchor = anchorStr ? new Date(anchorStr + 'T00:00:00') : d
+  if (freq === 'weekly') return d.getDay() === anchor.getDay()
+  if (freq === 'monthly') return d.getDate() === anchor.getDate()
+  return true
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -54,7 +67,7 @@ export default async function DashboardPage() {
 
   const [{ data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
     supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-    supabase.from('tasks').select('id, title, emoji, star_value, time_of_day').eq('family_id', guardian.family_id),
+    supabase.from('tasks').select('id, title, emoji, star_value, time_of_day, frequency, start_date, created_at').eq('family_id', guardian.family_id),
     supabase.from('task_assignments').select('task_id, child_id'),
     supabase.from('star_ledger').select('child_id, delta'),
   ])
@@ -95,6 +108,9 @@ export default async function DashboardPage() {
   const childMap: Record<string, any> = {}
   ;(children || []).forEach(c => { childMap[c.id] = c })
 
+  // Only tasks actually due today (frequency + start date aware)
+  const todayTasks = (tasks || []).filter(t => occursOn(t, now))
+
   const childData = (children || []).map(child => {
     const balance = allStarData?.filter(s => s.child_id === child.id).reduce((sum, s) => sum + s.delta, 0) || 0
     const weekStars = weekStarData?.filter(s => s.child_id === child.id).reduce((sum, s) => sum + s.delta, 0) || 0
@@ -103,7 +119,7 @@ export default async function DashboardPage() {
     const totalCompletions = allCompletions?.filter(c => c.child_id === child.id).length || 0
     const badges = getBadges(balance, streak, totalCompletions)
     const level = getLevel(balance)
-    const myTasks = tasks?.filter(t => (assignmentMap[t.id] || []).includes(child.id)) || []
+    const myTasks = todayTasks.filter(t => (assignmentMap[t.id] || []).includes(child.id))
     const myDone = myTasks.filter(t => completedSet.has(`${t.id}-${child.id}`)).length
     return { child, balance, weekStars, streak, badges, level, myTasks, myDone }
   })
@@ -115,8 +131,8 @@ export default async function DashboardPage() {
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
 
-  // Upcoming tasks today = any task with at least one assigned kid not yet done
-  const upcoming = (tasks || [])
+  // Upcoming tasks today = any due task with at least one assigned kid not yet done
+  const upcoming = todayTasks
     .map(t => {
       const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
       const pending = kids.filter(k => !completedSet.has(`${t.id}-${k.id}`))
