@@ -58,9 +58,9 @@ export default function LoginPage() {
               Little Yakka
             </h1>
             {/* Tagline: same display font, all caps, justified to the wordmark's width */}
-            <p className="block w-full text-white uppercase font-bold mt-1.5 text-[11px] leading-none"
-              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', textAlignLast: 'justify' }}>
-              Make chores fun - great habits
+            <p className="block w-full text-white uppercase font-bold mt-1.5 text-[10px] leading-tight"
+              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', textAlign: 'justify', textAlignLast: 'justify' }}>
+              Making chores fun leading to positive lifelong habits
             </p>
           </div>
         </div>
