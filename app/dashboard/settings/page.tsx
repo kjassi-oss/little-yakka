@@ -38,6 +38,12 @@ export default function SettingsPage() {
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
   const [parentPin, setParentPin] = useState('')
+  const [curPw, setCurPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confPw, setConfPw] = useState('')
+  const [pwError, setPwError] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
   const [adjustChild, setAdjustChild] = useState<Child | null>(null)
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
@@ -90,6 +96,23 @@ export default function SettingsPage() {
     }
     setNewChild({ name: '', avatar: '🐨', colour: '#FF6B6B' }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
+  }
+
+  async function changePassword() {
+    setPwError(''); setPwMsg('')
+    if (newPw.length < 6) { setPwError('New password must be at least 6 characters.'); return }
+    if (newPw !== confPw) { setPwError("New passwords don't match."); return }
+    setPwSaving(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.email) { setPwError('No email on this account.'); setPwSaving(false); return }
+    // Verify the current password by re-authenticating
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: curPw })
+    if (signInErr) { setPwError('Current password is incorrect.'); setPwSaving(false); return }
+    const { error } = await supabase.auth.updateUser({ password: newPw })
+    setPwSaving(false)
+    if (error) { setPwError(error.message); return }
+    setPwMsg('Password updated ✓'); setCurPw(''); setNewPw(''); setConfPw('')
   }
 
   async function applyStarAdjust() {
@@ -164,7 +187,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2">
             <span className="text-2xl">⚙️</span>
             <div>
-              <h1 className="text-lg font-bold text-white">Settings</h1>
+              <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Settings</h1>
               <p className="text-white/70 text-xs">Manage your family</p>
             </div>
           </div>
@@ -283,6 +306,27 @@ export default function SettingsPage() {
               className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
               style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
               {savingFamily ? '...' : 'Save'}
+            </button>
+          </div>
+        </div>
+
+        {/* Change password */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-1">Change Password</h2>
+          <p className="text-xs text-gray-400 mb-3">Enter your current password first to confirm it's you.</p>
+          <div className="space-y-2.5">
+            <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Current password"/>
+            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="New password"/>
+            <input type="password" value={confPw} onChange={e => setConfPw(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Confirm new password"/>
+            {pwError && <p className="text-red-500 text-xs">{pwError}</p>}
+            {pwMsg && <p className="text-green-600 text-xs font-semibold">{pwMsg}</p>}
+            <button onClick={changePassword} disabled={pwSaving || !curPw || !newPw}
+              className="w-full text-white font-bold py-2.5 rounded-2xl text-sm disabled:opacity-50 active:scale-95 transition"
+              style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+              {pwSaving ? 'Updating...' : 'Update password'}
             </button>
           </div>
         </div>

@@ -52,11 +52,17 @@ export default function LoginPage() {
         {/* Rainbow logo, same width as the sign-in card below */}
         <div className="flex flex-col items-center mb-5">
           <Logo size={240} rainbow className="shadow-2xl mb-3 w-[78%] h-auto"/>
-          <h1 className="text-5xl font-black text-white tracking-tight"
-            style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
-            Little Yakka
-          </h1>
-          <p className="text-white/80 mt-1 text-sm font-semibold">Family chores made fun</p>
+          <div className="w-fit mx-auto text-center">
+            <h1 className="text-5xl font-black text-white tracking-tight"
+              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
+              Little Yakka
+            </h1>
+            {/* Tagline: same display font, all caps, justified to the wordmark's width */}
+            <p className="block w-full text-white uppercase font-bold mt-1.5 text-[11px] leading-none"
+              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', textAlignLast: 'justify' }}>
+              Make chores fun - great habits
+            </p>
+          </div>
         </div>
 
         {/* Compact sign-in card */}

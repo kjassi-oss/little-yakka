@@ -287,17 +287,19 @@ export default function ChoresPage() {
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📋</span>
-            <h1 className="text-lg font-bold text-white">Tasks</h1>
+            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Tasks</h1>
           </div>
           <ProfileButton/>
         </div>
+      </div>
 
-        {/* Tab toggle */}
-        <div className="max-w-sm mx-auto mt-2.5 flex bg-white/20 rounded-2xl p-1 gap-1">
+      {/* Tab toggle (white sub-bar) */}
+      <div className="bg-white px-4 pt-2.5 pb-1">
+        <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
           {([['tasks', '📋 All'], ['today', '📅 Today'], ['history', '✅ Done']] as const).map(([tab, label]) => (
             <button key={tab} onClick={() => setMainTab(tab)}
-              className={`relative flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'bg-white' : 'text-white'}`}
-              style={mainTab === tab ? { color: 'var(--theme-from)' } : {}}>
+              className={`relative flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
+              style={mainTab === tab ? { background: 'var(--theme-gradient)' } : {}}>
               {label}
               {tab === 'history' && pendingApprovals.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold">{pendingApprovals.length}</span>
@@ -559,6 +561,12 @@ export default function ChoresPage() {
                 {saving ? 'Saving...' : editingTaskId ? 'Update Task ✓' : 'Save Task ✓'}
               </button>
             </div>
+            {editingTaskId && (
+              <button onClick={() => { deleteTask(editingTaskId); closeForm() }}
+                className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">
+                🗑 Delete task
+              </button>
+            )}
           </div>
         )}
 
@@ -573,9 +581,8 @@ export default function ChoresPage() {
                   return (
                     <div key={task.id} onClick={() => handleTaskClick(task)}
                       className="bg-white rounded-2xl p-2.5 shadow-sm flex flex-col items-center gap-1.5 relative cursor-pointer active:scale-95 transition">
-                      <div className="absolute top-1.5 right-1.5 flex gap-0.5 z-10">
+                      <div className="absolute top-1.5 right-1.5 z-10">
                         <button onClick={e => { e.stopPropagation(); openEditForm(task) }} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
-                        <button onClick={e => { e.stopPropagation(); deleteTask(task.id) }} className="text-gray-300 text-sm font-bold leading-none active:scale-90 transition">×</button>
                       </div>
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl mt-1"
                         style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>

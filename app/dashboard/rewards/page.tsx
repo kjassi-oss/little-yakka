@@ -185,23 +185,23 @@ export default function RewardsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
-        <div className="max-w-sm mx-auto flex items-center justify-between mb-2.5">
+        <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎁</span>
-            <div>
-              <h1 className="text-lg font-bold text-white">Rewards</h1>
-              <p className="text-white/70 text-xs">{rewards.length} in catalogue</p>
-            </div>
+            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Rewards</h1>
           </div>
           <ProfileButton/>
         </div>
+      </div>
 
-        <div className="max-w-sm mx-auto flex bg-white/20 rounded-2xl p-1 gap-1">
+      {/* Tab toggle (white sub-bar) */}
+      <div className="bg-white px-4 pt-2.5 pb-1">
+        <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
           {([['catalogue', 'Catalogue'], ['requests', 'Requests'], ['redeemed', 'Redeemed']] as const).map(([tab, lbl]) => (
             <button key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition relative ${activeTab === tab ? 'bg-white' : 'text-white'}`}
-              style={activeTab === tab ? { color: 'var(--theme-from)' } : {}}
+              className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition relative ${activeTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
+              style={activeTab === tab ? { background: 'var(--theme-gradient)' } : {}}
             >
               {lbl}
               {tab === 'requests' && pending.length > 0 && (
@@ -281,8 +281,14 @@ export default function RewardsPage() {
             <button onClick={saveReward} disabled={saving || !title.trim()}
               className="w-full text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
               style={{ background: 'var(--theme-gradient)' }}>
-              {saving ? 'Saving...' : 'Save Reward ✓'}
+              {saving ? 'Saving...' : editingRewardId ? 'Update Reward ✓' : 'Save Reward ✓'}
             </button>
+            {editingRewardId && (
+              <button onClick={() => { if (confirm('Delete this reward?')) { deleteReward(editingRewardId); setShowForm(false); resetForm() } }}
+                className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">
+                🗑 Delete reward
+              </button>
+            )}
           </div>
         )}
 
@@ -317,9 +323,8 @@ export default function RewardsPage() {
                   <div className="grid grid-cols-3 gap-3">
                     {tier.items.map(reward => (
                       <div key={reward.id} className="bg-white rounded-3xl shadow-sm p-3 flex flex-col items-center gap-1.5 relative">
-                        <div className="absolute top-1.5 right-1.5 flex gap-0.5">
+                        <div className="absolute top-1.5 right-1.5">
                           <button onClick={() => openEditReward(reward)} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
-                          <button onClick={() => deleteReward(reward.id)} className="text-gray-300 hover:text-red-400 text-sm font-bold leading-none transition">×</button>
                         </div>
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl mt-2"
                           style={{ backgroundColor: tier.color + '18' }}>

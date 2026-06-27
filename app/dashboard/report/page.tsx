@@ -130,7 +130,7 @@ export default function AnalyticsPage() {
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📊</span>
-            <h1 className="text-lg font-bold text-white">Stats</h1>
+            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Stats</h1>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex bg-white/20 rounded-2xl p-1">
@@ -148,31 +148,35 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Kid filter thumbnails */}
-      {children.length > 0 && (
-        <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-          <div className="max-w-sm mx-auto flex gap-3 overflow-x-auto">
-            <button onClick={() => setSelectedKid(null)} className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-95 transition">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-black ${!selectedKid ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                style={!selectedKid ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
-              <span className="text-[10px] font-bold" style={{ color: !selectedKid ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
-            </button>
-            {children.map(child => {
-              const sel = selectedKid === child.id
-              return (
-                <button key={child.id} onClick={() => setSelectedKid(sel ? null : child.id)}
-                  className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-95 transition">
-                  {child.avatar_url
-                    ? <img src={child.avatar_url} className="w-12 h-12 rounded-full object-cover" alt=""
-                        style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
-                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                        style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
-                  <span className="text-[10px] font-bold truncate max-w-[48px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
-                </button>
-              )
-            })}
+      {children.length > 0 && (() => {
+        const scroll = children.length + 1 > 4 // ≤4 (incl. All) fill the width; more → scroll
+        const item = scroll ? 'flex-shrink-0 w-16' : 'flex-1 min-w-0'
+        return (
+          <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
+            <div className={`max-w-sm mx-auto flex gap-2 ${scroll ? 'overflow-x-auto' : ''}`}>
+              <button onClick={() => setSelectedKid(null)} className={`flex flex-col items-center gap-1 active:scale-95 transition ${item}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-black ${!selectedKid ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                  style={!selectedKid ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
+                <span className="text-[10px] font-bold" style={{ color: !selectedKid ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
+              </button>
+              {children.map(child => {
+                const sel = selectedKid === child.id
+                return (
+                  <button key={child.id} onClick={() => setSelectedKid(sel ? null : child.id)}
+                    className={`flex flex-col items-center gap-1 active:scale-95 transition ${item}`}>
+                    {child.avatar_url
+                      ? <img src={child.avatar_url} className="w-12 h-12 rounded-full object-cover" alt=""
+                          style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
+                      : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                          style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
+                    <span className="text-[10px] font-bold truncate max-w-[60px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <div className="max-w-sm mx-auto px-4 mt-4 space-y-4">
         {/* Completion ring hero */}

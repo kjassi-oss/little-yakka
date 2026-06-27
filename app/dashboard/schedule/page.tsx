@@ -140,7 +140,7 @@ export default function SchedulePage() {
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📅</span>
-            <h1 className="text-lg font-bold text-white">Calendar</h1>
+            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Calendar</h1>
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle */}
