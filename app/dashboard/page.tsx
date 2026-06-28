@@ -4,6 +4,7 @@ import Link from 'next/link'
 import PraiseButton from '@/components/PraiseButton'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
+import { occursOn } from '@/lib/recurrence'
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -43,19 +44,6 @@ function getLevel(stars: number) {
 const TIME_ORDER: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
 const TIME_LABEL: Record<string, string> = { morning: '🌅 Morning', afternoon: '☀️ Afternoon', evening: '🌙 Evening' }
 
-// Is a recurring task due on this day? Respects frequency + start date.
-function occursOn(task: any, d: Date): boolean {
-  const ymd = d.toISOString().split('T')[0]
-  const anchorStr = task.start_date || (task.created_at ? String(task.created_at).split('T')[0] : null)
-  if (anchorStr && ymd < anchorStr) return false
-  const freq = task.frequency || 'daily'
-  if (freq === 'daily') return true
-  const anchor = anchorStr ? new Date(anchorStr + 'T00:00:00') : d
-  if (freq === 'weekly') return d.getDay() === anchor.getDay()
-  if (freq === 'monthly') return d.getDate() === anchor.getDate()
-  return true
-}
-
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -67,7 +55,7 @@ export default async function DashboardPage() {
 
   const [{ data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
     supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-    supabase.from('tasks').select('id, title, emoji, star_value, time_of_day, frequency, start_date, created_at').eq('family_id', guardian.family_id),
+    supabase.from('tasks').select('id, title, emoji, star_value, time_of_day, frequency, start_date, created_at, days_of_week').eq('family_id', guardian.family_id),
     supabase.from('task_assignments').select('task_id, child_id'),
     supabase.from('star_ledger').select('child_id, delta'),
   ])
@@ -93,6 +81,17 @@ export default async function DashboardPage() {
     supabase.from('completions').select('child_id').eq('status', 'approved')
       .in('child_id', childIds.length ? childIds : ['none']),
   ])
+
+  // Bonus-wheel availability for the home alert badge
+  const [{ data: family }, { data: todaySpins }] = await Promise.all([
+    supabase.from('families').select('bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).maybeSingle(),
+    supabase.from('spin_results').select('child_id').eq('date', today).in('child_id', childIds.length ? childIds : ['none']),
+  ])
+  const bonusCadence = family?.bonus_cadence || 'weekly'
+  const bonusDay = family?.bonus_day ?? 0
+  const bonusTime = family?.bonus_time || '16:00'
+  const bonusDueNow = (bonusCadence === 'daily' || now.getDay() === bonusDay) && now.toTimeString().slice(0, 5) >= bonusTime
+  const spunSet = new Set((todaySpins || []).map(s => s.child_id))
 
   const completedSet = new Set(
     completions?.filter(c => c.status === 'approved' || c.status === 'pending')
@@ -142,7 +141,8 @@ export default async function DashboardPage() {
     const level = getLevel(balance)
     const myTasks = todayTasks.filter(t => (assignmentMap[t.id] || []).includes(child.id))
     const myDone = myTasks.filter(t => completedSet.has(`${t.id}-${child.id}`)).length
-    return { child, balance, weekStars, streak, badges, level, myTasks, myDone }
+    const canSpin = bonusDueNow && !spunSet.has(child.id)
+    return { child, balance, weekStars, streak, badges, level, myTasks, myDone, canSpin }
   })
 
   const leaderboard = [...childData].sort((a, b) => b.weekStars - a.weekStars)
@@ -152,15 +152,28 @@ export default async function DashboardPage() {
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
 
-  // Upcoming tasks today = any due task with at least one assigned kid not yet done
-  const upcoming = todayTasks
-    .map(t => {
-      const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
-      const pending = kids.filter(k => !completedSet.has(`${t.id}-${k.id}`))
-      return { task: t, kids, pending }
+  // Upcoming across the next 3 days, grouped by date
+  const upcomingDays: { ds: string; label: string; date: string; items: { task: any; pending: any[] }[] }[] = []
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now); d.setDate(now.getDate() + i)
+    const ds = d.toISOString().split('T')[0]
+    const items = (tasks || [])
+      .filter(t => occursOn(t, d))
+      .map(t => {
+        const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
+        const pending = i === 0 ? kids.filter((k: any) => !completedSet.has(`${t.id}-${k.id}`)) : kids
+        return { task: t, pending, kids }
+      })
+      .filter(u => u.kids.length > 0 && u.pending.length > 0)
+      .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
+    if (items.length) upcomingDays.push({
+      ds,
+      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'long' }),
+      date: d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }),
+      items,
     })
-    .filter(u => u.kids.length > 0 && u.pending.length > 0)
-    .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
+  }
+  const upcomingTotal = upcomingDays.reduce((s, d) => s + d.items.length, 0)
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
@@ -184,7 +197,7 @@ export default async function DashboardPage() {
         {/* Kids tiles — fill the frame up to 3, scroll for more */}
         {childData.length > 0 ? (
           <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5'}>
-            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone }) => {
+            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, canSpin }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
@@ -236,6 +249,11 @@ export default async function DashboardPage() {
                       <p className="text-[10px] font-bold text-orange-500 mb-1">🔥 {streak}d streak</p>
                     )}
 
+                    {canSpin && (
+                      <p className="text-[10px] font-black text-white rounded-full px-2 py-0.5 mb-1 inline-block animate-pulse"
+                        style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>🎰 Spin ready!</p>
+                    )}
+
                     {total > 0 && (
                       <p className="text-[9px] text-gray-400 mb-1.5">{allDone ? '✅ All tasks done!' : `${myDone}/${total} tasks today`}</p>
                     )}
@@ -260,44 +278,51 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Upcoming tasks today */}
+        {/* Upcoming — next 3 days, by date */}
         {childData.length > 0 && (
           <div className="bg-white rounded-3xl shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">📋 Upcoming today</p>
-              {upcoming.length > 0 && <span className="text-xs font-semibold text-gray-400">{upcoming.length} left</span>}
-            </div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">📋 Coming up</p>
 
-            {upcoming.length === 0 ? (
+            {upcomingTotal === 0 ? (
               <div className="text-center py-6">
                 <div className="text-4xl mb-1">🎉</div>
-                <p className="text-sm font-semibold text-gray-600">All tasks done for today!</p>
+                <p className="text-sm font-semibold text-gray-600">All caught up — nothing due!</p>
               </div>
             ) : (
-              <div className="max-h-[42vh] overflow-y-auto space-y-2 -mr-1 pr-1">
-                {upcoming.map(({ task, pending }) => (
-                  <TaskLauncher key={task.id} taskId={task.id} kids={pending}>
-                    <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2.5 active:scale-[0.98] transition">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
-                        <p className="text-[11px] text-gray-400">
-                          {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
-                        </p>
-                      </div>
-                      <div className="flex -space-x-2 flex-shrink-0">
-                        {pending.slice(0, 3).map((k: any) => (
-                          k.avatar_url
-                            ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt=""/>
-                            : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
-                                style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
-                        ))}
-                        {pending.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{pending.length - 3}</div>}
-                      </div>
+              <div className="space-y-4">
+                {upcomingDays.map(day => (
+                  <div key={day.ds}>
+                    <p className="text-[11px] font-black text-gray-700 mb-1.5">{day.label} · {day.date}</p>
+                    <div className="space-y-2">
+                      {day.items.map(({ task, pending }) => (
+                        <TaskLauncher key={task.id} taskId={task.id} kids={pending}>
+                          <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2.5 active:scale-[0.98] transition">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                              style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
+                              <p className="text-[11px] text-gray-400">
+                                {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
+                              </p>
+                            </div>
+                            <div className="flex -space-x-2 flex-shrink-0">
+                              {pending.slice(0, 3).map((k: any) => (
+                                k.avatar_url
+                                  ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt=""/>
+                                  : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
+                                      style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
+                              ))}
+                              {pending.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{pending.length - 3}</div>}
+                            </div>
+                          </div>
+                        </TaskLauncher>
+                      ))}
                     </div>
-                  </TaskLauncher>
+                  </div>
                 ))}
+                <Link href="/dashboard/schedule" className="block text-center text-xs font-bold pt-1" style={{ color: 'var(--theme-from)' }}>
+                  See more in Calendar →
+                </Link>
               </div>
             )}
           </div>

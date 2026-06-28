@@ -38,6 +38,11 @@ export default function SettingsPage() {
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
   const [parentPin, setParentPin] = useState('')
+  const [bonusCadence, setBonusCadence] = useState<'daily' | 'weekly'>('weekly')
+  const [bonusDay, setBonusDay] = useState(0)
+  const [bonusTime, setBonusTime] = useState('16:00')
+  const [savingBonus, setSavingBonus] = useState(false)
+  const [bonusSaved, setBonusSaved] = useState(false)
   const [curPw, setCurPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confPw, setConfPw] = useState('')
@@ -65,11 +70,23 @@ export default function SettingsPage() {
     setParentPin(guardian.parent_pin || '')
     const [{ data: childrenData }, { data: familyData }] = await Promise.all([
       supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-      supabase.from('families').select('name').eq('id', guardian.family_id).single(),
+      supabase.from('families').select('name, bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).single(),
     ])
     setChildren(childrenData || [])
     setFamilyName(familyData?.name || '')
+    if (familyData?.bonus_cadence) setBonusCadence(familyData.bonus_cadence === 'daily' ? 'daily' : 'weekly')
+    if (familyData?.bonus_day != null) setBonusDay(familyData.bonus_day)
+    if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
     setLoading(false)
+  }
+
+  async function saveBonus() {
+    setSavingBonus(true); setBonusSaved(false)
+    await createClient().from('families').update({
+      bonus_cadence: bonusCadence, bonus_day: bonusDay, bonus_time: bonusTime,
+    }).eq('id', familyId)
+    setSavingBonus(false); setBonusSaved(true)
+    setTimeout(() => setBonusSaved(false), 2000)
   }
 
   async function saveFamilyName() {
@@ -328,6 +345,46 @@ export default function SettingsPage() {
               {pwSaving ? 'Updating...' : 'Update password'}
             </button>
           </div>
+        </div>
+
+        {/* Bonus wheel */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-1">🎰 Bonus Wheel</h2>
+          <p className="text-xs text-gray-400 mb-3">When kids can spin for bonus stars. The prize scales with how much of their work is done by then.</p>
+
+          <div className="flex bg-gray-100 rounded-2xl p-1 mb-3">
+            {(['weekly', 'daily'] as const).map(c => (
+              <button key={c} onClick={() => setBonusCadence(c)}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold capitalize transition ${bonusCadence === c ? 'text-white shadow' : 'text-gray-400'}`}
+                style={bonusCadence === c ? { background: 'var(--theme-gradient)' } : {}}>{c}</button>
+            ))}
+          </div>
+
+          {bonusCadence === 'weekly' && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1.5">On which day?</p>
+              <div className="flex gap-1.5">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((lbl, dow) => (
+                  <button key={dow} onClick={() => setBonusDay(dow)}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${bonusDay === dow ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                    style={bonusDay === dow ? { background: 'var(--theme-gradient)' } : {}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 mb-3">
+            <p className="text-xs text-gray-500">Available from</p>
+            <input type="time" value={bonusTime} onChange={e => setBonusTime(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+          </div>
+
+          <button onClick={saveBonus} disabled={savingBonus}
+            className="w-full text-white font-bold py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
+            style={{ background: 'var(--theme-gradient)' }}>
+            {savingBonus ? 'Saving...' : bonusSaved ? 'Saved ✓' : 'Save bonus settings'}
+          </button>
+          <p className="text-[11px] text-gray-400 mt-2">Each child gets their own spin, redeemable that day only. They'll see a "Bonus spin ready!" banner in their zone.</p>
         </div>
 
         {/* Children */}

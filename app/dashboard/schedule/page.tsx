@@ -4,28 +4,16 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
+import { occursOn } from '@/lib/recurrence'
 
 interface Task {
   id: string; title: string; emoji: string; type: string; time_of_day: string | null; star_value: number
-  frequency?: 'daily' | 'weekly' | 'monthly'; start_date?: string | null; created_at?: string
+  frequency?: 'daily' | 'weekly' | 'monthly'; start_date?: string | null; created_at?: string; days_of_week?: number[] | null
 }
 interface Child { id: string; name: string; avatar: string; avatar_url?: string; colour: string }
 
 const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
-
-// Does a recurring task land on this calendar day? Respects frequency + start date.
-function occursOn(task: Task, d: Date): boolean {
-  const ymd = d.toISOString().split('T')[0]
-  const anchorStr = task.start_date || (task.created_at ? task.created_at.split('T')[0] : null)
-  if (anchorStr && ymd < anchorStr) return false
-  const freq = task.frequency || 'daily'
-  if (freq === 'daily') return true
-  const anchor = anchorStr ? new Date(anchorStr + 'T00:00:00') : d
-  if (freq === 'weekly') return d.getDay() === anchor.getDay()
-  if (freq === 'monthly') return d.getDate() === anchor.getDate()
-  return true
-}
 const TIME_GROUPS = [
   { key: 'morning',   label: '🌅 Morning' },
   { key: 'afternoon', label: '☀️ Afternoon' },

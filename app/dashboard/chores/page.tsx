@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
+import { occursOn } from '@/lib/recurrence'
 
 // Searchable emoji set (keywords drive the search box)
 const EMOJI_OPTIONS: { e: string; kw: string }[] = [
@@ -65,6 +66,7 @@ interface Task {
   benchmark_differs_per_child: boolean
   frequency: 'daily' | 'weekly' | 'monthly'; carry_over: boolean
   start_date?: string | null; requires_approval?: boolean
+  days_of_week?: number[] | null
 }
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface HistoryRow {
@@ -91,6 +93,7 @@ export default function ChoresPage() {
   const [showChildPicker, setShowChildPicker] = useState(false)
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<HistoryRow[]>([])
+  const [todayOnly, setTodayOnly] = useState(false)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -98,6 +101,7 @@ export default function ChoresPage() {
   const [type, setType] = useState<'chore' | 'routine'>('chore')
   const [timeOfDay, setTimeOfDay] = useState('anytime')
   const [startDate, setStartDate] = useState('')
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([])
   const [emojiSearch, setEmojiSearch] = useState('')
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(true)
@@ -199,7 +203,7 @@ export default function ChoresPage() {
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
-    setRequiresApproval(false)
+    setRequiresApproval(false); setDaysOfWeek([])
     setFormError('')
     setShowForm(true)
   }
@@ -217,6 +221,7 @@ export default function ChoresPage() {
     setAssignedChildren(assignments[task.id] || [])
     setDifficulty((task as any).difficulty || 'medium')
     setRequiresApproval((task as any).requires_approval || false)
+    setDaysOfWeek(task.days_of_week || [])
     setFormError('')
     setShowForm(true)
     const supabase = createClient()
@@ -241,6 +246,7 @@ export default function ChoresPage() {
       benchmark_differs_per_child: benchmarkDiffersPerChild,
       frequency, carry_over: carryOver, difficulty,
       requires_approval: false,
+      days_of_week: frequency === 'daily' && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? [...daysOfWeek].sort() : null,
     }
 
     let taskId = editingTaskId
@@ -304,9 +310,11 @@ export default function ChoresPage() {
   const childMap: Record<string, Child> = {}
   children.forEach(c => { childMap[c.id] = c })
 
-  const visibleTasks = filterChildId
+  const _now = new Date()
+  const visibleTasks = (filterChildId
     ? tasks.filter(t => (assignments[t.id] || []).includes(filterChildId))
     : tasks
+  ).filter(t => !todayOnly || occursOn(t as any, _now))
 
   const todayStr = new Date().toISOString().split('T')[0]
   const dateLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -429,6 +437,25 @@ export default function ChoresPage() {
                 ))}
               </div>
             </div>
+
+            {frequency === 'daily' && (
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Which days? <span className="text-gray-300">{daysOfWeek.length === 0 ? '(every day)' : ''}</span></p>
+                <div className="flex gap-1.5">
+                  {[['S', 0], ['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6]].map(([lbl, dow], i) => {
+                    const on = daysOfWeek.includes(dow as number)
+                    return (
+                      <button key={i} onClick={() => setDaysOfWeek(prev => prev.includes(dow as number) ? prev.filter(x => x !== dow) : [...prev, dow as number])}
+                        className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${on ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                        style={on ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
+                        {lbl}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Leave all off for every day, or pick specific days.</p>
+              </div>
+            )}
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Time of day</p>
@@ -590,9 +617,16 @@ export default function ChoresPage() {
 
         {/* ── TASKS TAB ── */}
         {mainTab === 'tasks' && !showForm && (
-          visibleTasks.length > 0 ? (
-            <>
-              <p className="text-[11px] text-gray-400 text-center -mt-1">Tap a task to jump into Kid Mode ⭐</p>
+          <>
+            <div className="flex items-center justify-between -mt-1 mb-1">
+              <p className="text-[11px] text-gray-400">Tap a task to enter Kid Mode ⭐</p>
+              <button onClick={() => setTodayOnly(t => !t)}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-full transition ${todayOnly ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                style={todayOnly ? { background: 'var(--theme-gradient)' } : {}}>
+                📅 Today
+              </button>
+            </div>
+            {visibleTasks.length > 0 ? (
               <div className="grid grid-cols-3 gap-2">
                 {visibleTasks.map(task => {
                   const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
@@ -628,14 +662,14 @@ export default function ChoresPage() {
                   )
                 })}
               </div>
-            </>
-          ) : (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-4">📋</div>
-              <p className="text-gray-500 font-medium">No tasks yet</p>
-              <p className="text-gray-400 text-sm mt-1">Tap "+ Add Task" to get started</p>
-            </div>
-          )
+            ) : (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">📋</div>
+                <p className="text-gray-500 font-medium">{todayOnly ? 'No tasks due today' : 'No tasks yet'}</p>
+                <p className="text-gray-400 text-sm mt-1">{todayOnly ? 'Toggle Today off to see all tasks' : 'Tap the + to get started'}</p>
+              </div>
+            )}
+          </>
         )}
 
         {/* ── TODAY TAB ── */}
