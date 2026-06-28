@@ -3,11 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import ChildTaskView from './ChildTaskView'
 import { occursOn, mondayOf, ymd } from '@/lib/recurrence'
 
-function ratioToTier(done: number, expected: number): 'low' | 'mid' | 'high' {
-  const r = expected > 0 ? done / expected : (done ? 1 : 0)
-  return r >= 0.85 ? 'high' : r >= 0.34 ? 'mid' : 'low'
-}
-
 export default async function ChildPage({ params, searchParams }: {
   params: Promise<{ childId: string }>
   searchParams: Promise<{ task?: string }>
@@ -35,8 +30,8 @@ export default async function ChildPage({ params, searchParams }: {
   const monday = mondayOf(now)
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
   const weekEndStr = ymd(sunday)
+  const mondayStr = ymd(monday)
   const horizonEnd = new Date(monday); horizonEnd.setDate(monday.getDate() + 20) // 3 weeks
-  const horizonEndStr = ymd(horizonEnd)
 
   // Build occurrences from this Monday through the horizon
   const occurrences: any[] = []
@@ -54,7 +49,7 @@ export default async function ChildPage({ params, searchParams }: {
 
   const { data: completions } = await supabase
     .from('completions').select('task_id, date').eq('child_id', childId)
-    .gte('date', ymd(monday)).lte('date', horizonEndStr)
+    .gte('date', mondayStr).lte('date', ymd(horizonEnd))
   const completedKeys = (completions || []).map(c => `${c.task_id}|${c.date}`)
 
   const { data: starData } = await supabase.from('star_ledger').select('delta').eq('child_id', childId)
@@ -67,30 +62,60 @@ export default async function ChildPage({ params, searchParams }: {
     .from('redemptions').select('reward_id').eq('child_id', childId).eq('status', 'requested')
   const pendingRewardIds = pendingRedemptions?.map(r => r.reward_id) || []
 
-  // ── Bonus wheel availability (family-configured) ──
+  // ── Streak calculation ──
+  let streakDays = 0
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(now); d.setDate(now.getDate() - i)
+    const ds = ymd(d)
+    const tasksOnDay = allTasks.filter((t: any) => occursOn(t, d))
+    if (tasksOnDay.length === 0) continue
+    const doneOnDay = (completions || []).filter(c => c.date === ds).length
+    if (doneOnDay >= tasksOnDay.length) streakDays++
+    else if (i === 0) continue // today still in progress
+    else break
+  }
+
+  // ── Wheel prize tier ──
+  // weekTotalStars = sum of all star values for tasks occurring this week
+  let weekTotalStars = 0
+  for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
+    for (const t of allTasks) {
+      if (occursOn(t, d)) weekTotalStars += t.star_value
+    }
+  }
+  // completionRatio = tasks done so far this week / tasks expected so far this week
+  let tierDone = 0, tierExpected = 0
+  for (let d = new Date(monday); ymd(d) <= todayStr; d.setDate(d.getDate() + 1)) {
+    for (const t of allTasks) {
+      if (occursOn(t, d)) tierExpected++
+    }
+  }
+  tierDone = (completions || []).filter(c => c.date >= mondayStr && c.date <= todayStr).length
+  const completionRatio = tierExpected > 0 ? tierDone / tierExpected : 0
+
+  // Scale max prize: 0%→1, 1-50%→25% of week total, 51-80%→45%, >80%→100%
+  let maxPrize = 1
+  if (weekTotalStars === 0) {
+    maxPrize = 1
+  } else if (completionRatio >= 0.8) {
+    maxPrize = weekTotalStars
+  } else if (completionRatio >= 0.5) {
+    maxPrize = Math.max(3, Math.round(weekTotalStars * 0.45))
+  } else if (completionRatio > 0) {
+    maxPrize = Math.max(2, Math.round(weekTotalStars * 0.25))
+  } else {
+    maxPrize = 1
+  }
+
+  // ── Bonus wheel availability ──
   const cadence = family?.bonus_cadence || 'weekly'
-  const bonusDay = family?.bonus_day ?? 0 // 0 = Sunday
-  const bonusTime = family?.bonus_time || '16:00'
-  const nowHHMM = now.toTimeString().slice(0, 5)
-  const dueToday = cadence === 'daily' || now.getDay() === bonusDay
-  const timeOk = nowHHMM >= bonusTime
+  const bonusDay = family?.bonus_day ?? 0
+  const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
+
+  // hasSpunToday is passed to client; canSpin is computed client-side using LOCAL time
   const { data: spinToday } = await supabase
     .from('spin_results').select('id').eq('child_id', childId).eq('date', todayStr).maybeSingle()
-  const canSpin = dueToday && timeOk && !spinToday
-
-  // Tier from progress up to now (weekly cadence → this week; daily → today)
-  let tierDone = 0, tierExpected = 0
-  if (cadence === 'daily') {
-    tierExpected = allTasks.filter(t => occursOn(t, now)).length
-    tierDone = (completions || []).filter(c => c.date === todayStr).length
-  } else {
-    for (let d = new Date(monday); d <= now; d.setDate(d.getDate() + 1)) {
-      tierExpected += allTasks.filter(t => occursOn(t, d)).length
-    }
-    tierDone = (completions || []).filter(c => c.date >= ymd(monday) && c.date <= todayStr).length
-  }
-  const spinTier = ratioToTier(tierDone, tierExpected)
-  const bonusLabel = cadence === 'daily' ? `daily from ${bonusTime}` : `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][bonusDay]} from ${bonusTime}`
+  const hasSpunToday = !!spinToday
 
   const { data: unseenPraises } = await supabase
     .from('praises').select('id, message').eq('child_id', childId).eq('seen', false).order('created_at')
@@ -101,13 +126,17 @@ export default async function ChildPage({ params, searchParams }: {
       occurrences={occurrences}
       completedKeys={completedKeys}
       weekEndStr={weekEndStr}
+      mondayStr={mondayStr}
       todayStr={todayStr}
       starBalance={starBalance}
       rewards={rewards || []}
       pendingRewardIds={pendingRewardIds}
-      canSpin={canSpin}
-      spinTier={spinTier}
-      bonusLabel={bonusLabel}
+      hasSpunToday={hasSpunToday}
+      bonusCadence={cadence as 'daily' | 'weekly'}
+      bonusDay={bonusDay}
+      bonusTime={bonusTime}
+      maxPrize={maxPrize}
+      streakDays={streakDays}
       unseenPraises={unseenPraises || []}
       highlightTaskId={highlightTaskId || null}
     />
