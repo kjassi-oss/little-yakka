@@ -3,61 +3,79 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
-import TaskLauncher from '@/components/TaskLauncher'
 import { occursOn } from '@/lib/recurrence'
 
 interface Task {
-  id: string; title: string; emoji: string; type: string; time_of_day: string | null; star_value: number
-  frequency?: 'daily' | 'weekly' | 'monthly'; start_date?: string | null; created_at?: string; days_of_week?: number[] | null
+  id: string; title: string; emoji: string; time_of_day: string | null; star_value: number
+  frequency?: 'daily' | 'weekly' | 'monthly'; start_date?: string | null; days_of_week?: number[] | null
 }
 interface Child { id: string; name: string; avatar: string; avatar_url?: string; colour: string }
 
-const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+type View = 'week' | 'month'
+
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const TIME_GROUPS = [
-  { key: 'morning',   label: '🌅 Morning' },
-  { key: 'afternoon', label: '☀️ Afternoon' },
-  { key: 'evening',   label: '🌙 Evening' },
-  { key: null,        label: '📋 Anytime' },
-]
-type View = 'roll' | 'week' | 'month'
-const VIEW_LABELS: Record<View, string> = { roll: 'Agenda', week: 'Week', month: 'Month' }
+const DAY_LABELS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+const TIME_ORDER: Record<string, number> = { morning: 1, afternoon: 2, evening: 3 }
+
+function getMondayOf(d: Date): Date {
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const m = new Date(d)
+  m.setDate(d.getDate() + diff)
+  m.setHours(0, 0, 0, 0)
+  return m
+}
+
+function ymd(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
 
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [assignments, setAssignments] = useState<Record<string, string[]>>({})
-  const [completedSet, setCompletedSet] = useState(new Set<string>())
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [view, setView] = useState<View>('roll')
-  const [calMonth, setCalMonth] = useState(new Date())
-  const [monthCompletions, setMonthCompletions] = useState<Record<string, number>>({}) // date -> completed count
-  const [monthTaskCount, setMonthTaskCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<View>('week')
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [filterChildId, setFilterChildId] = useState<string | null>(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
-  const todayStr = new Date().toISOString().split('T')[0]
-  const selectedStr = selectedDate.toISOString().split('T')[0]
-  const isToday = selectedStr === todayStr
+  const today = new Date()
+  const todayStr = ymd(today)
 
-  // Week strip runs Monday → Sunday of the current week
-  const week = (() => {
-    const now = new Date()
-    const dow = now.getDay() // 0=Sun
-    const monday = new Date(now)
-    monday.setDate(now.getDate() + (dow === 0 ? -6 : 1 - dow))
-    return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d })
+  // Week days for current offset
+  const weekStart = (() => {
+    const m = getMondayOf(today)
+    m.setDate(m.getDate() + weekOffset * 7)
+    return m
   })()
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(weekStart.getDate() + i)
+    return d
+  })
 
-  useEffect(() => { loadData() }, [])
+  // Month calendar
+  const monthDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1)
+  const calYear = monthDate.getFullYear()
+  const calMonthIdx = monthDate.getMonth()
+  const firstDow = new Date(calYear, calMonthIdx, 1).getDay()
+  const firstDowMon = firstDow === 0 ? 6 : firstDow - 1
+  const daysInMonth = new Date(calYear, calMonthIdx + 1, 0).getDate()
+  const calCells: (number | null)[] = Array.from({ length: firstDowMon + daysInMonth }, (_, i) =>
+    i < firstDowMon ? null : i - firstDowMon + 1
+  )
+  while (calCells.length % 7 !== 0) calCells.push(null)
 
   useEffect(() => {
-    if (isToday) loadCompletions(todayStr)
-    else setCompletedSet(new Set())
-  }, [selectedStr]) // eslint-disable-line
-
-  useEffect(() => {
-    if (view === 'month') loadMonthCompletions()
-  }, [view, calMonth]) // eslint-disable-line
+    // Pre-select child from URL param
+    const params = new URLSearchParams(window.location.search)
+    const childParam = params.get('child')
+    if (childParam) setFilterChildId(childParam)
+    loadData()
+  }, [])
 
   async function loadData() {
     const supabase = createClient()
@@ -65,7 +83,6 @@ export default function SchedulePage() {
     if (!user) return
     const { data: guardian } = await supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single()
     if (!guardian) return
-
     const [{ data: childrenData }, { data: tasksData }, { data: assignData }] = await Promise.all([
       supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
       supabase.from('tasks').select('*').eq('family_id', guardian.family_id),
@@ -76,271 +93,346 @@ export default function SchedulePage() {
     setChildren(childrenData || [])
     setTasks(tasksData || [])
     setAssignments(map)
-    setMonthTaskCount(tasksData?.length || 0)
     setLoading(false)
-    await loadCompletions(todayStr)
-  }
-
-  async function loadCompletions(dateStr: string) {
-    const supabase = createClient()
-    const { data } = await supabase.from('completions').select('task_id, child_id, status').eq('date', dateStr)
-    setCompletedSet(new Set(
-      data?.filter(c => c.status === 'approved' || c.status === 'pending').map(c => `${c.task_id}-${c.child_id}`) || []
-    ))
-  }
-
-  async function loadMonthCompletions() {
-    const supabase = createClient()
-    const year = calMonth.getFullYear()
-    const month = calMonth.getMonth()
-    const start = `${year}-${String(month + 1).padStart(2, '0')}-01`
-    const lastDay = new Date(year, month + 1, 0).getDate()
-    const end = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`
-    const { data } = await supabase.from('completions').select('date, status')
-      .gte('date', start).lte('date', end).eq('status', 'approved')
-    const counts: Record<string, number> = {}
-    data?.forEach(c => { counts[c.date] = (counts[c.date] || 0) + 1 })
-    setMonthCompletions(counts)
   }
 
   const childMap: Record<string, Child> = {}
   children.forEach(c => { childMap[c.id] = c })
 
-  // Month calendar helpers
-  const calYear = calMonth.getFullYear()
-  const calMonthIdx = calMonth.getMonth()
-  const firstDayOfMonth = new Date(calYear, calMonthIdx, 1).getDay()
-  const daysInMonth = new Date(calYear, calMonthIdx + 1, 0).getDate()
-  const calCells = Array.from({ length: firstDayOfMonth + daysInMonth }, (_, i) =>
-    i < firstDayOfMonth ? null : i - firstDayOfMonth + 1
-  )
-  // Pad to full weeks
-  while (calCells.length % 7 !== 0) calCells.push(null)
+  function getTasksForDay(day: Date): { task: Task; kids: Child[] }[] {
+    return tasks
+      .filter(t => occursOn(t, day))
+      .map(t => {
+        let kids = (assignments[t.id] || []).map(id => childMap[id]).filter(Boolean)
+        if (filterChildId) kids = kids.filter(k => k.id === filterChildId)
+        return { task: t, kids }
+      })
+      .filter(({ kids }) => kids.length > 0)
+      .sort((a, b) => (TIME_ORDER[a.task.time_of_day ?? ''] ?? 0) - (TIME_ORDER[b.task.time_of_day ?? ''] ?? 0))
+  }
+
+  // Colored bar — segments per child
+  function TaskBar({ task, kids }: { task: Task; kids: Child[] }) {
+    return (
+      <div className="flex h-2 rounded-full overflow-hidden w-full" title={`${task.emoji} ${task.title}`}>
+        {kids.map(k => (
+          <div key={k.id} className="flex-1 h-full" style={{ backgroundColor: k.colour }}/>
+        ))}
+      </div>
+    )
+  }
+
+  const filterChild = filterChildId ? childMap[filterChildId] : null
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">📅</div></div>
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-5xl animate-spin">📅</div>
+    </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-white pb-28">
       {/* Header */}
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>📅</span>
-            <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Calendar</h1>
+            <img src="/logo.png" alt="Little Yakka" className="h-8 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Calendar</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* View toggle */}
-            <div className="flex bg-gray-100 rounded-2xl p-1 gap-0.5">
-              {(['roll', 'week', 'month'] as View[]).map(v => (
+            <div className="flex bg-gray-100 rounded-xl p-0.5">
+              {(['week', 'month'] as View[]).map(v => (
                 <button key={v} onClick={() => setView(v)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
                   style={view === v ? { background: 'var(--theme-gradient)' } : {}}>
-                  {VIEW_LABELS[v]}
+                  {v === 'week' ? 'Week' : 'Month'}
                 </button>
               ))}
             </div>
+            {/* Filter button */}
+            <button onClick={() => setShowFilter(true)}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition ${filterChildId ? 'text-white shadow' : 'bg-gray-100 text-gray-500'}`}
+              style={filterChildId ? { background: 'var(--theme-gradient)' } : {}}>
+              👤
+            </button>
             <ProfileButton/>
           </div>
         </div>
       </div>
 
-      {/* ──── ROLL / AGENDA VIEW ──── */}
-      {view === 'roll' && (
-        <div className="max-w-sm mx-auto px-4 mt-4 space-y-3">
-          {tasks.length === 0 && (
-            <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500">No tasks yet</p></div>
-          )}
-          {(() => {
-            const days = Array.from({ length: 21 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d })
-              .map((d, i) => ({ d, i, occurs: tasks.filter(t => occursOn(t, d)) }))
-              .filter(x => x.occurs.length > 0)
-            if (tasks.length > 0 && days.length === 0) return (
-              <div className="text-center py-16"><div className="text-6xl mb-4">🎉</div><p className="text-gray-500">Nothing scheduled in the next 3 weeks</p></div>
-            )
-            return days.map(({ d, i, occurs }) => {
-            const ds = d.toISOString().split('T')[0]
-            const isToday = i === 0
-            const dayName = isToday ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'long' })
-            const dayDate = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
-            const ordered = [...occurs].sort((a, b) => {
-              const order: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
-              return (order[a.time_of_day ?? ''] ?? 3) - (order[b.time_of_day ?? ''] ?? 3)
-            })
-            return (
-              <div key={ds} className="bg-white rounded-3xl p-4 shadow-sm"
-                style={isToday ? { boxShadow: '0 0 0 2px var(--theme-from)' } : {}}>
-                <div className="mb-3">
-                  <p className="font-black text-gray-800 text-lg">{dayName} · {dayDate}</p>
-                </div>
-                <div className="space-y-2">
-                  {ordered.map(task => {
-                    const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
-                    const allDone = isToday && assignedKids.length > 0 && assignedKids.every(k => completedSet.has(`${task.id}-${k.id}`))
-                    const upcoming = isToday && !allDone
-                    return (
-                      <TaskLauncher key={task.id} taskId={task.id} kids={assignedKids as any}>
-                        <div className="flex items-center gap-3 rounded-2xl p-2 active:scale-[0.98] transition"
-                          style={upcoming ? { backgroundColor: 'color-mix(in srgb, var(--theme-from) 10%, white)' } : {}}>
-                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-gray-50">{task.emoji}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-semibold text-sm truncate ${allDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{task.title}</p>
-                            <p className="text-[11px] text-gray-400">{task.time_of_day ? task.time_of_day : 'anytime'} · ⭐ {task.star_value}</p>
-                          </div>
-                          <div className="flex -space-x-1.5 flex-shrink-0">
-                            {assignedKids.map(child => {
-                              const done = isToday && completedSet.has(`${task.id}-${child.id}`)
-                              return child.avatar_url
-                                ? <img key={child.id} src={child.avatar_url} className={`w-7 h-7 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
-                                : <div key={child.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white ${done ? 'opacity-50' : ''}`}
-                                    style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
-                            })}
-                          </div>
-                        </div>
-                      </TaskLauncher>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })
-          })()}
+      {/* Active filter pill */}
+      {filterChild && (
+        <div className="px-4 pt-2 pb-1 bg-white">
+          <div className="max-w-sm mx-auto">
+            <button onClick={() => setFilterChildId(null)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold text-white"
+              style={{ backgroundColor: filterChild.colour }}>
+              {filterChild.avatar_url
+                ? <img src={filterChild.avatar_url} className="w-5 h-5 rounded-full object-cover" alt=""/>
+                : <span>{filterChild.avatar}</span>}
+              {filterChild.name.split(' ')[0]} <span className="opacity-70">×</span>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* ──── WEEK VIEW ──── */}
+      {/* ── WEEK VIEW ── */}
       {view === 'week' && (
-        <>
-          <div className="bg-white border-b border-gray-100 px-4 py-3 sticky top-0 z-10 shadow-sm">
-            <div className="max-w-sm mx-auto flex gap-2 overflow-x-auto pb-1">
-              {week.map((date, i) => {
-                const ds = date.toISOString().split('T')[0]
-                const sel = ds === selectedStr
-                const tod = ds === todayStr
-                return (
-                  <button key={i} onClick={() => setSelectedDate(date)}
-                    className={`flex flex-col items-center min-w-[44px] py-2 px-1 rounded-2xl transition ${sel ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                    style={sel ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
-                    <span className="text-xs font-semibold">{DAYS_SHORT[date.getDay()]}</span>
-                    <span className={`text-lg font-bold ${!sel && tod ? '' : ''}`}
-                      style={!sel && tod ? { color: 'var(--theme-from)' } : {}}>{date.getDate()}</span>
-                    {tod && !sel && <div className="w-1 h-1 rounded-full mt-0.5" style={{ background: 'var(--theme-from)' }}/>}
-                  </button>
-                )
-              })}
-            </div>
+        <div className="max-w-sm mx-auto px-2 pt-3">
+          {/* Week navigation */}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <button onClick={() => setWeekOffset(w => w - 1)}
+              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-lg active:scale-90 transition">‹</button>
+            <span className="text-xs font-bold text-gray-600">
+              {weekDays[0].toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} – {weekDays[6].toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })}
+            </span>
+            <button onClick={() => setWeekOffset(w => w + 1)}
+              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-lg active:scale-90 transition">›</button>
           </div>
 
-          <div className="max-w-sm mx-auto px-4 mt-4 space-y-5">
-            {isToday && <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--theme-from)' }}>Today — live completion status</p>}
-            {TIME_GROUPS.map(group => {
-              const groupTasks = tasks.filter(t =>
-                occursOn(t, selectedDate) && (group.key === null ? !t.time_of_day : t.time_of_day === group.key)
-              )
-              if (!groupTasks.length) return null
+          {/* 7-column week grid */}
+          <div className="grid grid-cols-7 gap-0.5">
+            {weekDays.map((day, i) => {
+              const ds = ymd(day)
+              const isToday = ds === todayStr
+              const dayTasks = getTasksForDay(day)
               return (
-                <div key={group.key ?? 'anytime'}>
-                  <p className="text-sm font-bold text-gray-600 mb-2">{group.label}</p>
-                  <div className="space-y-2">
-                    {groupTasks.map(task => {
-                      const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
-                      return (
-                        <div key={task.id} className="bg-white rounded-2xl p-3 shadow-sm flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-xl flex-shrink-0">{task.emoji}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-800 text-sm">{task.title}</p>
-                            <p className="text-xs text-gray-400">⭐ {task.star_value}</p>
-                          </div>
-                          <div className="flex gap-1 flex-wrap justify-end max-w-[100px]">
-                            {assignedKids.map(child => {
-                              const done = isToday && completedSet.has(`${task.id}-${child.id}`)
-                              return (
-                                <div key={child.id} className="relative flex-shrink-0">
-                                  {child.avatar_url ? (
-                                    <img src={child.avatar_url} className={`w-8 h-8 rounded-full object-cover ${done ? 'opacity-50' : ''}`} alt=""/>
-                                  ) : (
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${done ? 'opacity-50' : ''}`}
-                                      style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
-                                  )}
-                                  {isToday && (
-                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
-                                      {done && <span className="text-white text-[8px] font-bold">✓</span>}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
+                <div key={i} className={`flex flex-col items-center p-1 rounded-xl min-h-[90px] ${isToday ? 'bg-blue-50 ring-1 ring-blue-200' : 'bg-gray-50'}`}>
+                  <span className={`text-[10px] font-bold mb-0.5 ${isToday ? '' : 'text-gray-400'}`}
+                    style={isToday ? { color: 'var(--theme-from)' } : {}}>
+                    {DAY_LABELS_SHORT[i]}
+                  </span>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-black mb-1.5 ${isToday ? 'text-white' : 'text-gray-700'}`}
+                    style={isToday ? { background: 'var(--theme-gradient)' } : {}}>
+                    {day.getDate()}
+                  </div>
+                  <div className="w-full space-y-0.5">
+                    {dayTasks.slice(0, 6).map(({ task, kids }) => (
+                      <TaskBar key={task.id} task={task} kids={kids}/>
+                    ))}
+                    {dayTasks.length > 6 && (
+                      <div className="text-[8px] text-gray-400 text-center font-semibold">+{dayTasks.length - 6}</div>
+                    )}
                   </div>
                 </div>
               )
             })}
-            {tasks.length === 0 && <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500">No tasks yet</p></div>}
           </div>
-        </>
+
+          {/* Task list for entire week, time-ordered */}
+          {(() => {
+            const weekTaskSet: { task: Task; kids: Child[]; ds: string; day: Date }[] = []
+            weekDays.forEach(day => {
+              getTasksForDay(day).forEach(({ task, kids }) => {
+                weekTaskSet.push({ task, kids, ds: ymd(day), day })
+              })
+            })
+            if (weekTaskSet.length === 0) return (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">🎉</div>
+                <p className="text-gray-400 text-sm">No tasks this week{filterChildId ? ' for this child' : ''}</p>
+              </div>
+            )
+            // Group by day
+            const byDay: Record<string, typeof weekTaskSet> = {}
+            weekTaskSet.forEach(item => { (byDay[item.ds] ||= []).push(item) })
+            return (
+              <div className="mt-4 space-y-3">
+                {weekDays.map(day => {
+                  const ds = ymd(day)
+                  const items = byDay[ds]
+                  if (!items?.length) return null
+                  const isToday = ds === todayStr
+                  return (
+                    <div key={ds} className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-xs font-black text-gray-700 mb-2">
+                        {isToday ? 'Today' : day.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}
+                      </p>
+                      <div className="space-y-1.5">
+                        {items.map(({ task, kids }) => (
+                          <div key={task.id} className="bg-white rounded-xl p-2.5 flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base bg-gray-50 flex-shrink-0">{task.emoji}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-800 text-xs truncate">{task.title}</p>
+                              <p className="text-[10px] text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
+                            </div>
+                            <div className="flex -space-x-1.5 flex-shrink-0">
+                              {kids.slice(0, 3).map(k => k.avatar_url
+                                ? <img key={k.id} src={k.avatar_url} className="w-6 h-6 rounded-full border border-white object-cover" alt=""/>
+                                : <div key={k.id} className="w-6 h-6 rounded-full border border-white flex items-center justify-center text-xs"
+                                    style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
+          {/* Legend */}
+          {children.length > 0 && !filterChildId && (
+            <div className="flex gap-3 flex-wrap mt-3 px-1 pb-2">
+              {children.map(c => (
+                <div key={c.id} className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.colour }}/>
+                  <span className="text-[10px] text-gray-500 font-semibold">{c.name.split(' ')[0]}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* ──── MONTH VIEW ──── */}
+      {/* ── MONTH VIEW ── */}
       {view === 'month' && (
-        <div className="max-w-sm mx-auto px-4 mt-4">
+        <div className="max-w-sm mx-auto px-2 pt-3">
           {/* Month navigation */}
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setCalMonth(new Date(calYear, calMonthIdx - 1, 1))}
-              className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-500 active:scale-90 transition">‹</button>
-            <h2 className="font-bold text-gray-800">{MONTHS[calMonthIdx]} {calYear}</h2>
-            <button onClick={() => setCalMonth(new Date(calYear, calMonthIdx + 1, 1))}
-              className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-500 active:scale-90 transition">›</button>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <button onClick={() => setMonthOffset(m => m - 1)}
+              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-lg active:scale-90 transition">‹</button>
+            <span className="text-sm font-bold text-gray-700">{MONTHS[calMonthIdx]} {calYear}</span>
+            <button onClick={() => setMonthOffset(m => m + 1)}
+              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-lg active:scale-90 transition">›</button>
           </div>
 
-          {/* Day headers */}
+          {/* Day headers Mon–Sun */}
           <div className="grid grid-cols-7 mb-1">
-            {['S','M','T','W','T','F','S'].map((d, i) => (
-              <div key={i} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
+            {['M','T','W','T','F','S','S'].map((d, i) => (
+              <div key={i} className="text-center text-[10px] font-bold text-gray-400 py-1">{d}</div>
             ))}
           </div>
 
           {/* Calendar cells */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0.5">
             {calCells.map((day, i) => {
               if (!day) return <div key={i}/>
-              const ds = `${calYear}-${String(calMonthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-              const isThisToday = ds === todayStr
-              const isSelected = ds === selectedStr
-              const completedCount = monthCompletions[ds] || 0
-              const isPast = ds < todayStr
+              const ds = `${calYear}-${String(calMonthIdx + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+              const d = new Date(ds + 'T12:00:00')
+              const isToday = ds === todayStr
+              const isSelected = selectedDay === ds
+              const dayTasks = getTasksForDay(d)
               return (
-                <button key={i} onClick={() => { setSelectedDate(new Date(ds + 'T12:00:00')); setView('week') }}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-semibold transition active:scale-90 ${isSelected ? 'text-white' : isThisToday ? 'bg-white shadow-md' : 'bg-white/60'}`}
-                  style={isSelected ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
-                  <span style={isThisToday && !isSelected ? { color: 'var(--theme-from)' } : { color: isSelected ? 'white' : '#374151' }}>{day}</span>
-                  {monthTaskCount > 0 && (
-                    <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                      isSelected ? 'bg-white/70' :
-                      completedCount >= monthTaskCount ? 'bg-green-400' :
-                      completedCount > 0 ? 'bg-yellow-400' :
-                      isPast ? 'bg-red-300' : 'bg-gray-200'
-                    }`}/>
-                  )}
+                <button key={i} onClick={() => setSelectedDay(isSelected ? null : ds)}
+                  className={`flex flex-col items-center pt-1 pb-1 px-0.5 rounded-xl transition min-h-[52px] active:scale-95 ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+                  style={isSelected ? { ringColor: 'var(--theme-from)' } : {}}>
+                  <span className={`text-xs font-bold mb-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isToday ? 'text-white' : 'text-gray-700'}`}
+                    style={isToday ? { background: 'var(--theme-gradient)' } : {}}>
+                    {day}
+                  </span>
+                  <div className="w-full space-y-0.5 px-0.5">
+                    {dayTasks.slice(0, 3).map(({ task, kids }) => (
+                      <div key={task.id} className="flex h-1.5 rounded-full overflow-hidden w-full">
+                        {kids.map(k => (
+                          <div key={k.id} className="flex-1 h-full" style={{ backgroundColor: k.colour }}/>
+                        ))}
+                      </div>
+                    ))}
+                    {dayTasks.length > 3 && (
+                      <div className="text-[7px] text-gray-400 text-center leading-none">+{dayTasks.length - 3}</div>
+                    )}
+                  </div>
                 </button>
               )
             })}
           </div>
 
-          {/* Legend */}
-          <div className="flex gap-4 mt-4 justify-center">
-            {[['bg-green-400','All done'],['bg-yellow-400','Partial'],['bg-red-300','Missed'],['bg-gray-200','Upcoming']].map(([cls, label]) => (
-              <div key={label} className="flex items-center gap-1">
-                <div className={`w-2.5 h-2.5 rounded-full ${cls}`}/>
-                <span className="text-xs text-gray-400">{label}</span>
+          {/* Selected day tasks */}
+          {selectedDay && (() => {
+            const d = new Date(selectedDay + 'T12:00:00')
+            const dayTasks = getTasksForDay(d)
+            const isToday = selectedDay === todayStr
+            return (
+              <div className="mt-4 bg-gray-50 rounded-3xl p-4">
+                <p className="text-sm font-black text-gray-800 mb-3">
+                  {isToday ? 'Today — ' : ''}{d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+                {dayTasks.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">No tasks on this day</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dayTasks.map(({ task, kids }) => (
+                      <div key={task.id} className="bg-white rounded-2xl p-3 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg bg-gray-50 flex-shrink-0">{task.emoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
+                          <p className="text-xs text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
+                        </div>
+                        <div className="flex -space-x-1.5 flex-shrink-0">
+                          {kids.slice(0, 3).map(k => k.avatar_url
+                            ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full border-2 border-white object-cover" alt=""/>
+                            : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
+                                style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            )
+          })()}
 
-          <p className="text-xs text-center text-gray-400 mt-3">Tap a day to see tasks in week view</p>
+          {/* Legend */}
+          {children.length > 0 && !filterChildId && (
+            <div className="flex gap-3 flex-wrap mt-3 px-1 pb-2">
+              {children.map(c => (
+                <div key={c.id} className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.colour }}/>
+                  <span className="text-[10px] text-gray-500 font-semibold">{c.name.split(' ')[0]}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filter bottom sheet */}
+      {showFilter && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowFilter(false)}>
+          <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
+            <h3 className="font-black text-gray-800 text-lg mb-4">Filter by child</h3>
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              {/* All */}
+              <button onClick={() => { setFilterChildId(null); setShowFilter(false) }}
+                className="flex flex-col items-center gap-1 active:scale-95 transition">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-black ${!filterChildId ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                  style={!filterChildId ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>
+                  All
+                </div>
+                <span className="text-[11px] font-semibold" style={{ color: !filterChildId ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
+              </button>
+              {/* Children */}
+              {children.map(child => {
+                const sel = filterChildId === child.id
+                return (
+                  <button key={child.id} onClick={() => { setFilterChildId(sel ? null : child.id); setShowFilter(false) }}
+                    className="flex flex-col items-center gap-1 active:scale-95 transition">
+                    {child.avatar_url
+                      ? <img src={child.avatar_url} className="w-14 h-14 rounded-full object-cover" alt=""
+                          style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
+                      : <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
+                          style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
+                          {child.avatar}
+                        </div>}
+                    <span className="text-[11px] font-semibold truncate max-w-[56px]"
+                      style={{ color: sel ? child.colour : '#9ca3af' }}>
+                      {child.name.split(' ')[0]}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <button onClick={() => setShowFilter(false)}
+              className="w-full border border-gray-200 text-gray-500 font-semibold py-3 rounded-2xl active:scale-95 transition">
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import BrandLogo from '@/components/BrandLogo'
 
 const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
 
@@ -25,14 +26,11 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: RAINBOW }}>
+    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-10 bg-white">
       <div className="w-full max-w-xs">
-        <h1 className="text-3xl font-black text-white text-center mb-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
-          Forgot password?
-        </h1>
-        <p className="text-white/80 text-center text-sm mb-5">We'll email you a reset link</p>
+        <BrandLogo className="w-full max-w-[280px] h-auto mx-auto block mb-3" fallbackSize={220}/>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-5">
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4">
           {sent ? (
             <div className="text-center py-4">
               <div className="text-5xl mb-3">📬</div>
@@ -42,8 +40,10 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
+              <h2 className="text-base font-black text-gray-700 text-center mb-1">Forgot password?</h2>
+              <p className="text-xs text-gray-400 text-center mb-3">We'll email you a reset link</p>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
                 placeholder="Your email" required/>
               {error && <p className="text-red-500 text-xs bg-red-50 rounded-2xl p-2.5">{error}</p>}
               <button type="submit" disabled={loading}

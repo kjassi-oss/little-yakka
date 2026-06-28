@@ -178,16 +178,10 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
-      {/* Header — centered wordmark + Kid Mode & profile */}
-      <div className="relative px-4 pt-11 pb-2">
-        <h1 className="wordmark text-center text-3xl">Little Yakka</h1>
-        <div className="absolute top-10 right-4 flex items-center gap-2">
-          <Link href="/kid-mode"
-            aria-label="Kid Mode"
-            className="w-9 h-9 rounded-full flex items-center justify-center shadow-md active:scale-95 transition"
-            style={{ background: 'var(--theme-gradient)' }}>
-            <span className="text-lg">⭐</span>
-          </Link>
+      {/* Header — logo left + profile right */}
+      <div className="px-4 pt-11 pb-2 bg-white border-b border-gray-100">
+        <div className="max-w-sm mx-auto flex items-center justify-between">
+          <img src="/logo.png" alt="Little Yakka" className="h-9 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
           <ProfileButton/>
         </div>
       </div>
@@ -216,7 +210,7 @@ export default async function DashboardPage() {
                     <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
                   </div>
 
-                  <Link href={`/kid-mode/${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
+                  <Link href={`/dashboard/schedule?child=${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
                     {/* Avatar */}
                     <div className="relative w-14 h-14 mx-auto mb-1.5">
                       {child.avatar_url
@@ -258,11 +252,12 @@ export default async function DashboardPage() {
                       <p className="text-[9px] text-gray-400 mb-1.5">{allDone ? '✅ All tasks done!' : `${myDone}/${total} tasks today`}</p>
                     )}
 
-                    {/* Enter zone star CTA */}
-                    <div className="flex items-center justify-center gap-1 text-white text-[11px] font-bold py-1.5 rounded-xl"
-                      style={{ background: `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
-                      <span>⭐</span><span>Enter</span>
-                    </div>
+                    {/* Progress bar */}
+                    {total > 0 && (
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${progressPct}%`, backgroundColor: child.colour }}/>
+                      </div>
+                    )}
                   </Link>
                 </div>
               )

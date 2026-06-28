@@ -8,8 +8,12 @@ import { occursOn } from '@/lib/recurrence'
 
 // Searchable emoji set (keywords drive the search box)
 const EMOJI_OPTIONS: { e: string; kw: string }[] = [
+  { e: '⭐', kw: 'star reward good special' },
   { e: '🛏️', kw: 'bed make sleep bedroom' }, { e: '🧹', kw: 'sweep broom clean tidy floor' },
-  { e: '🍽️', kw: 'dishes plate dinner table eat clear' }, { e: '🧺', kw: 'laundry washing basket clothes' },
+  { e: '🍽️', kw: 'dishes plate dinner table eat clear' }, { e: '🧺', kw: 'laundry washing clothes' },
+  { e: '📖', kw: 'reading book bedtime story read' }, { e: '📝', kw: 'homework write notes school' },
+  { e: '🎵', kw: 'music practice song sing' }, { e: '🪈', kw: 'flute music practice instrument' },
+  { e: '🎺', kw: 'trumpet music practice brass instrument' },
   { e: '📚', kw: 'books read study homework school' }, { e: '🐕', kw: 'dog pet walk feed' },
   { e: '🐈', kw: 'cat pet feed litter' }, { e: '🐟', kw: 'fish pet feed tank' },
   { e: '🌿', kw: 'plant garden water weeds' }, { e: '🗑️', kw: 'bin rubbish trash garbage empty' },
@@ -28,16 +32,16 @@ const EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '🪟', kw: 'window clean wipe' }, { e: '🚪', kw: 'door close lock' },
   { e: '🛒', kw: 'shopping groceries store help' }, { e: '🧻', kw: 'toilet paper roll bathroom' },
   { e: '🚽', kw: 'toilet clean bathroom' }, { e: '🪣', kw: 'bucket mop clean water' },
-  { e: '🧷', kw: 'tidy organise pin' }, { e: '📝', kw: 'homework write notes school' },
-  { e: '✏️', kw: 'pencil write draw school' }, { e: '🎹', kw: 'piano music practice' },
-  { e: '🎸', kw: 'guitar music practice' }, { e: '⚽', kw: 'soccer football sport play' },
+  { e: '🧷', kw: 'tidy organise pin' }, { e: '✏️', kw: 'pencil write draw school' },
+  { e: '🎹', kw: 'piano music practice keys' }, { e: '🎸', kw: 'guitar music practice strings' },
+  { e: '🥁', kw: 'drums music practice percussion' }, { e: '🎷', kw: 'saxophone sax music practice' },
+  { e: '🎻', kw: 'violin music practice strings' }, { e: '⚽', kw: 'soccer football sport play' },
   { e: '🏀', kw: 'basketball sport play' }, { e: '🚲', kw: 'bike ride cycle' },
   { e: '🧠', kw: 'study think learn brain' }, { e: '💧', kw: 'water plants drink' },
   { e: '🌳', kw: 'tree garden outside yard' }, { e: '🍂', kw: 'leaves rake garden yard' },
-  { e: '☀️', kw: 'morning sun wake up' }, { e: '⭐', kw: 'star reward good' },
-  { e: '❤️', kw: 'love kind helpful' }, { e: '🙏', kw: 'manners please thanks pray' },
-  { e: '😴', kw: 'sleep nap bedtime rest' }, { e: '🪴', kw: 'plant pot water garden' },
-  { e: '🧦', kw: 'socks clothes' }, { e: '🍪', kw: 'snack treat baking' },
+  { e: '☀️', kw: 'morning sun wake up' }, { e: '❤️', kw: 'love kind helpful' },
+  { e: '🙏', kw: 'manners please thanks pray' }, { e: '😴', kw: 'sleep nap bedtime rest' },
+  { e: '🪴', kw: 'plant pot water garden' }, { e: '🍪', kw: 'snack treat baking' },
   { e: '🐾', kw: 'pet animal feed' }, { e: '🚗', kw: 'car wash tidy' },
   { e: '🎯', kw: 'goal target focus' }, { e: '📦', kw: 'box pack tidy put away' },
 ]
@@ -94,6 +98,7 @@ export default function ChoresPage() {
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<HistoryRow[]>([])
   const [todayOnly, setTodayOnly] = useState(false)
+  const [expandedDoneChild, setExpandedDoneChild] = useState<string | null>(null)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -197,9 +202,9 @@ export default function ChoresPage() {
 
   function openNewForm() {
     setEditingTaskId(null)
-    setTitle(''); setEmoji('🧹'); setType('chore'); setTimeOfDay('anytime')
+    setTitle(''); setEmoji('⭐'); setType('chore'); setTimeOfDay('anytime')
     setFrequency('daily'); setCarryOver(true); setStarValue(3)
-    setStartDate('')
+    setStartDate(new Date().toISOString().split('T')[0])
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
@@ -329,8 +334,8 @@ export default function ChoresPage() {
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>📋</span>
-            <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Tasks</h1>
+            <img src="/logo.png" alt="Little Yakka" className="h-8 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
           </div>
           <ProfileButton/>
         </div>
@@ -442,7 +447,7 @@ export default function ChoresPage() {
               <div>
                 <p className="text-xs text-gray-500 mb-2">Which days? <span className="text-gray-300">{daysOfWeek.length === 0 ? '(every day)' : ''}</span></p>
                 <div className="flex gap-1.5">
-                  {[['S', 0], ['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6]].map(([lbl, dow], i) => {
+                  {[['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6], ['S', 0]].map(([lbl, dow], i) => {
                     const on = daysOfWeek.includes(dow as number)
                     return (
                       <button key={i} onClick={() => setDaysOfWeek(prev => prev.includes(dow as number) ? prev.filter(x => x !== dow) : [...prev, dow as number])}
@@ -487,8 +492,8 @@ export default function ChoresPage() {
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Stars to earn: <span className="font-bold text-yellow-500">⭐ {starValue}</span></p>
-              <input type="range" min={1} max={10} value={starValue} onChange={e => setStarValue(Number(e.target.value))} className="w-full"/>
-              <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>10</span></div>
+              <input type="range" min={1} max={250} value={starValue} onChange={e => setStarValue(Number(e.target.value))} className="w-full"/>
+              <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>50</span><span>100</span><span>250</span></div>
             </div>
 
             <div className="flex items-center justify-between py-1">
@@ -727,47 +732,51 @@ export default function ChoresPage() {
           </div>
         )}
 
-        {/* ── DONE / HISTORY TAB ── */}
+        {/* ── DONE / HISTORY TAB — grouped by child, collapsible ── */}
         {mainTab === 'history' && !showForm && (
-          <div className="space-y-5">
-            {(() => {
-              const grouped: Record<string, HistoryRow[]> = {}
-              history.forEach(h => { (grouped[h.date] ||= []).push(h) })
-              const dates = Object.keys(grouped).sort().reverse()
-              const fmt = (iso: string) => {
+          <div className="space-y-3">
+            {children.length === 0 || history.length === 0 ? (
+              <div className="text-center py-16"><div className="text-6xl mb-4">✅</div><p className="text-gray-500 font-medium">No completed tasks yet</p></div>
+            ) : children.map(child => {
+              const items = history.filter(h => h.child_id === child.id)
+              if (items.length === 0) return null
+              const open = expandedDoneChild === child.id
+              const fmtDate = (iso: string) => {
                 const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
                 if (iso === todayStr) return 'Today'
                 if (iso === yesterday) return 'Yesterday'
-                return new Date(iso + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
+                return new Date(iso + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
               }
-              if (dates.length === 0) return (
-                <div className="text-center py-16"><div className="text-6xl mb-4">✅</div><p className="text-gray-500 font-medium">No completed tasks yet</p></div>
-              )
-              return dates.map(date => (
-                <div key={date}>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{fmt(date)}</p>
-                  <div className="space-y-2">
-                    {grouped[date].map(h => (
-                      <div key={h.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
-                        {h.children?.avatar_url
-                          ? <img src={h.children.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
-                          : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                              style={{ backgroundColor: (h.children?.colour || '#ccc') + '33' }}>{h.children?.avatar}</div>}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span>{h.tasks?.emoji}</span>
+              return (
+                <div key={child.id} className="bg-white rounded-3xl shadow-sm overflow-hidden">
+                  <button onClick={() => setExpandedDoneChild(open ? null : child.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 active:bg-gray-50 transition">
+                    {child.avatar_url
+                      ? <img src={child.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
+                      : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                          style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>}
+                    <p className="font-bold text-gray-800 flex-1 text-left">{child.name.split(' ')[0]}</p>
+                    <span className="text-xs font-semibold text-gray-400">{items.length} tasks done</span>
+                    <span className={`text-gray-300 text-lg transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
+                  </button>
+                  {open && (
+                    <div className="px-4 pb-3 space-y-2">
+                      {items.map(h => (
+                        <div key={h.id} className="flex items-center gap-3 bg-gray-50 rounded-2xl px-3 py-2.5">
+                          <span className="text-xl">{h.tasks?.emoji}</span>
+                          <div className="flex-1 min-w-0">
                             <p className="font-semibold text-gray-800 text-sm truncate">{h.tasks?.title}</p>
+                            <p className="text-xs text-gray-400">{fmtDate(h.date)} · <span className="text-yellow-500 font-semibold">+{h.tasks?.star_value} ⭐</span></p>
                           </div>
-                          <p className="text-xs text-gray-400">{h.children?.name} · <span className="text-yellow-500 font-semibold">+{h.tasks?.star_value} ⭐</span></p>
+                          <button onClick={() => undoCompletion(h)}
+                            className="text-xs text-gray-300 hover:text-red-400 font-semibold transition px-2 py-1 rounded-lg hover:bg-red-50 flex-shrink-0">Undo</button>
                         </div>
-                        <button onClick={() => undoCompletion(h)}
-                          className="text-xs text-gray-300 hover:text-red-400 font-semibold transition px-2 py-1 rounded-lg hover:bg-red-50 flex-shrink-0">Undo</button>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))
-            })()}
+              )
+            })}
           </div>
         )}
       </div>

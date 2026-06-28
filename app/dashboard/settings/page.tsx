@@ -135,13 +135,14 @@ export default function SettingsPage() {
   async function applyStarAdjust() {
     if (!adjustChild) return
     const amount = parseInt(adjustAmount, 10)
-    if (!amount || isNaN(amount)) { setAdjustError('Enter a number (e.g. 5 or -5).'); return }
+    if (!amount || isNaN(amount)) { setAdjustError('Enter a valid number (e.g. 5 or -5).'); return }
     setAdjustSaving(true); setAdjustError('')
-    await createClient().from('star_ledger').insert({
+    const { error } = await createClient().from('star_ledger').insert({
       child_id: adjustChild.id, delta: amount,
       reason: adjustReason.trim() || (amount > 0 ? 'Bonus stars' : 'Stars removed'),
       source_type: 'manual',
     })
+    if (error) { setAdjustError(error.message); setAdjustSaving(false); return }
     setAdjustChild(null); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustSaving(false)
   }
 
@@ -201,11 +202,8 @@ export default function SettingsPage() {
       <div className="pt-11 pb-3 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>⚙️</span>
-            <div>
-              <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Settings</h1>
-              <p className="text-gray-400 text-xs">Manage your family</p>
-            </div>
+            <img src="/logo.png" alt="Little Yakka" className="h-8 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Settings</span>
           </div>
           <ProfileButton/>
         </div>

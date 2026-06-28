@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import BrandLogo from '@/components/BrandLogo'
 
 const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
 
@@ -16,7 +17,6 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
-  // The recovery link puts a session in the URL; confirm we have one.
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getSession().then(({ data }) => {
@@ -42,14 +42,11 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: RAINBOW }}>
+    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-10 bg-white">
       <div className="w-full max-w-xs">
-        <h1 className="text-3xl font-black text-white text-center mb-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
-          New password
-        </h1>
-        <p className="text-white/80 text-center text-sm mb-5">Choose a new password for your account</p>
+        <BrandLogo className="w-full max-w-[280px] h-auto mx-auto block mb-3" fallbackSize={220}/>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-5">
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4">
           {done ? (
             <div className="text-center py-4">
               <div className="text-5xl mb-3">✅</div>
@@ -65,11 +62,13 @@ export default function ResetPasswordPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
+              <h2 className="text-base font-black text-gray-700 text-center mb-1">New password</h2>
+              <p className="text-xs text-gray-400 text-center mb-3">Choose a new password for your account</p>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
                 placeholder="New password" required/>
               <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300 bg-gray-50"
                 placeholder="Confirm password" required/>
               {error && <p className="text-red-500 text-xs bg-red-50 rounded-2xl p-2.5">{error}</p>}
               <button type="submit" disabled={loading}

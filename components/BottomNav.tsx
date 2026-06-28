@@ -78,8 +78,8 @@ export default function BottomNav() {
         <Link href="/dashboard/report"
           className={`flex flex-col items-center gap-1 transition ${active('/dashboard/report') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/report') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">📊</span>
-          <span className="text-[10px] font-semibold">Stats</span>
+          <span className="text-2xl">🏆</span>
+          <span className="text-[10px] font-semibold">Summary</span>
         </Link>
       </div>
     </nav>

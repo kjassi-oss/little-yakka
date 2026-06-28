@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 
-const REWARD_EMOJIS = ['🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🎪','🏆','⚽','🎭','🎠']
+const REWARD_EMOJIS = [
+  '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🎪','🏆','⚽','🎭','🎠',
+  '💰','💳','🏧','💵','🍔','🍣','🍜','🍩','🍪','🎂','🧁','🥂','🍾',
+  '📺','💻','🖥️','🎧','🎤','🎵','🎼','🎉','🎊','🪄','🔮','🛍️',
+  '✈️','🚢','🏕️','🎡','🎢','🎰','🃏','🧩','🎯','🏅','🥇','👑',
+  '💎','🌟','🌈','🦋','🌺','🌻','🌸','🧸','🪆','🎈',
+]
 
 interface Reward {
   id: string
@@ -39,7 +45,7 @@ export default function RewardsPage() {
   const [familyId, setFamilyId] = useState('')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [activeTab, setActiveTab] = useState<'catalogue' | 'requests' | 'redeemed'>('catalogue')
+  const [activeTab, setActiveTab] = useState<'catalogue' | 'redeemed'>('catalogue')
   const [balances, setBalances] = useState<Record<string, number>>({})
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null)
   const [redeemTarget, setRedeemTarget] = useState<Reward | null>(null)
@@ -187,28 +193,22 @@ export default function RewardsPage() {
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>🎁</span>
-            <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Rewards</h1>
+            <img src="/logo.png" alt="Little Yakka" className="h-8 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Rewards</span>
           </div>
           <ProfileButton/>
         </div>
       </div>
 
-      {/* Tab toggle (white sub-bar) */}
+      {/* Tab toggle */}
       <div className="bg-white px-4 pt-2.5 pb-1">
         <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
-          {([['catalogue', 'Catalogue'], ['requests', 'Requests'], ['redeemed', 'Redeemed']] as const).map(([tab, lbl]) => (
+          {([['catalogue', 'Catalogue'], ['redeemed', 'Redeemed']] as const).map(([tab, lbl]) => (
             <button key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition relative ${activeTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
-              style={activeTab === tab ? { background: 'var(--theme-gradient)' } : {}}
-            >
+              className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${activeTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
+              style={activeTab === tab ? { background: 'var(--theme-gradient)' } : {}}>
               {lbl}
-              {tab === 'requests' && pending.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
-                  {pending.length}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -245,11 +245,11 @@ export default function RewardsPage() {
               <p className="text-xs text-gray-500 mb-2">
                 Star cost: <span className="font-bold text-yellow-500">⭐ {starCost} stars</span>
               </p>
-              <input type="range" min={1} max={100} value={starCost}
+              <input type="range" min={1} max={500} value={starCost}
                 onChange={e => setStarCost(Number(e.target.value))}
                 className="w-full accent-pink-500" />
               <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                <span>1</span><span>100</span>
+                <span>1</span><span>100</span><span>250</span><span>500</span>
               </div>
             </div>
 
@@ -292,96 +292,34 @@ export default function RewardsPage() {
           </div>
         )}
 
-        {/* Catalogue tab */}
+        {/* Catalogue tab — flat grid sorted by star cost */}
         {activeTab === 'catalogue' && (
-          <div className="space-y-5">
-            {(() => {
-              const tiers = [
-                { label: '🌱 Quick Wins', sub: '1–20 stars', items: rewards.filter(r => r.star_cost <= 20), color: '#10B981' },
-                { label: '🌟 Weekly Goals', sub: '21–75 stars', items: rewards.filter(r => r.star_cost > 20 && r.star_cost <= 75), color: '#F59E0B' },
-                { label: '🏆 Big Prizes', sub: '76+ stars', items: rewards.filter(r => r.star_cost > 75), color: '#EF4444' },
-              ]
-              const hasTiered = tiers.some(t => t.items.length > 0)
-
-              if (!hasTiered && rewards.length === 0) return (
-                !showForm && (
-                  <div className="text-center py-16">
-                    <div className="text-6xl mb-4">🎁</div>
-                    <p className="text-gray-500 font-medium">No rewards yet</p>
-                    <p className="text-gray-400 text-sm mt-1">Tap "+ Add Reward" to create some</p>
-                  </div>
-                )
-              )
-
-              return tiers.map(tier => tier.items.length === 0 ? null : (
-                <div key={tier.label}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-base font-black text-gray-700">{tier.label}</span>
-                    <span className="text-xs text-gray-400 font-medium">{tier.sub}</span>
-                    <div className="flex-1 h-px bg-gray-100"/>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {tier.items.map(reward => (
-                      <div key={reward.id} className="bg-white rounded-3xl shadow-sm p-3 flex flex-col items-center gap-1.5 relative">
-                        <div className="absolute top-1.5 right-1.5">
-                          <button onClick={() => openEditReward(reward)} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
-                        </div>
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl mt-2"
-                          style={{ backgroundColor: tier.color + '18' }}>
-                          {reward.emoji}
-                        </div>
-                        <p className="font-semibold text-gray-800 text-xs text-center leading-tight line-clamp-2">{reward.title}</p>
-                        <p className="text-xs font-bold" style={{ color: tier.color }}>⭐ {reward.star_cost}</p>
-                        <button onClick={() => setRedeemTarget(reward)}
-                          className="w-full mt-0.5 text-white text-[11px] font-bold py-1.5 rounded-xl active:scale-95 transition"
-                          style={{ background: 'var(--theme-gradient)' }}>
-                          Redeem
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            })()}
-          </div>
-        )}
-
-        {/* Requests tab */}
-        {activeTab === 'requests' && (
-          <div className="space-y-3">
-            {pending.map(r => (
-              <div key={r.id} className="bg-white rounded-3xl p-4 shadow-sm">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-3xl">{(r.children as any)?.avatar}</span>
-                  <div>
-                    <p className="font-bold text-gray-800">{(r.children as any)?.name}</p>
-                    <p className="text-sm text-gray-400">wants a reward</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 bg-pink-50 rounded-2xl p-3 mb-3">
-                  <span className="text-2xl">{(r.rewards as any)?.emoji}</span>
-                  <div>
-                    <p className="font-semibold text-gray-800">{(r.rewards as any)?.title}</p>
-                    <p className="text-sm text-yellow-500 font-semibold">⭐ {(r.rewards as any)?.star_cost} stars</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => denyRedemption(r.id)}
-                    className="flex-1 border-2 border-gray-200 text-gray-500 font-semibold py-2.5 rounded-2xl hover:border-red-300 hover:text-red-500 transition">
-                    Deny ✗
-                  </button>
-                  <button onClick={() => approveRedemption(r)}
-                    className="flex-1 bg-gradient-to-r from-green-400 to-emerald-500 text-white font-bold py-2.5 rounded-2xl shadow active:scale-95 transition">
-                    Approve ✓
-                  </button>
-                </div>
-              </div>
-            ))}
-            {pending.length === 0 && (
+          <div>
+            {rewards.length === 0 && !showForm ? (
               <div className="text-center py-16">
-                <div className="text-6xl mb-4">✅</div>
-                <p className="text-gray-500 font-medium">No pending requests</p>
-                <p className="text-gray-400 text-sm mt-1">Kids can request rewards in Kid Mode</p>
+                <div className="text-6xl mb-4">🎁</div>
+                <p className="text-gray-500 font-medium">No rewards yet</p>
+                <p className="text-gray-400 text-sm mt-1">Tap + to create some</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {[...rewards].sort((a, b) => a.star_cost - b.star_cost).map(reward => (
+                  <div key={reward.id} className="bg-white rounded-2xl shadow-sm p-2 flex flex-col items-center gap-1 relative">
+                    <button onClick={() => openEditReward(reward)}
+                      className="absolute top-1 right-1 text-gray-300 text-[10px] active:scale-90 transition">✏️</button>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl mt-1"
+                      style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>
+                      {reward.emoji}
+                    </div>
+                    <p className="font-semibold text-gray-800 text-[10px] text-center leading-tight line-clamp-2 w-full">{reward.title}</p>
+                    <p className="text-[10px] font-bold text-yellow-500">⭐ {reward.star_cost}</p>
+                    <button onClick={() => setRedeemTarget(reward)}
+                      className="w-full text-white text-[10px] font-bold py-1 rounded-lg active:scale-95 transition"
+                      style={{ background: 'var(--theme-gradient)' }}>
+                      Redeem
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
