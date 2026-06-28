@@ -126,18 +126,18 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
+      <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">📊</span>
-            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Stats</h1>
+            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>📊</span>
+            <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Stats</h1>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex bg-white/20 rounded-2xl p-1">
+            <div className="flex bg-gray-100 rounded-2xl p-1">
               {(['week', 'month'] as Period[]).map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${period === p ? 'bg-white' : 'text-white'}`}
-                  style={period === p ? { color: 'var(--theme-from)' } : {}}>
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${period === p ? 'text-white shadow' : 'text-gray-400'}`}
+                  style={period === p ? { background: 'var(--theme-gradient)' } : {}}>
                   {p === 'week' ? 'Week' : 'Month'}
                 </button>
               ))}

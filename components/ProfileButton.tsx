@@ -21,8 +21,8 @@ export default function ProfileButton({ className = '' }: { className?: string }
 
   return (
     <Link href="/dashboard/settings" aria-label="Profile and settings"
-      className={`w-9 h-9 rounded-full bg-white flex items-center justify-center font-black shadow-md active:scale-95 transition shrink-0 ${className}`}
-      style={{ color: 'var(--theme-from)' }}>
+      className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-white shadow-md active:scale-95 transition shrink-0 ${className}`}
+      style={{ background: 'var(--theme-gradient)' }}>
       {initial || '👤'}
     </Link>
   )

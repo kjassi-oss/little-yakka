@@ -136,19 +136,19 @@ export default function SchedulePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
-      <div className="pt-11 pb-2.5 px-4" style={{ background: 'var(--theme-gradient)' }}>
+      <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">📅</span>
-            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Calendar</h1>
+            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>📅</span>
+            <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Calendar</h1>
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle */}
-            <div className="flex bg-white/20 rounded-2xl p-1 gap-0.5">
+            <div className="flex bg-gray-100 rounded-2xl p-1 gap-0.5">
               {(['roll', 'week', 'month'] as View[]).map(v => (
                 <button key={v} onClick={() => setView(v)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${view === v ? 'bg-white' : 'text-white'}`}
-                  style={view === v ? { color: 'var(--theme-from)' } : {}}>
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
+                  style={view === v ? { background: 'var(--theme-gradient)' } : {}}>
                   {VIEW_LABELS[v]}
                 </button>
               ))}

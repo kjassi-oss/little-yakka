@@ -181,13 +181,13 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="pt-11 pb-4 px-4" style={{ background: 'var(--theme-gradient)' }}>
+      <div className="pt-11 pb-3 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">⚙️</span>
+            <span className="w-8 h-8 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>⚙️</span>
             <div>
-              <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Settings</h1>
-              <p className="text-white/70 text-xs">Manage your family</p>
+              <h1 className="text-xl text-gray-800" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Settings</h1>
+              <p className="text-gray-400 text-xs">Manage your family</p>
             </div>
           </div>
           <ProfileButton/>
