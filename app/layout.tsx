@@ -16,7 +16,10 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Little Yakka",
   },
-  // Icons are provided by app/icon.tsx and app/apple-icon.tsx (generated PNGs)
+  // Favicon comes from app/icon.tsx; the home-screen (apple-touch) icon uses the uploaded logo
+  icons: {
+    apple: "/logo.png",
+  },
 }
 
 export const viewport: Viewport = {
