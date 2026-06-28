@@ -27,9 +27,14 @@ export default async function AdminPage() {
     return <Notice title="Not authorised" body="This page is restricted to the app administrator." />
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Accept whatever the service-role key happens to be named in the environment
+  const serviceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE ||
+    process.env.SUPABASE_SECRET_KEY
   if (!serviceKey) {
-    return <Notice title="Admin not configured" body="Add SUPABASE_SERVICE_ROLE_KEY (and optionally ADMIN_EMAIL) in your Vercel environment variables, then redeploy." />
+    return <Notice title="Admin not configured" body="Add your Supabase service_role key as SUPABASE_SERVICE_ROLE_KEY in Vercel (or tell the developer the exact name of your existing key), then redeploy." />
   }
 
   const admin = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false } })
