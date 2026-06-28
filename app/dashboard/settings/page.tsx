@@ -4,6 +4,20 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 import ProfileButton from '@/components/ProfileButton'
+import { setTimezone } from '@/app/actions/setTimezone'
+
+const COMMON_TIMEZONES = [
+  { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
+  { label: 'Brisbane (AEST, no DST)', value: 'Australia/Brisbane' },
+  { label: 'Adelaide (ACST)', value: 'Australia/Adelaide' },
+  { label: 'Perth (AWST)', value: 'Australia/Perth' },
+  { label: 'Darwin (ACST, no DST)', value: 'Australia/Darwin' },
+  { label: 'Auckland (NZST)', value: 'Pacific/Auckland' },
+  { label: 'London (GMT/BST)', value: 'Europe/London' },
+  { label: 'New York (ET)', value: 'America/New_York' },
+  { label: 'Los Angeles (PT)', value: 'America/Los_Angeles' },
+  { label: 'UTC', value: 'UTC' },
+]
 
 const AVATARS = [
   '🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉',
@@ -49,6 +63,8 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState('')
   const [pwMsg, setPwMsg] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
+  const [timezone, setTimezoneState] = useState('Australia/Sydney')
+  const [tzSaved, setTzSaved] = useState(false)
   const [adjustChild, setAdjustChild] = useState<Child | null>(null)
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
@@ -58,7 +74,19 @@ export default function SettingsPage() {
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const newChildPhotoRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadData(); setActiveTheme(getStoredTheme()) }, [])
+  useEffect(() => {
+    loadData()
+    setActiveTheme(getStoredTheme())
+    // Auto-detect browser timezone
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney'
+    const stored = document.cookie.split(';').find(s => s.trim().startsWith('tz='))
+    if (stored) {
+      setTimezoneState(decodeURIComponent(stored.trim().slice(3)))
+    } else {
+      setTimezoneState(detected)
+      setTimezone(detected)
+    }
+  }, [])
 
   async function loadData() {
     const supabase = createClient()
@@ -78,6 +106,13 @@ export default function SettingsPage() {
     if (familyData?.bonus_day != null) setBonusDay(familyData.bonus_day)
     if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
     setLoading(false)
+  }
+
+  async function saveTz(tz: string) {
+    setTimezoneState(tz)
+    await setTimezone(tz)
+    setTzSaved(true)
+    setTimeout(() => setTzSaved(false), 2000)
   }
 
   async function saveBonus() {
@@ -383,6 +418,25 @@ export default function SettingsPage() {
             {savingBonus ? 'Saving...' : bonusSaved ? 'Saved ✓' : 'Save bonus settings'}
           </button>
           <p className="text-[11px] text-gray-400 mt-2">Each child gets their own spin, redeemable that day only. They'll see a "Bonus spin ready!" banner in their zone.</p>
+        </div>
+
+        {/* Timezone */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-1">🌏 Timezone</h2>
+          <p className="text-xs text-gray-400 mb-3">Used to show tasks on the correct day. Auto-detected from your browser — override if needed.</p>
+          <select
+            value={timezone}
+            onChange={e => saveTz(e.target.value)}
+            className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white mb-2">
+            {COMMON_TIMEZONES.map(tz => (
+              <option key={tz.value} value={tz.value}>{tz.label}</option>
+            ))}
+            {!COMMON_TIMEZONES.find(t => t.value === timezone) && (
+              <option value={timezone}>{timezone}</option>
+            )}
+          </select>
+          {tzSaved && <p className="text-green-600 text-xs font-semibold">✓ Timezone saved</p>}
+          <p className="text-[11px] text-gray-400">Current: <span className="font-semibold text-gray-600">{timezone}</span></p>
         </div>
 
         {/* Children */}

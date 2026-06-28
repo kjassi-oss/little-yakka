@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SpinWheel from '@/components/SpinWheel'
@@ -9,6 +9,7 @@ interface Occurrence { id: string; taskId: string; title: string; emoji: string;
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
 interface Praise { id: string; message: string }
+interface DoneItem { key: string; date: string; createdAt: string; title: string; emoji: string; starValue: number }
 
 interface Props {
   child: Child
@@ -26,6 +27,7 @@ interface Props {
   bonusTime: string
   maxPrize: number
   streakDays: number
+  doneHistory: DoneItem[]
   unseenPraises: Praise[]
   highlightTaskId?: string | null
 }
@@ -38,16 +40,26 @@ function dateLabel(ds: string, todayStr: string): string {
   const tomorrow = new Date(todayStr + 'T00:00:00')
   tomorrow.setDate(tomorrow.getDate() + 1)
   if (ds === tomorrow.toISOString().split('T')[0]) return 'Tomorrow'
-  return new Date(ds + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
+  const past = ds < todayStr
+  return new Date(ds + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' }) + (past ? ' (past)' : '')
+}
+
+function fmtTimestamp(iso: string): string {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
+  } catch { return iso }
 }
 
 export default function ChildTaskView({
   child, occurrences, completedKeys, weekEndStr, mondayStr, todayStr,
   starBalance: initialBalance, rewards, pendingRewardIds: initialPending,
   hasSpunToday, bonusCadence, bonusDay, bonusTime, maxPrize,
-  streakDays, unseenPraises, highlightTaskId,
+  streakDays, doneHistory, unseenPraises, highlightTaskId,
 }: Props) {
   const router = useRouter()
+  const [tab, setTab] = useState<'tasks' | 'done'>('tasks')
+  const [showPast, setShowPast] = useState(false)
   const [pulseId, setPulseId] = useState<string | null>(highlightTaskId ? `${highlightTaskId}|${todayStr}` : null)
   const [completed, setCompleted] = useState(new Set(completedKeys))
   const [starBalance, setStarBalance] = useState(initialBalance)
@@ -63,7 +75,7 @@ export default function ChildTaskView({
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
 
-  // Check canSpin using LOCAL device time (avoids UTC mismatch on server)
+  // canSpin uses LOCAL device time (avoids UTC mismatch on server)
   useEffect(() => {
     const now = new Date()
     const h = now.getHours(), m = now.getMinutes()
@@ -72,13 +84,14 @@ export default function ChildTaskView({
     setCanSpin(dueToday && nowHHMM >= bonusTime && !hasSpunToday)
   }, [bonusCadence, bonusDay, bonusTime, hasSpunToday])
 
-  // Scroll to today on mount
+  // Scroll to today's section on load
   useEffect(() => {
+    if (tab !== 'tasks') return
     const el = document.getElementById(`date-${todayStr}`)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [todayStr])
+  }, [todayStr, tab])
 
-  // Scroll to highlighted task
+  // Pulse scroll to highlighted task
   useEffect(() => {
     if (!pulseId || currentPraise) return
     const el = document.getElementById(`occ-${pulseId}`)
@@ -95,13 +108,16 @@ export default function ChildTaskView({
     setCurrentPraise(remaining[0] ?? null)
   }
 
-  // Only current-week tasks count for progress
+  // Current-week tasks for progress bar (Mon–Sun)
   const claimable = occurrences.filter(o => o.date >= mondayStr && o.date <= weekEndStr)
   const claimableDone = claimable.filter(o => completed.has(o.id)).length
 
+  // Group by date, split into past-this-week and today-onward
   const byDate: Record<string, Occurrence[]> = {}
   occurrences.forEach(o => { (byDate[o.date] ||= []).push(o) })
-  const dates = Object.keys(byDate).sort()
+  const allDates = Object.keys(byDate).sort()
+  const pastDates = allDates.filter(ds => ds >= mondayStr && ds < todayStr)
+  const upcomingDates = allDates.filter(ds => ds >= todayStr)
 
   async function completeTask(occ: Occurrence) {
     if (completed.has(occ.id) || occ.date > weekEndStr) return
@@ -200,7 +216,7 @@ export default function ChildTaskView({
               </button>
             )}
             <button onClick={() => router.push('/dashboard')} className="text-gray-400 text-sm font-semibold py-2">
-              ← Exit
+              ← Back to home
             </button>
           </div>
         </div>
@@ -212,6 +228,46 @@ export default function ChildTaskView({
   }
 
   const progress = claimable.length > 0 ? (claimableDone / claimable.length) * 100 : 0
+
+  function renderTaskRow(occ: Occurrence) {
+    const done = completed.has(occ.id)
+    const locked = occ.date > weekEndStr
+    const isPast = occ.date < todayStr
+    const expired = isPast && !done && !locked
+    return (
+      <div key={occ.id} id={`occ-${occ.id}`}
+        className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300
+          ${done ? 'bg-gray-50 border-gray-100 opacity-70'
+            : expired ? 'bg-red-50 border-red-100'
+            : locked ? 'bg-gray-50 border-gray-100 opacity-60'
+            : 'bg-white border-gray-100 shadow-sm'}
+          ${justClaimedId === occ.id ? 'scale-95' : ''}
+          ${pulseId === occ.id ? 'bounce-in' : ''}`}
+        style={pulseId === occ.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${locked ? 'grayscale opacity-40' : ''}`}
+          style={{ backgroundColor: child.colour + '22' }}>
+          {occ.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : expired ? 'text-red-500' : locked ? 'text-gray-400' : 'text-gray-800'}`}>
+            {occ.title}
+          </p>
+          <p className="text-xs text-gray-400">{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐</p>
+        </div>
+        {done ? (
+          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg">✓</div>
+        ) : locked ? (
+          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
+        ) : (
+          <button onClick={() => completeTask(occ)}
+            className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
+            style={{ background: expired ? '#EF4444' : `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
+            DONE
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white pb-32 relative">
@@ -225,11 +281,14 @@ export default function ChildTaskView({
             {child.name.split(' ')[0]}
           </span>
           <button onClick={() => router.push('/dashboard')}
-            className="text-gray-400 text-sm font-semibold active:scale-95 transition">← Exit</button>
+            className="flex items-center gap-1.5 px-4 py-2 rounded-2xl font-black text-sm text-white shadow-sm active:scale-95 transition"
+            style={{ background: 'linear-gradient(135deg, #6B7280, #9CA3AF)' }}>
+            ← BACK
+          </button>
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 pt-4 space-y-4">
+      <div className="max-w-sm mx-auto px-4 pt-4 space-y-3">
 
         {/* Stats row */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
@@ -255,84 +314,117 @@ export default function ChildTaskView({
           </div>
         </div>
 
-        {/* Bonus spin alert */}
-        {canSpin && (
-          <button onClick={() => setShowSpin(true)}
-            className="w-full flex items-center justify-center gap-2 text-white font-black text-base py-3 rounded-2xl shadow-sm active:scale-95 transition"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
-            🎰 Bonus spin ready! Tap to play
-          </button>
+        {/* Tabs */}
+        <div className="flex bg-gray-100 rounded-2xl p-1">
+          {(['tasks', 'done'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-2 rounded-xl text-sm font-bold capitalize transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
+              style={tab === t ? { background: 'var(--theme-gradient)' } : {}}>
+              {t === 'tasks' ? '📋 Tasks' : `✅ Done (${doneHistory.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* ── TASKS TAB ── */}
+        {tab === 'tasks' && (
+          <div className="space-y-4">
+            {/* Bonus spin alert */}
+            {canSpin && (
+              <button onClick={() => setShowSpin(true)}
+                className="w-full flex items-center justify-center gap-2 text-white font-black text-base py-3 rounded-2xl shadow-sm active:scale-95 transition"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                🎰 Bonus spin ready! Tap to play
+              </button>
+            )}
+
+            {/* Past days this week — hidden by default */}
+            {pastDates.length > 0 && (
+              <div>
+                <button onClick={() => setShowPast(p => !p)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 active:scale-95 transition mb-2">
+                  <span>⬆ Past days this week ({pastDates.length} day{pastDates.length !== 1 ? 's' : ''})</span>
+                  <span className={`text-gray-300 text-lg transition-transform ${showPast ? 'rotate-90' : ''}`}>›</span>
+                </button>
+                {showPast && (
+                  <div className="space-y-4">
+                    {pastDates.map(ds => {
+                      const items = byDate[ds]
+                      return (
+                        <div key={ds} id={`date-${ds}`}>
+                          <p className="text-xs font-black text-red-400 mb-2 px-1">
+                            {dateLabel(ds, todayStr)}
+                          </p>
+                          <div className="space-y-2">{items.map(renderTaskRow)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Today + upcoming */}
+            {upcomingDates.map(ds => {
+              const locked = ds > weekEndStr
+              const isToday = ds === todayStr
+              const items = byDate[ds]
+              return (
+                <div key={ds} id={`date-${ds}`}>
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <p className={`text-sm font-black ${isToday ? '' : 'text-gray-600'}`}
+                      style={isToday ? { color: 'var(--theme-from)' } : {}}>
+                      {dateLabel(ds, todayStr)}
+                    </p>
+                    {locked && (
+                      <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">🔒 next week</span>
+                    )}
+                    {!locked && !isToday && ds > todayStr && (
+                      <span className="text-[10px] font-bold rounded-full px-2 py-0.5"
+                        style={{ color: child.colour, backgroundColor: child.colour + '22' }}>can do early ✨</span>
+                    )}
+                  </div>
+                  <div className="space-y-2">{items.map(renderTaskRow)}</div>
+                </div>
+              )
+            })}
+
+            {occurrences.length === 0 && (
+              <div className="text-center py-16 px-4">
+                <div className="text-6xl mb-4">🎉</div>
+                <p className="text-gray-600 font-semibold">No tasks coming up!</p>
+                <p className="text-gray-400 text-sm mt-1">Ask a grown-up to add some tasks.</p>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Tasks grouped by date */}
-        {dates.map(ds => {
-          const locked = ds > weekEndStr
-          const isPast = ds < todayStr
-          const isToday = ds === todayStr
-          const items = byDate[ds]
-          return (
-            <div key={ds} id={`date-${ds}`}>
-              <div className="flex items-center gap-2 mb-2 px-1">
-                <p className="text-sm font-black text-gray-700">{dateLabel(ds, todayStr)}</p>
-                {locked && (
-                  <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">🔒 next week</span>
-                )}
-                {isPast && !locked && (
-                  <span className="text-[10px] font-bold text-red-400 bg-red-50 rounded-full px-2 py-0.5">past</span>
-                )}
-                {!isPast && !isToday && !locked && (
-                  <span className="text-[10px] font-bold rounded-full px-2 py-0.5"
-                    style={{ color: child.colour, backgroundColor: child.colour + '22' }}>can do early ✨</span>
-                )}
+        {/* ── DONE TAB ── */}
+        {tab === 'done' && (
+          <div className="space-y-2">
+            {doneHistory.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-5xl mb-3">📭</div>
+                <p className="text-gray-500 font-semibold">No completed tasks yet</p>
+                <p className="text-gray-400 text-sm mt-1">Complete some tasks to see them here!</p>
               </div>
-              <div className="space-y-2">
-                {items.map(occ => {
-                  const done = completed.has(occ.id)
-                  const expired = isPast && !done && !locked
-                  return (
-                    <div key={occ.id} id={`occ-${occ.id}`}
-                      className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300
-                        ${done ? 'bg-gray-50 border-gray-100 opacity-70'
-                          : expired ? 'bg-red-50 border-red-100'
-                          : locked ? 'bg-gray-50 border-gray-100 opacity-60'
-                          : 'bg-white border-gray-100 shadow-sm'}
-                        ${justClaimedId === occ.id ? 'scale-95' : ''}
-                        ${pulseId === occ.id ? 'bounce-in' : ''}`}
-                      style={pulseId === occ.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}}>
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${locked ? 'grayscale opacity-40' : ''}`}
-                        style={{ backgroundColor: child.colour + '22' }}>
-                        {occ.emoji}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : expired ? 'text-red-500' : locked ? 'text-gray-400' : 'text-gray-800'}`}>
-                          {occ.title}
-                        </p>
-                        <p className="text-xs text-gray-400">{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐</p>
-                      </div>
-                      {done ? (
-                        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg">✓</div>
-                      ) : locked ? (
-                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
-                      ) : (
-                        <button onClick={() => completeTask(occ)}
-                          className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
-                          style={{ background: expired ? '#EF4444' : `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
-                          DONE
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-
-        {occurrences.length === 0 && (
-          <div className="text-center py-16 px-4">
-            <div className="text-6xl mb-4">🎉</div>
-            <p className="text-gray-600 font-semibold">No tasks coming up!</p>
-            <p className="text-gray-400 text-sm mt-1">Ask a grown-up to add some tasks.</p>
+            ) : (
+              doneHistory.map(item => (
+                <div key={item.key + item.createdAt}
+                  className="bg-white border border-gray-100 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                    style={{ backgroundColor: child.colour + '22' }}>
+                    {item.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-gray-800 truncate">{item.title}</p>
+                    <p className="text-xs text-gray-400">{fmtTimestamp(item.createdAt)}</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-sm font-black text-yellow-500">+{item.starValue} ⭐</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

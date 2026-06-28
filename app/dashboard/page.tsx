@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import PraiseButton from '@/components/PraiseButton'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
 import { occursOn } from '@/lib/recurrence'
+import { localNow, localDateStr, parseTzCookie } from '@/lib/localDate'
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -53,6 +55,12 @@ export default async function DashboardPage() {
     .from('guardians').select('name, family_id').eq('auth_user_id', user.id).single()
   if (!guardian) redirect('/setup')
 
+  // Timezone-aware "today" — read from cookie set by client on first load
+  const cookieStore = await cookies()
+  const tz = parseTzCookie(cookieStore.get('tz')?.value)
+  const now = localNow(tz)                          // Date with correct local y/m/d
+  const today = localDateStr(new Date(), tz)        // YYYY-MM-DD in user's timezone
+
   const [{ data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
     supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
     supabase.from('tasks').select('id, title, emoji, star_value, time_of_day, frequency, start_date, created_at, days_of_week').eq('family_id', guardian.family_id),
@@ -60,11 +68,9 @@ export default async function DashboardPage() {
     supabase.from('star_ledger').select('child_id, delta'),
   ])
 
-  const today = new Date().toISOString().split('T')[0]
-  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(now.getDate() - 30)
   const childIds = children?.map(c => c.id) || []
 
-  const now = new Date()
   const dayOfWeek = now.getDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
   const weekStart = new Date(now); weekStart.setDate(now.getDate() + mondayOffset); weekStart.setHours(0, 0, 0, 0)
@@ -74,7 +80,7 @@ export default async function DashboardPage() {
       .in('child_id', childIds.length ? childIds : ['none']),
     supabase.from('completions').select('child_id, date').eq('status', 'approved')
       .in('child_id', childIds.length ? childIds : ['none'])
-      .gte('date', thirtyDaysAgo.toISOString().split('T')[0]),
+      .gte('date', localDateStr(thirtyDaysAgo, tz)),
     supabase.from('star_ledger').select('child_id, delta')
       .in('child_id', childIds.length ? childIds : ['none'])
       .gte('created_at', weekStart.toISOString()),
@@ -121,7 +127,7 @@ export default async function DashboardPage() {
     let streak = 0
     for (let i = 0; i < 45; i++) {
       const d = new Date(now); d.setDate(now.getDate() - i)
-      const ds = d.toISOString().split('T')[0]
+      const ds = localDateStr(d, tz)
       const due = childTasks.filter(t => occursOn(t, d)).length
       if (due === 0) continue // nothing scheduled — doesn't break or count
       const done = doneCount[`${childId}|${ds}`] || 0
@@ -156,7 +162,7 @@ export default async function DashboardPage() {
   const upcomingDays: { ds: string; label: string; date: string; items: { task: any; pending: any[] }[] }[] = []
   for (let i = 0; i < 3; i++) {
     const d = new Date(now); d.setDate(now.getDate() + i)
-    const ds = d.toISOString().split('T')[0]
+    const ds = localDateStr(d, tz)
     const items = (tasks || [])
       .filter(t => occursOn(t, d))
       .map(t => {

@@ -51,7 +51,6 @@ export default function SchedulePage() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
   const [filterChildId, setFilterChildId] = useState<string | null>(null)
-  const [showFilter, setShowFilter] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const today = new Date()
@@ -133,10 +132,10 @@ export default function SchedulePage() {
     )
   }
 
-  // Upcoming 3 weeks from today
+  // Upcoming 2 weeks from today
   function getUpcomingDays() {
     const result: { day: Date; ds: string; items: { task: Task; kids: Child[] }[] }[] = []
-    const end = new Date(today); end.setDate(today.getDate() + 20)
+    const end = new Date(today); end.setDate(today.getDate() + 13)
     for (let d = new Date(today); d <= end; d.setDate(d.getDate() + 1)) {
       const items = getTasksForDay(new Date(d))
       if (items.length > 0) result.push({ day: new Date(d), ds: ymd(d), items })
@@ -167,48 +166,56 @@ export default function SchedulePage() {
               Calendar
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            {/* View toggle */}
-            <div className="flex bg-gray-100 rounded-xl p-0.5">
-              {(['upcoming', 'week', 'month'] as View[]).map(v => (
-                <button key={v} onClick={() => setView(v)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold capitalize transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
-                  style={view === v ? { background: 'var(--theme-gradient)' } : {}}>
-                  {v === 'upcoming' ? '3W' : v === 'week' ? 'Wk' : 'Mo'}
+          <ProfileButton/>
+        </div>
+
+        {/* View toggle + child filter thumbnails */}
+        <div className="max-w-sm mx-auto flex items-center gap-2 mt-2.5 pt-2.5 border-t border-gray-100">
+          <div className="flex bg-gray-100 rounded-xl p-0.5">
+            {(['upcoming', 'week', 'month'] as View[]).map(v => (
+              <button key={v} onClick={() => setView(v)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
+                style={view === v ? { background: 'var(--theme-gradient)' } : {}}>
+                {v === 'upcoming' ? '2W' : v === 'week' ? 'Wk' : 'Mo'}
+              </button>
+            ))}
+          </div>
+          {/* Child thumbnails — up to 3, act as filter toggles */}
+          <div className="flex items-center gap-1.5 ml-1">
+            {children.slice(0, 3).map((child, i) => {
+              const sel = filterChildId === child.id
+              const color = CHILD_COLORS[i % CHILD_COLORS.length]
+              return (
+                <button key={child.id} onClick={() => setFilterChildId(sel ? null : child.id)}
+                  className="relative active:scale-90 transition"
+                  title={child.name.split(' ')[0]}>
+                  {child.avatar_url
+                    ? <img src={child.avatar_url} className="w-9 h-9 rounded-full object-cover"
+                        style={{ border: sel ? `2.5px solid ${color}` : '2.5px solid #e5e7eb' }} alt=""/>
+                    : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg"
+                        style={{ backgroundColor: color + '25', border: sel ? `2.5px solid ${color}` : '2.5px solid #e5e7eb' }}>
+                        {child.avatar}
+                      </div>}
+                  {sel && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-[8px] font-black flex items-center justify-center"
+                      style={{ backgroundColor: color }}>✓</div>
+                  )}
                 </button>
-              ))}
-            </div>
-            {/* Filter button */}
-            <button onClick={() => setShowFilter(true)}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition ${filterChildId ? 'text-white shadow' : 'bg-gray-100 text-gray-500'}`}
-              style={filterChildId ? { background: 'var(--theme-gradient)' } : {}}>
-              👤
-            </button>
-            <ProfileButton/>
+              )
+            })}
+            {children.length > 3 && (
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">
+                +{children.length - 3}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Active filter pill */}
-      {filterChild && (
-        <div className="px-4 pt-2 pb-1 bg-white">
-          <div className="max-w-sm mx-auto">
-            <button onClick={() => setFilterChildId(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold text-white"
-              style={{ backgroundColor: childColorMap[filterChild.id] || filterChild.colour }}>
-              {filterChild.avatar_url
-                ? <img src={filterChild.avatar_url} className="w-5 h-5 rounded-full object-cover" alt=""/>
-                : <span>{filterChild.avatar}</span>}
-              {filterChild.name.split(' ')[0]} <span className="opacity-70">×</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── UPCOMING VIEW (default) ── */}
       {view === 'upcoming' && (
         <div className="max-w-sm mx-auto px-4 pt-4">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Next 3 weeks</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Next 2 weeks</p>
           {upcomingDays.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-4xl mb-3">🎉</div>
@@ -474,49 +481,6 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* Filter bottom sheet */}
-      {showFilter && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowFilter(false)}>
-          <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
-            <h3 className="font-black text-gray-800 text-lg mb-4">Filter by child</h3>
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              <button onClick={() => { setFilterChildId(null); setShowFilter(false) }}
-                className="flex flex-col items-center gap-1 active:scale-95 transition">
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-black ${!filterChildId ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                  style={!filterChildId ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>
-                  All
-                </div>
-                <span className="text-[11px] font-semibold" style={{ color: !filterChildId ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
-              </button>
-              {children.map((child, i) => {
-                const sel = filterChildId === child.id
-                const displayColor = CHILD_COLORS[i % CHILD_COLORS.length]
-                return (
-                  <button key={child.id} onClick={() => { setFilterChildId(sel ? null : child.id); setShowFilter(false) }}
-                    className="flex flex-col items-center gap-1 active:scale-95 transition">
-                    {child.avatar_url
-                      ? <img src={child.avatar_url} className="w-14 h-14 rounded-full object-cover" alt=""
-                          style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${displayColor}` : 'none' }}/>
-                      : <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-                          style={{ backgroundColor: displayColor + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${displayColor}` : 'none' }}>
-                          {child.avatar}
-                        </div>}
-                    <span className="text-[11px] font-semibold truncate max-w-[56px]"
-                      style={{ color: sel ? displayColor : '#9ca3af' }}>
-                      {child.name.split(' ')[0]}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            <button onClick={() => setShowFilter(false)}
-              className="w-full border border-gray-200 text-gray-500 font-semibold py-3 rounded-2xl active:scale-95 transition">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

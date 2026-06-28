@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { setTimezone } from '@/app/actions/setTimezone'
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -13,6 +14,12 @@ export default function BottomNav() {
   const [approvalCount, setApprovalCount] = useState(0)
 
   useEffect(() => {
+    // Auto-set timezone cookie if not already present
+    const hasTz = document.cookie.split(';').some(s => s.trim().startsWith('tz='))
+    if (!hasTz) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney'
+      setTimezone(tz)
+    }
     loadBadges()
   }, [pathname])
 
