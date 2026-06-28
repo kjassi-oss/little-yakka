@@ -181,7 +181,7 @@ export default async function DashboardPage() {
       {/* Header — logo left + profile right */}
       <div className="px-4 pt-11 pb-2 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between">
-          <img src="/logo.png" alt="Little Yakka" className="h-9 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+          <img src="/logo.png" alt="Little Yakka" className="h-9 w-auto"/>
           <ProfileButton/>
         </div>
       </div>
