@@ -318,8 +318,8 @@ export default function SchedulePage() {
               const dayTasks = getTasksForDay(d)
               return (
                 <button key={i} onClick={() => setSelectedDay(isSelected ? null : ds)}
-                  className={`flex flex-col items-center pt-1 pb-1 px-0.5 rounded-xl transition min-h-[52px] active:scale-95 ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
-                  style={isSelected ? { ringColor: 'var(--theme-from)' } : {}}>
+                  className={`flex flex-col items-center pt-1 pb-1 px-0.5 rounded-xl transition min-h-[52px] active:scale-95`}
+                  style={isSelected ? { outline: '2px solid var(--theme-from)', outlineOffset: '1px' } : {}}>
                   <span className={`text-xs font-bold mb-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isToday ? 'text-white' : 'text-gray-700'}`}
                     style={isToday ? { background: 'var(--theme-gradient)' } : {}}>
                     {day}
