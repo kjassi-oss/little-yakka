@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import Logo from '@/components/Logo'
+import BrandLogo from '@/components/BrandLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -36,37 +36,13 @@ export default function LoginPage() {
   const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-20 relative overflow-hidden"
-      style={{ background: RAINBOW }}>
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-        {['⭐','🌟','✨','💫','⭐','🌟'].map((s, i) => (
-          <span key={i} className="absolute text-4xl opacity-15"
-            style={{ top: `${6 + i * 15}%`, left: i % 2 === 0 ? `${4 + i * 3}%` : 'auto', right: i % 2 !== 0 ? `${4 + i * 2}%` : 'auto', transform: `rotate(${i % 2 === 0 ? -15 : 20}deg)` }}>
-            {s}
-          </span>
-        ))}
-      </div>
-
+    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-10 bg-white">
       <div className="w-full max-w-xs relative">
-        {/* Rainbow logo, same width as the sign-in card below */}
-        <div className="flex flex-col items-center mb-5">
-          <Logo size={240} rainbow className="shadow-2xl mb-3 w-[78%] h-auto"/>
-          <div className="w-fit mx-auto text-center">
-            <h1 className="text-5xl font-black text-white tracking-tight"
-              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
-              Little Yakka
-            </h1>
-            {/* Tagline: same display font, all caps, justified to the wordmark's width */}
-            <p className="block w-full text-white uppercase font-bold mt-1.5 text-[10px] leading-tight"
-              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', textAlign: 'justify', textAlignLast: 'justify' }}>
-              Making chores fun leading to positive lifelong habits
-            </p>
-          </div>
-        </div>
+        {/* Big centred logo */}
+        <BrandLogo className="w-full max-w-[300px] h-auto mx-auto block mb-3" fallbackSize={240}/>
 
         {/* Compact sign-in card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-4 space-y-2.5">
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 space-y-2.5">
           <button onClick={handleGoogle} disabled={googleLoading}
             className="w-full flex items-center justify-center gap-2.5 border-2 border-gray-200 rounded-2xl py-2.5 font-semibold text-gray-700 text-sm hover:bg-gray-50 active:scale-95 transition disabled:opacity-60">
             {googleLoading ? (

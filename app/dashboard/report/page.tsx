@@ -50,7 +50,7 @@ export default function AnalyticsPage() {
       supabase.from('completions').select('child_id, date, task_id').eq('status', 'approved')
         .in('child_id', childIds.length ? childIds : ['none']).gte('date', thirty),
       supabase.from('star_ledger').select('child_id, delta, created_at')
-        .in('child_id', childIds.length ? childIds : ['none']).gt('delta', 0).gte('created_at', thirty + 'T00:00:00'),
+        .in('child_id', childIds.length ? childIds : ['none']).gte('created_at', thirty + 'T00:00:00'),
       supabase.from('completions').select('child_id, date').eq('status', 'approved')
         .in('child_id', childIds.length ? childIds : ['none']).gte('date', thirty),
     ])

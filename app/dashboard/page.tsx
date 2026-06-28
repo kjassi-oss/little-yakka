@@ -89,7 +89,7 @@ export default async function DashboardPage() {
       .gte('date', thirtyDaysAgo.toISOString().split('T')[0]),
     supabase.from('star_ledger').select('child_id, delta')
       .in('child_id', childIds.length ? childIds : ['none'])
-      .gte('created_at', weekStart.toISOString()).gt('delta', 0),
+      .gte('created_at', weekStart.toISOString()),
     supabase.from('completions').select('child_id').eq('status', 'approved')
       .in('child_id', childIds.length ? childIds : ['none']),
   ])
@@ -111,11 +111,32 @@ export default async function DashboardPage() {
   // Only tasks actually due today (frequency + start date aware)
   const todayTasks = (tasks || []).filter(t => occursOn(t, now))
 
+  // Completions per child per day (for the "all done" streak)
+  const doneCount: Record<string, number> = {}
+  recentCompletions?.forEach(c => { const k = `${c.child_id}|${c.date}`; doneCount[k] = (doneCount[k] || 0) + 1 })
+
+  // Streak = consecutive days where ALL of that child's due tasks were completed
+  function allDoneStreak(childId: string): number {
+    const childTasks = (tasks || []).filter(t => (assignmentMap[t.id] || []).includes(childId))
+    if (childTasks.length === 0) return 0
+    let streak = 0
+    for (let i = 0; i < 45; i++) {
+      const d = new Date(now); d.setDate(now.getDate() - i)
+      const ds = d.toISOString().split('T')[0]
+      const due = childTasks.filter(t => occursOn(t, d)).length
+      if (due === 0) continue // nothing scheduled — doesn't break or count
+      const done = doneCount[`${childId}|${ds}`] || 0
+      if (done >= due) streak++
+      else if (i === 0) continue // today still in progress — don't break the streak yet
+      else break
+    }
+    return streak
+  }
+
   const childData = (children || []).map(child => {
     const balance = allStarData?.filter(s => s.child_id === child.id).reduce((sum, s) => sum + s.delta, 0) || 0
     const weekStars = weekStarData?.filter(s => s.child_id === child.id).reduce((sum, s) => sum + s.delta, 0) || 0
-    const myDates = [...new Set(recentCompletions?.filter(c => c.child_id === child.id).map(c => c.date) || [])]
-    const streak = computeStreak(myDates)
+    const streak = allDoneStreak(child.id)
     const totalCompletions = allCompletions?.filter(c => c.child_id === child.id).length || 0
     const badges = getBadges(balance, streak, totalCompletions)
     const level = getLevel(balance)

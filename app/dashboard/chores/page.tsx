@@ -602,6 +602,12 @@ export default function ChoresPage() {
                       <div className="absolute top-1.5 right-1.5 z-10">
                         <button onClick={e => { e.stopPropagation(); openEditForm(task) }} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
                       </div>
+                      {(() => {
+                        const f = task.frequency || 'daily'
+                        const fc = f === 'weekly' ? { l: 'W', c: '#7C3AED' } : f === 'monthly' ? { l: 'M', c: '#F59E0B' } : { l: 'D', c: '#1E88E5' }
+                        return <span className="absolute top-1.5 left-1.5 z-10 text-[10px] font-black w-5 h-5 rounded-md flex items-center justify-center"
+                          style={{ color: fc.c, backgroundColor: fc.c + '22' }}>{fc.l}</span>
+                      })()}
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-3xl mt-1"
                         style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>
                         {task.emoji}
