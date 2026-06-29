@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
 import { occursOn } from '@/lib/recurrence'
+import LoadingLogo from '@/components/LoadingLogo'
 
 interface Task {
   id: string; title: string; emoji: string; time_of_day: string | null; star_value: number
@@ -32,7 +33,8 @@ function getMondayOf(d: Date): Date {
 }
 
 function ymd(d: Date): string {
-  return d.toISOString().split('T')[0]
+  // Use local timezone — toISOString() gives UTC which breaks date labels in AEST before 10am
+  return new Intl.DateTimeFormat('en-CA').format(d)
 }
 
 function dateLabel(ds: string, todayStr: string): string {
@@ -145,11 +147,7 @@ export default function SchedulePage() {
 
   const filterChild = filterChildId ? childMap[filterChildId] : null
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="text-5xl animate-spin">📅</div>
-    </div>
-  )
+  if (loading) return <LoadingLogo />
 
   const upcomingDays = getUpcomingDays()
 
@@ -174,9 +172,9 @@ export default function SchedulePage() {
           <div className="flex bg-gray-100 rounded-xl p-0.5">
             {(['upcoming', 'week', 'month'] as View[]).map(v => (
               <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition whitespace-nowrap ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
                 style={view === v ? { background: 'var(--theme-gradient)' } : {}}>
-                {v === 'upcoming' ? '2W' : v === 'week' ? 'Wk' : 'Mo'}
+                {v === 'upcoming' ? '2 Weeks' : v === 'week' ? 'Week' : 'Month'}
               </button>
             ))}
           </div>

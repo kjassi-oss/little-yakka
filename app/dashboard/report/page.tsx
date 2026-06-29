@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import LoadingLogo from '@/components/LoadingLogo'
 import ProfileButton from '@/components/ProfileButton'
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
@@ -114,7 +115,7 @@ export default function AnalyticsPage() {
   }, [selectedKid, children, assignPairs, completions, stars, recent30, startStr, daysElapsed])
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">📊</div></div>
+    <LoadingLogo />
   )
 
   const ringR = 52

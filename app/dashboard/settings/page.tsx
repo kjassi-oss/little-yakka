@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
+import LoadingLogo from '@/components/LoadingLogo'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 
@@ -230,7 +231,7 @@ export default function SettingsPage() {
     setTimeout(() => setInviteCopied(false), 2500)
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">⚙️</div></div>
+  if (loading) return <LoadingLogo />
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">

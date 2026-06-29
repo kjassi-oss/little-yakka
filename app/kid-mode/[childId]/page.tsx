@@ -47,6 +47,7 @@ export default async function ChildPage({ params, searchParams }: {
         occurrences.push({
           id: `${t.id}|${ds}`, taskId: t.id, title: t.title, emoji: t.emoji,
           star_value: t.star_value, time_of_day: t.time_of_day ?? null, date: ds,
+          canDoEarly: (t as any).can_do_early ?? true,
         })
       }
     }

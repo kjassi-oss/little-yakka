@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import { occursOn } from '@/lib/recurrence'
+import LoadingLogo from '@/components/LoadingLogo'
 
 // Searchable emoji set (keywords drive the search box)
 const EMOJI_OPTIONS: { e: string; kw: string }[] = [
@@ -120,6 +121,7 @@ export default function ChoresPage() {
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [requiresApproval, setRequiresApproval] = useState(false)
+  const [canDoEarly, setCanDoEarly] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
@@ -208,7 +210,7 @@ export default function ChoresPage() {
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
-    setRequiresApproval(false); setDaysOfWeek([])
+    setRequiresApproval(false); setCanDoEarly(true); setDaysOfWeek([])
     setFormError('')
     setShowForm(true)
   }
@@ -226,6 +228,7 @@ export default function ChoresPage() {
     setAssignedChildren(assignments[task.id] || [])
     setDifficulty((task as any).difficulty || 'medium')
     setRequiresApproval((task as any).requires_approval || false)
+    setCanDoEarly((task as any).can_do_early ?? true)
     setDaysOfWeek(task.days_of_week || [])
     setFormError('')
     setShowForm(true)
@@ -250,6 +253,7 @@ export default function ChoresPage() {
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
       frequency, carry_over: carryOver, difficulty,
+      can_do_early: canDoEarly,
       requires_approval: false,
       days_of_week: frequency === 'daily' && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? [...daysOfWeek].sort() : null,
     }
@@ -324,9 +328,7 @@ export default function ChoresPage() {
   const todayStr = new Date().toISOString().split('T')[0]
   const dateLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  if (pageLoading) return (
-    <div className="min-h-screen flex items-center justify-center"><div className="text-5xl animate-spin">📋</div></div>
-  )
+  if (pageLoading) return <LoadingLogo />
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
@@ -487,6 +489,18 @@ export default function ChoresPage() {
                 className={`w-12 h-6 rounded-full transition-colors relative ${carryOver ? '' : 'bg-gray-200'}`}
                 style={carryOver ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${carryOver ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Can be done early 🗓️</p>
+                <p className="text-xs text-gray-400">{canDoEarly ? 'Kids can do future days now' : 'Only on the scheduled day'}</p>
+              </div>
+              <button onClick={() => setCanDoEarly(!canDoEarly)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${canDoEarly ? '' : 'bg-gray-200'}`}
+                style={canDoEarly ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${canDoEarly ? 'translate-x-6' : 'translate-x-0.5'}`}/>
               </button>
             </div>
 

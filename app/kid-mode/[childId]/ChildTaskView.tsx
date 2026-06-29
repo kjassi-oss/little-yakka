@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SpinWheel from '@/components/SpinWheel'
 
-interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string }
+interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean }
+
+const TIME_SORT: Record<string, number> = { anytime: 0, morning: 1, afternoon: 2, evening: 3 }
+function sortOccs(occs: Occurrence[]) {
+  return [...occs].sort((a, b) =>
+    (TIME_SORT[a.time_of_day ?? 'anytime'] ?? 0) - (TIME_SORT[b.time_of_day ?? 'anytime'] ?? 0)
+  )
+}
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
 interface Praise { id: string; message: string }
@@ -233,23 +240,25 @@ export default function ChildTaskView({
     const done = completed.has(occ.id)
     const locked = occ.date > weekEndStr
     const isPast = occ.date < todayStr
+    const isFutureThisWeek = occ.date > todayStr && !locked
+    const notYetAvailable = isFutureThisWeek && !occ.canDoEarly
     const expired = isPast && !done && !locked
     return (
       <div key={occ.id} id={`occ-${occ.id}`}
         className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300
           ${done ? 'bg-gray-50 border-gray-100 opacity-70'
             : expired ? 'bg-red-50 border-red-100'
-            : locked ? 'bg-gray-50 border-gray-100 opacity-60'
+            : locked || notYetAvailable ? 'bg-gray-50 border-gray-100 opacity-60'
             : 'bg-white border-gray-100 shadow-sm'}
           ${justClaimedId === occ.id ? 'scale-95' : ''}
           ${pulseId === occ.id ? 'bounce-in' : ''}`}
         style={pulseId === occ.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${locked ? 'grayscale opacity-40' : ''}`}
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${locked || notYetAvailable ? 'grayscale opacity-40' : ''}`}
           style={{ backgroundColor: child.colour + '22' }}>
           {occ.emoji}
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : expired ? 'text-red-500' : locked ? 'text-gray-400' : 'text-gray-800'}`}>
+          <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : expired ? 'text-red-500' : locked || notYetAvailable ? 'text-gray-400' : 'text-gray-800'}`}>
             {occ.title}
           </p>
           <p className="text-xs text-gray-400">{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐</p>
@@ -258,6 +267,8 @@ export default function ChildTaskView({
           <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg">✓</div>
         ) : locked ? (
           <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
+        ) : notYetAvailable ? (
+          <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
         ) : (
           <button onClick={() => completeTask(occ)}
             className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
@@ -281,8 +292,8 @@ export default function ChildTaskView({
             {child.name.split(' ')[0]}
           </span>
           <button onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-2xl font-black text-sm text-white shadow-sm active:scale-95 transition"
-            style={{ background: 'linear-gradient(135deg, #6B7280, #9CA3AF)' }}>
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
+            style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
             ← BACK
           </button>
         </div>
@@ -348,7 +359,7 @@ export default function ChildTaskView({
                 {showPast && (
                   <div className="space-y-4">
                     {pastDates.map(ds => {
-                      const items = byDate[ds]
+                      const items = sortOccs(byDate[ds])
                       return (
                         <div key={ds} id={`date-${ds}`}>
                           <p className="text-xs font-black text-red-400 mb-2 px-1">
@@ -367,7 +378,7 @@ export default function ChildTaskView({
             {upcomingDates.map(ds => {
               const locked = ds > weekEndStr
               const isToday = ds === todayStr
-              const items = byDate[ds]
+              const items = sortOccs(byDate[ds])
               return (
                 <div key={ds} id={`date-${ds}`}>
                   <div className="flex items-center gap-2 mb-2 px-1">
@@ -377,10 +388,6 @@ export default function ChildTaskView({
                     </p>
                     {locked && (
                       <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">🔒 next week</span>
-                    )}
-                    {!locked && !isToday && ds > todayStr && (
-                      <span className="text-[10px] font-bold rounded-full px-2 py-0.5"
-                        style={{ color: child.colour, backgroundColor: child.colour + '22' }}>can do early ✨</span>
                     )}
                   </div>
                   <div className="space-y-2">{items.map(renderTaskRow)}</div>
