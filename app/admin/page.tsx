@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import AdminUserList from './AdminUserList'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,14 +28,13 @@ export default async function AdminPage() {
     return <Notice title="Not authorised" body="This page is restricted to the app administrator." />
   }
 
-  // Accept whatever the service-role key happens to be named in the environment
   const serviceKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SERVICE_KEY ||
     process.env.SUPABASE_SERVICE_ROLE ||
     process.env.SUPABASE_SECRET_KEY
   if (!serviceKey) {
-    return <Notice title="Admin not configured" body="Add your Supabase service_role key as SUPABASE_SERVICE_ROLE_KEY in Vercel (or tell the developer the exact name of your existing key), then redeploy." />
+    return <Notice title="Admin not configured" body="Add your Supabase service_role key as SUPABASE_SERVICE_ROLE_KEY in Vercel, then redeploy." />
   }
 
   const admin = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false } })
@@ -56,14 +56,17 @@ export default async function AdminPage() {
 
   const rows = authUsers.map(u => {
     const g = guardianByAuth[u.id]
-    const famId = g?.family_id
+    const famId = g?.family_id || null
     return {
+      authUserId: u.id,
       email: u.email || '—',
       name: g?.name || (u.user_metadata as any)?.full_name || '—',
       family: famId ? (familyName[famId] || '—') : '— (no family yet)',
+      familyId: famId,
       kids: famId ? (kidsByFamily[famId] || []) : [],
       created: u.created_at ? new Date(u.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
       lastSignIn: u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+      isAdmin: (u.email || '').toLowerCase() === ADMIN_EMAIL,
     }
   })
 
@@ -72,7 +75,9 @@ export default async function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl text-gray-800 mb-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Little Yakka — Admin</h1>
+        <h1 className="text-2xl text-gray-800 mb-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>
+          Little Yakka — Admin
+        </h1>
         <p className="text-sm text-gray-400 mb-4">Signed in as {user.email}</p>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
@@ -88,33 +93,7 @@ export default async function AdminPage() {
           ))}
         </div>
 
-        <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
-          {rows.map((r, i) => (
-            <div key={i} className={`px-4 py-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-800 text-sm truncate">{r.name}</p>
-                  <p className="text-xs text-gray-400 truncate">{r.email}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs font-semibold text-gray-600">{r.family}</p>
-                  <p className="text-[11px] text-gray-400">joined {r.created} · last {r.lastSignIn}</p>
-                </div>
-              </div>
-              {r.kids.length > 0 && (
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {r.kids.map((k: any) => (
-                    <span key={k.id} className="inline-flex items-center gap-1 text-[11px] bg-gray-50 rounded-full px-2 py-0.5 text-gray-600">
-                      {k.avatar_url ? <img src={k.avatar_url} className="w-4 h-4 rounded-full object-cover" alt=""/> : <span>{k.avatar}</span>}
-                      {k.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          {rows.length === 0 && <p className="p-6 text-center text-gray-400 text-sm">No registered users yet.</p>}
-        </div>
+        <AdminUserList rows={rows} />
       </div>
     </div>
   )
