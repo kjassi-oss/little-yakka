@@ -177,16 +177,16 @@ export default async function DashboardPage() {
       <div className="px-4 pt-11 pb-2 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start"/>
-          <span className="text-2xl font-black justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
+          <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 space-y-4">
 
-        {/* Kids tiles — fill the frame up to 3, scroll for more */}
+        {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
         {childData.length > 0 ? (
-          <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5'}>
+          <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'}>
             {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, canSpin }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
@@ -196,7 +196,7 @@ export default async function DashboardPage() {
               const showMedal = childData.length > 1 && rank < 3 && weekStars > 0
               return (
                 <div key={child.id}
-                  className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px]' : 'flex-1 min-w-0'}`}>
+                  className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px]' : 'flex-1 min-w-0 max-w-[150px]'}`}>
                   {/* Weekly rank medal, top-left */}
                   {showMedal && (
                     <div className="absolute top-1.5 left-1.5 z-10 text-base drop-shadow-sm">{MEDALS[rank]}</div>
@@ -235,14 +235,12 @@ export default async function DashboardPage() {
                       <p className="text-[9px] font-semibold text-gray-400 mt-0.5">+{weekStars} ⭐ this week</p>
                     </div>
 
-                    {streak > 0 && (
-                      <p className="text-[10px] font-bold text-orange-500 mb-1">🔥 {streak}d streak</p>
-                    )}
-
-                    {canSpin && (
-                      <p className="text-[10px] font-black text-white rounded-full px-2 py-0.5 mb-1 inline-block animate-pulse"
-                        style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>🎰 Spin ready!</p>
-                    )}
+                    {/* Streak — fixed-height slot so progress bars stay aligned across children */}
+                    <div className="h-4 mb-1 flex items-center justify-center">
+                      {streak > 0 && (
+                        <p className="text-[10px] font-bold text-orange-500">🔥 {streak}d streak</p>
+                      )}
+                    </div>
 
                     {total > 0 && (
                       <p className="text-[9px] text-gray-400 mb-1.5">{allDone ? '✅ All tasks done!' : `${myDone}/${total} tasks today`}</p>
@@ -255,6 +253,15 @@ export default async function DashboardPage() {
                       </div>
                     )}
                   </Link>
+
+                  {/* Bonus spin — taps straight into the wheel */}
+                  {canSpin && (
+                    <Link href={`/kid-mode/${child.id}?spin=1`}
+                      className="block mx-2.5 mb-2.5 text-center text-[10px] font-black text-white rounded-full px-2 py-1 animate-pulse active:scale-95 transition"
+                      style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                      🎰 SPIN READY!
+                    </Link>
+                  )}
                 </div>
               )
             })}
@@ -272,7 +279,7 @@ export default async function DashboardPage() {
         {/* Today's Tasks — completed shown struck-through */}
         {childData.length > 0 && (
           <div className="bg-white rounded-3xl shadow-sm p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">📋 Today's Tasks</p>
+            <p className="text-base font-black text-gray-700 uppercase tracking-wide mb-3">📋 Today's Tasks</p>
 
             {todayItems.length === 0 ? (
               <div className="text-center py-6">
@@ -284,7 +291,7 @@ export default async function DashboardPage() {
                 {todayItems.map(({ task, kids, pending, allDone }) => (
                   <TaskLauncher key={task.id} taskId={task.id} kids={pending.length ? pending : kids}>
                     <div className={`flex items-center gap-3 rounded-2xl p-2.5 active:scale-[0.98] transition ${allDone ? 'bg-gray-50 opacity-70' : 'bg-gray-50'}`}>
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-gray-900">{task.emoji}</div>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white" style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                       <div className="flex-1 min-w-0">
                         <p className={`font-semibold text-sm truncate ${allDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
                         <p className="text-[11px] text-gray-400">

@@ -6,6 +6,7 @@ import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/compone
 import LoadingLogo from '@/components/LoadingLogo'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
+import { deleteMyAccount } from '@/app/actions/deleteAccount'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -73,6 +74,10 @@ export default function SettingsPage() {
   const [adjustPin, setAdjustPin] = useState('')
   const [adjustError, setAdjustError] = useState('')
   const [adjustSaving, setAdjustSaving] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const newChildPhotoRef = useRef<HTMLInputElement>(null)
 
@@ -195,6 +200,15 @@ export default function SettingsPage() {
     loadData()
   }
 
+  async function confirmDeleteAccount() {
+    if (deleteConfirm.trim().toUpperCase() !== 'DELETE') return
+    setDeleting(true); setDeleteError('')
+    const result = await deleteMyAccount()
+    if (result.error) { setDeleteError(result.error); setDeleting(false); return }
+    await createClient().auth.signOut()
+    window.location.href = '/login'
+  }
+
   async function saveEditChild() {
     if (!editingChild) return
     setSaving(true)
@@ -252,7 +266,7 @@ export default function SettingsPage() {
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Settings</span>
+            <span className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Settings</span>
           </div>
           <ProfileButton/>
         </div>
@@ -561,9 +575,9 @@ export default function SettingsPage() {
                     {/* Avatar with photo upload */}
                     <div className="relative flex-shrink-0">
                       {child.avatar_url ? (
-                        <img src={child.avatar_url} alt={child.name} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${child.colour}` }}/>
+                        <img src={child.avatar_url} alt={child.name} className="w-14 h-14 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
                       ) : (
-                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
+                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: child.colour + '22', border: '3px solid var(--theme-from)' }}>{child.avatar}</div>
                       )}
                       <button onClick={() => photoInputRefs.current[child.id]?.click()}
                         className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
@@ -593,16 +607,22 @@ export default function SettingsPage() {
           className="w-full bg-white rounded-2xl p-4 text-red-500 font-semibold shadow-sm text-center active:scale-95 transition">
           Sign Out
         </button>
+
+        {/* Delete account */}
+        <button onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); setDeleteError('') }}
+          className="w-full text-gray-400 font-semibold text-sm text-center py-2 active:scale-95 transition">
+          Delete Account
+        </button>
       </div>
 
-      {/* Manual star adjust — PIN protected */}
+      {/* Manual star adjust — centred so the mobile keyboard never hides Apply */}
       {adjustChild && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setAdjustChild(null)}>
-          <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setAdjustChild(null)}>
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 pop-in max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-gray-800 text-lg mb-1">Adjust {adjustChild.name.split(' ')[0]}'s stars ⭐</h3>
-            <p className="text-gray-400 text-sm mb-4">Give or remove stars. Use a minus for removing (e.g. -5).</p>
+            <p className="text-gray-400 text-sm mb-4">Tap a quick amount or use − / +. Minus removes stars.</p>
 
+            {/* Stepper + big value */}
             <div className="flex gap-2 mb-3">
               <button onClick={() => setAdjustAmount(a => String((parseInt(a, 10) || 0) - 1))}
                 className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-600 text-2xl font-black active:scale-90 transition">−</button>
@@ -613,19 +633,65 @@ export default function SettingsPage() {
                 className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-600 text-2xl font-black active:scale-90 transition">+</button>
             </div>
 
-            <input type="text" value={adjustReason} onChange={e => setAdjustReason(e.target.value)}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 mb-3 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-              placeholder="Reason (optional) — e.g. helped a neighbour"/>
+            {/* Quick-amount chips — no keyboard needed */}
+            <div className="grid grid-cols-4 gap-2 mb-2">
+              {[-10, -5, -1, 0].map(d => (
+                <button key={`m${d}`}
+                  onClick={() => d === 0 ? setAdjustAmount('') : setAdjustAmount(a => String((parseInt(a, 10) || 0) + d))}
+                  className="py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold active:scale-90 transition">
+                  {d === 0 ? 'Clear' : d}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {[1, 5, 10, 25].map(d => (
+                <button key={`p${d}`}
+                  onClick={() => setAdjustAmount(a => String((parseInt(a, 10) || 0) + d))}
+                  className="py-2 rounded-xl text-white text-sm font-bold active:scale-90 transition"
+                  style={{ background: 'var(--theme-gradient)' }}>
+                  +{d}
+                </button>
+              ))}
+            </div>
 
             {adjustError && <p className="text-red-500 text-xs mb-2">{adjustError}</p>}
 
-            <div className="flex gap-2">
+            {/* Actions kept above the optional reason so they stay visible */}
+            <div className="flex gap-2 mb-3">
               <button onClick={() => setAdjustChild(null)}
                 className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold active:scale-95 transition">Cancel</button>
-              <button onClick={applyStarAdjust} disabled={adjustSaving}
+              <button onClick={applyStarAdjust} disabled={adjustSaving || !adjustAmount || parseInt(adjustAmount, 10) === 0}
                 className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
                 style={{ background: 'var(--theme-gradient)' }}>
-                {adjustSaving ? 'Saving...' : 'Apply'}
+                {adjustSaving ? 'Saving...' : `Apply ${adjustAmount && parseInt(adjustAmount, 10) ? (parseInt(adjustAmount, 10) > 0 ? '+' : '') + parseInt(adjustAmount, 10) + ' ⭐' : ''}`}
+              </button>
+            </div>
+
+            <input type="text" value={adjustReason} onChange={e => setAdjustReason(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+              placeholder="Reason (optional)"/>
+          </div>
+        </div>
+      )}
+
+      {/* Delete account confirmation */}
+      {deleteOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !deleting && setDeleteOpen(false)}>
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
+            <div className="text-4xl text-center mb-2">⚠️</div>
+            <h3 className="font-black text-gray-800 text-lg text-center mb-1">Delete your account?</h3>
+            <p className="text-gray-500 text-sm text-center mb-4">This permanently deletes your family, all children, tasks, stars and rewards. This cannot be undone.</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1">Type <span className="font-black text-red-500">DELETE</span> to confirm:</p>
+            <input type="text" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center font-black tracking-widest text-gray-800 mb-3 focus:outline-none focus:ring-2 focus:ring-red-300"
+              placeholder="DELETE"/>
+            {deleteError && <p className="text-red-500 text-xs mb-2">{deleteError}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteOpen(false)} disabled={deleting}
+                className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold active:scale-95 transition disabled:opacity-50">Cancel</button>
+              <button onClick={confirmDeleteAccount} disabled={deleting || deleteConfirm.trim().toUpperCase() !== 'DELETE'}
+                className="flex-1 bg-red-500 text-white font-black py-3 rounded-2xl active:scale-95 transition disabled:opacity-40">
+                {deleting ? 'Deleting…' : 'Delete forever'}
               </button>
             </div>
           </div>

@@ -6,9 +6,21 @@ const SEGMENT_COLORS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '
 
 const N = 6
 const ANGLE = 360 / N
-const R = 120
-const CX = 150
-const CY = 150
+const R = 135
+const CX = 160
+const CY = 160
+
+// Faint background decoration — task & reward icons, varied size/rotation
+const DECOR = [
+  { e: '🧹', top: '8%', left: '8%', size: 46, rot: -18 },
+  { e: '🎁', top: '14%', left: '78%', size: 54, rot: 14 },
+  { e: '📚', top: '70%', left: '6%', size: 50, rot: 10 },
+  { e: '🍦', top: '78%', left: '82%', size: 44, rot: -12 },
+  { e: '⭐', top: '40%', left: '2%', size: 38, rot: 8 },
+  { e: '🪥', top: '4%', left: '46%', size: 36, rot: 20 },
+  { e: '🎮', top: '88%', left: '44%', size: 42, rot: -8 },
+  { e: '🚗', top: '46%', left: '88%', size: 40, rot: 16 },
+]
 
 function toXY(deg: number, r: number): [number, number] {
   const rad = (deg - 90) * Math.PI / 180
@@ -22,12 +34,6 @@ function sectorPath(i: number): string {
   return `M ${CX} ${CY} L ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2} Z`
 }
 
-// Build 6 prize slots scaled to maxPrize.
-// Tier tiers defined by the completion % passed from server:
-//   0% done    → maxPrize 1  → prizes mostly 0 with one 1
-//   1–50%      → maxPrize = 25% of week total
-//   50–80%     → maxPrize = 45% of week total
-//   >80%/100%  → maxPrize = 100% of week total
 function buildPrizes(maxPrize: number) {
   if (maxPrize <= 1) {
     return [
@@ -47,7 +53,6 @@ function buildPrizes(maxPrize: number) {
     Math.max(3, Math.round(maxPrize * 0.7)),
     maxPrize,
   ]
-  // Shuffle so jackpot isn't always in same spot
   for (let i = slots.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [slots[i], slots[j]] = [slots[j], slots[i]]
@@ -61,12 +66,14 @@ function buildPrizes(maxPrize: number) {
 
 interface Props {
   childColour: string
+  childAvatar: string
+  childAvatarUrl?: string
   maxPrize: number
   onWin: (stars: number) => void
   onClose: () => void
 }
 
-export default function SpinWheel({ childColour, maxPrize, onWin, onClose }: Props) {
+export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, maxPrize, onWin, onClose }: Props) {
   const PRIZES = useMemo(() => buildPrizes(maxPrize), [maxPrize])
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
@@ -89,36 +96,43 @@ export default function SpinWheel({ childColour, maxPrize, onWin, onClose }: Pro
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-white overflow-y-auto">
+      {/* Faint task/reward decoration */}
+      {DECOR.map((d, i) => (
+        <span key={i} className="absolute pointer-events-none select-none opacity-[0.08]"
+          style={{ top: d.top, left: d.left, fontSize: d.size, transform: `rotate(${d.rot}deg)` }}>{d.e}</span>
+      ))}
+
       {/* Close */}
       <button onClick={onClose}
-        className="absolute top-12 right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition">
+        className="absolute top-12 right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition z-10">
         ×
       </button>
 
       {/* Header */}
-      <div className="text-center mb-6">
-        <p className="text-4xl mb-2">🎰</p>
-        <h2 className="text-3xl font-black text-gray-800">Bonus Spin!</h2>
-        <p className="text-gray-400 text-sm mt-1">Spin to win bonus stars!</p>
+      <div className="text-center mb-5 relative z-10">
+        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          Bonus Spin
+        </h2>
+        <p className="text-gray-400 text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Spin to win bonus stars!</p>
         <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
-          style={{ background: `linear-gradient(135deg, ${childColour}, #EC4899)` }}>
+          style={{ background: 'var(--theme-gradient)' }}>
           Max prize: ⭐ {maxPrize}
         </div>
       </div>
 
-      <div className="relative mb-6">
+      <div className="relative mb-6 z-10">
         {/* Pointer */}
-        <div className="absolute top-0 left-1/2 z-10" style={{ transform: 'translateX(-50%) translateY(-10px)' }}>
+        <div className="absolute top-0 left-1/2 z-20" style={{ transform: 'translateX(-50%) translateY(-10px)' }}>
           <div className="w-0 h-0"
             style={{ borderLeft: '14px solid transparent', borderRight: '14px solid transparent', borderTop: '24px solid #1F2937' }}/>
         </div>
 
         {/* Wheel SVG */}
-        <svg width="300" height="300" viewBox="0 0 300 300"
+        <svg width="320" height="320" viewBox="0 0 320 320"
           style={{
             transform: `rotate(${rotation}deg)`,
             transition: spinning ? 'transform 4.5s cubic-bezier(0.17, 0.67, 0.12, 1.0)' : 'none',
-            transformOrigin: '150px 150px',
+            transformOrigin: '160px 160px',
             filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))',
           }}>
           {PRIZES.map((prize, i) => {
@@ -128,17 +142,23 @@ export default function SpinWheel({ childColour, maxPrize, onWin, onClose }: Pro
             return (
               <g key={i}>
                 <path d={sectorPath(i)} fill={prize.color} stroke="white" strokeWidth="2.5"/>
-                <text x={sx} y={sy} textAnchor="middle" dominantBaseline="central" fontSize="14"
+                <text x={sx} y={sy} textAnchor="middle" dominantBaseline="central" fontSize="15"
                   transform={`rotate(${mid}, ${sx}, ${sy})`}>⭐</text>
                 <text x={tx} y={ty} textAnchor="middle" dominantBaseline="central"
-                  fill="white" fontWeight="900" fontSize="15"
+                  fill="white" fontWeight="900" fontSize="16"
                   transform={`rotate(${mid}, ${tx}, ${ty})`}>{prize.label}</text>
               </g>
             )
           })}
-          <circle cx={CX} cy={CY} r="22" fill="white" opacity="0.95"/>
-          <text x={CX} y={CY} textAnchor="middle" dominantBaseline="central" fontSize="20">⭐</text>
         </svg>
+
+        {/* Centre — child photo / avatar in a circle frame (does not spin) */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+          {childAvatarUrl
+            ? <img src={childAvatarUrl} className="w-[72px] h-[72px] rounded-full object-cover border-4 border-white shadow-lg" alt=""/>
+            : <div className="w-[72px] h-[72px] rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl"
+                style={{ backgroundColor: childColour + '33' }}>{childAvatar}</div>}
+        </div>
 
         {/* Outer ring */}
         <div className="absolute inset-0 rounded-full pointer-events-none"
@@ -147,19 +167,19 @@ export default function SpinWheel({ childColour, maxPrize, onWin, onClose }: Pro
 
       {!result ? (
         <button onClick={spin} disabled={spinning}
-          className="font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-50 text-white"
-          style={{ background: spinning ? '#9CA3AF' : `linear-gradient(135deg, ${childColour}, #EC4899)` }}>
+          className="font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-50 text-white relative z-10"
+          style={{ background: spinning ? '#9CA3AF' : 'var(--theme-gradient)' }}>
           {spinning ? '🌀 Spinning...' : '🎯 SPIN!'}
         </button>
       ) : (
-        <div className="text-center pop-in">
+        <div className="text-center pop-in relative z-10">
           <div className="text-7xl mb-3">{isJackpot ? '🏆' : '🎉'}</div>
           <p className="text-gray-500 text-lg">You won</p>
           <p className="font-black text-5xl my-1" style={{ color: childColour }}>+{result.stars} ⭐</p>
           {isJackpot && <p className="font-bold text-lg mb-2" style={{ color: childColour }}>JACKPOT!! 🎊</p>}
           <button onClick={onClose}
             className="mt-4 font-black text-lg py-4 px-10 rounded-3xl active:scale-95 transition shadow-lg text-white"
-            style={{ background: `linear-gradient(135deg, ${childColour}, #EC4899)` }}>
+            style={{ background: 'var(--theme-gradient)' }}>
             Awesome! 🚀
           </button>
         </div>

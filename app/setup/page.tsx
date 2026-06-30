@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
 
-const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉']
+const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦉']
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF']
 const TASK_EMOJIS = [
   '⭐','🛏️','🧹','🍽️','🧺','📚','🐕','🪥','🚿','👕','🎒','🏃',
@@ -63,17 +63,26 @@ function Page({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SkipLater({ onClick, label, disabled }: { onClick: () => void; label: string; disabled?: boolean }) {
+function Label({ children }: { children: React.ReactNode }) {
+  return <p className="text-base text-gray-900 text-center mb-1.5" style={{ fontFamily: DISPLAY }}>{children}</p>
+}
+
+// Multicolour playful step title
+function GradientTitle({ children }: { children: React.ReactNode }) {
   return (
-    <button onClick={onClick} disabled={disabled}
-      className="w-full py-2.5 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 text-sm font-bold active:scale-95 transition disabled:opacity-50 mb-5">
-      {label}
-    </button>
+    <h1 className="text-3xl font-black text-center mb-1" style={{ fontFamily: DISPLAY, background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+      {children}
+    </h1>
   )
 }
 
-function Label({ children }: { children: React.ReactNode }) {
-  return <p className="text-2xl text-gray-900 text-center mb-2" style={{ fontFamily: DISPLAY }}>{children}</p>
+function BackBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition mb-1">
+      ← Back
+    </button>
+  )
 }
 
 function Toggle({ on, onToggle, label, sub }: { on: boolean; onToggle: () => void; label: string; sub: string }) {
@@ -249,7 +258,9 @@ export default function SetupPage() {
   // ── STEP 1 — child details ──────────────────────────────────────────────────
   if (step === 1) return (
     <Page>
-      <SkipLater label="Set Up Later — skip for now" onClick={skipAll} disabled={loading}/>
+      <BackBtn onClick={() => router.push('/login')}/>
+      <GradientTitle>Family Details</GradientTitle>
+      <p className="text-sm text-gray-400 text-center mb-5">Tell us about your family</p>
 
       {children.length > 0 && (
         <div className="flex gap-2 flex-wrap justify-center mb-5">
@@ -268,31 +279,32 @@ export default function SetupPage() {
         </div>
       )}
 
-      <div className="mb-5">
+      <div className="mb-4">
         <Label>Family Name</Label>
         <input type="text" value={familyName} onChange={e => setFamilyName(e.target.value)}
           className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
           placeholder="e.g. The Jassi Family"/>
       </div>
 
-      <div className="mb-5">
-        <Label>Name</Label>
-        <input type="text" value={child.name} onChange={e => setChild({ ...child, name: e.target.value })}
-          className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
-          placeholder="Your child's name"/>
-      </div>
-
-      <div className="mb-5">
-        <Label>Age <span className="text-base text-gray-400">(optional)</span></Label>
-        <input type="number" inputMode="numeric" min={1} max={18} value={child.age}
-          onChange={e => setChild({ ...child, age: e.target.value })}
-          className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
-          placeholder="Age"/>
+      {/* Child's name (wide) + age (narrow) on one row */}
+      <div className="flex gap-3 mb-5">
+        <div className="flex-1">
+          <Label>Childs Name</Label>
+          <input type="text" value={child.name} onChange={e => setChild({ ...child, name: e.target.value })}
+            className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
+            placeholder="Name"/>
+        </div>
+        <div className="w-24">
+          <Label>Age</Label>
+          <input type="number" inputMode="numeric" min={1} max={18} value={child.age}
+            onChange={e => setChild({ ...child, age: e.target.value })}
+            className="w-full border border-gray-200 rounded-2xl px-3 py-3 text-center text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
+            placeholder="—"/>
+        </div>
       </div>
 
       <div className="mb-5">
         <Label>Choose a Picture</Label>
-        {/* Upload */}
         <button onClick={() => photoRef.current?.click()}
           className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-2xl py-3 text-sm font-semibold text-gray-500 mb-3 active:scale-95 transition">
           {child.photo ? '📷 Photo added — tap to change' : '📷 Upload a photo'}
@@ -305,10 +317,10 @@ export default function SetupPage() {
           </div>
         )}
         <p className="text-xs text-gray-400 text-center mb-2">…or pick an avatar</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-10 gap-1">
           {AVATARS.map(a => (
             <button key={a} onClick={() => pickAvatar(a)}
-              className={`aspect-square rounded-2xl flex items-center justify-center text-3xl transition ${!child.photo && child.avatar === a ? 'ring-2 ring-pink-400 bg-pink-50' : 'bg-gray-50 hover:bg-gray-100'}`}>
+              className={`aspect-square rounded-lg flex items-center justify-center text-base transition ${!child.photo && child.avatar === a ? 'ring-2 ring-pink-400 bg-pink-50' : 'bg-gray-50 hover:bg-gray-100'}`}>
               {a}
             </button>
           ))}
@@ -319,10 +331,10 @@ export default function SetupPage() {
 
       <button onClick={() => { if (child.name.trim()) addChild() }}
         className="w-full py-2.5 rounded-2xl border border-gray-200 text-gray-500 font-bold text-sm mb-3 active:scale-95 transition">
-        ＋ Save & add another child
+        Add Another Child
       </button>
       <button onClick={() => {
-        // include the in-progress child if filled
+        // auto-save the in-progress child, then continue
         if (child.name.trim()) { if (!addChild()) return }
         if (children.length === 0 && !child.name.trim()) { setError('Please add your child\'s details.'); return }
         setError(''); setStep(2)
@@ -330,15 +342,18 @@ export default function SetupPage() {
         className="w-full text-white font-black py-3.5 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>
         Next →
       </button>
+      <button onClick={skipAll} disabled={loading}
+        className="w-full text-center text-xs font-bold text-gray-400 mt-3 active:scale-95 transition disabled:opacity-50">
+        Set Up Later
+      </button>
     </Page>
   )
 
   // ── STEP 2 — tasks ──────────────────────────────────────────────────────────
   if (step === 2) return (
     <Page>
-      <SkipLater label="Set Up Later — finish setup" onClick={handleFinish} disabled={loading}/>
-
-      <h1 className="text-2xl text-gray-900 text-center mb-1" style={{ fontFamily: DISPLAY }}>Create Tasks</h1>
+      <BackBtn onClick={() => { setError(''); setStep(1) }}/>
+      <GradientTitle>Create Tasks</GradientTitle>
       <p className="text-sm text-gray-400 text-center mb-5">Tap a starter or create your own</p>
 
       {tasks.length > 0 && (
@@ -368,13 +383,17 @@ export default function SetupPage() {
             ))}
           </div>
           <button onClick={() => startTask()}
-            className="w-full py-3 rounded-2xl font-bold text-sm text-white active:scale-95 transition mb-4" style={{ background: RAINBOW }}>
+            className="w-full py-3 rounded-2xl font-black text-base text-white active:scale-95 transition mb-4" style={{ background: RAINBOW }}>
             ＋ Create Your Own
           </button>
 
-          <button onClick={() => setStep(3)}
-            className="w-full text-gray-600 font-bold py-3 rounded-2xl border border-gray-200 active:scale-95 transition">
-            {tasks.length > 0 ? 'Next Step →' : 'Skip tasks →'}
+          <button onClick={() => { setError(''); setStep(3) }}
+            className="w-full text-white font-black py-3.5 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>
+            Next Step →
+          </button>
+          <button onClick={handleFinish} disabled={loading}
+            className="w-full text-center text-xs font-bold text-gray-400 mt-3 active:scale-95 transition disabled:opacity-50">
+            Set Up Later
           </button>
         </>
       ) : (
@@ -386,9 +405,8 @@ export default function SetupPage() {
   // ── STEP 3 — rewards ────────────────────────────────────────────────────────
   return (
     <Page>
-      <SkipLater label="Set Up Later — finish setup" onClick={handleFinish} disabled={loading}/>
-
-      <h1 className="text-2xl text-gray-900 text-center mb-1" style={{ fontFamily: DISPLAY }}>Create Rewards</h1>
+      <BackBtn onClick={() => { setError(''); setStep(2) }}/>
+      <GradientTitle>Create Rewards</GradientTitle>
       <p className="text-sm text-gray-400 text-center mb-5">What can kids spend their stars on?</p>
 
       {rewards.length > 0 && (
@@ -416,14 +434,17 @@ export default function SetupPage() {
             ))}
           </div>
           <button onClick={() => startReward()}
-            className="w-full py-3 rounded-2xl font-bold text-sm text-white active:scale-95 transition mb-5" style={{ background: RAINBOW }}>
+            className="w-full py-3 rounded-2xl font-black text-base text-white active:scale-95 transition mb-5" style={{ background: RAINBOW }}>
             ＋ Create Your Own
           </button>
 
           {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
           <button onClick={handleFinish} disabled={loading}
-            className="w-full text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight" style={{ background: RAINBOW }}>
-            {loading ? 'Setting up…' : "ALL SET! LET'S START BUILDING SOME POSITIVE HABITS!"}
+            className="w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight font-black text-base"
+            style={{ border: '2px solid var(--theme-from)' }}>
+            <span style={{ fontFamily: DISPLAY, background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              {loading ? 'Setting up…' : "ALL SET! LET'S START BUILDING SOME POSITIVE HABITS!"}
+            </span>
           </button>
         </>
       ) : (

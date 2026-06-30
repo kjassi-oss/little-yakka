@@ -44,7 +44,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-10 bg-white">
       <div className="w-full max-w-xs">
-        <BrandLogo className="w-full max-w-[280px] h-auto mx-auto block mb-3" fallbackSize={220}/>
+        <BrandLogo className="w-full max-w-[300px] h-auto mx-auto block mb-3" fallbackSize={240}/>
 
         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4">
           {done ? (

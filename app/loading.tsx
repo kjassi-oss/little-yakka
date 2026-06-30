@@ -1,5 +1,5 @@
 import LoadingLogo from '@/components/LoadingLogo'
 
-export default function KidModeLoading() {
+export default function RootLoading() {
   return <LoadingLogo />
 }

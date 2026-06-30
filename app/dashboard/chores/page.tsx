@@ -100,6 +100,7 @@ export default function ChoresPage() {
   // Upcoming tab: multi-select child filter (empty Set = everyone) + window completions
   const [upcomingFilter, setUpcomingFilter] = useState<Set<string>>(new Set())
   const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
+  const [pastWindow, setPastWindow] = useState(1) // days of history shown in Upcoming (max 7)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -208,7 +209,7 @@ export default function ChoresPage() {
   }
 
   async function undoUpcoming(comp: { id: string; child_id: string }, task: Task, childName: string) {
-    if (!confirm(`Undo "${task.title}" for ${childName}? This removes the stars.`)) return
+    if (!confirm(`Undo "${task.title}"${childName ? ' for ' + childName : ''}? This removes the stars.`)) return
     const supabase = createClient()
     await supabase.from('completions').delete().eq('id', comp.id)
     await supabase.from('star_ledger').insert({
@@ -216,6 +217,25 @@ export default function ChoresPage() {
       reason: `Undo: ${task.title}`, source_type: 'undo',
     })
     loadData()
+  }
+
+  // Complete a task occurrence for a specific child straight from the Upcoming list
+  async function completeUpcoming(task: Task, childId: string, date: string) {
+    const supabase = createClient()
+    const { data: completion } = await supabase.from('completions')
+      .insert({ task_id: task.id, child_id: childId, date, status: 'approved' }).select('id').single()
+    await supabase.from('star_ledger').insert({
+      child_id: childId, delta: task.star_value || 0,
+      reason: `Completed: ${task.title}`, source_type: 'completion', source_id: completion?.id,
+    })
+    loadData()
+  }
+
+  // Multi-child: tapping a task asks which child (or jumps straight in if only one)
+  function openTaskForChild(task: Task) {
+    const ids = (assignments[task.id] || []).filter(cid => upcomingFilter.size === 0 || upcomingFilter.has(cid))
+    if (ids.length === 1) router.push(`/kid-mode/${ids[0]}?task=${task.id}`)
+    else { setPendingTaskId(task.id); setShowChildPicker(true) }
   }
 
   function handleTaskClick(task: Task) {
@@ -389,7 +409,7 @@ export default function ChoresPage() {
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-          <span className="text-2xl font-black justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
+          <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
@@ -742,15 +762,16 @@ export default function ChoresPage() {
           </>
         )}
 
-        {/* ── UPCOMING TAB ── past 2 weeks → next 2 weeks, scrolled to today ── */}
+        {/* ── UPCOMING TAB ── today + next 2 weeks, load earlier up to a week back ── */}
         {mainTab === 'upcoming' && !showForm && (() => {
           const compKey = new Set(windowComps.map(c => `${c.task_id}|${c.child_id}|${c.date}`))
           const compRow = new Map(windowComps.map(c => [`${c.task_id}|${c.child_id}|${c.date}`, c]))
           const todayL = ymdLocal(new Date())
           const kidSelected = (id: string) => upcomingFilter.size === 0 || upcomingFilter.has(id)
+          const singleChildId = upcomingFilter.size === 1 ? [...upcomingFilter][0] : null
 
           const days: { ds: string; d: Date; items: { task: Task; kids: Child[] }[] }[] = []
-          const start = new Date(); start.setDate(start.getDate() - 14)
+          const start = new Date(); start.setDate(start.getDate() - pastWindow)
           const end = new Date(); end.setDate(end.getDate() + 14)
           for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const ds = ymdLocal(d)
@@ -789,6 +810,18 @@ export default function ChoresPage() {
                 </div>
               )}
 
+              <p className="text-[11px] text-center text-gray-400">
+                {singleChildId ? 'Tap COMPLETE to tick a task off' : 'Tap a task to choose a child'}
+              </p>
+
+              {/* Load earlier days (up to a week back) */}
+              {pastWindow < 7 && (
+                <button onClick={() => setPastWindow(w => Math.min(7, w + 3))}
+                  className="w-full text-xs font-bold text-gray-400 py-2 rounded-xl bg-gray-50 active:scale-95 transition">
+                  ↑ Load earlier days
+                </button>
+              )}
+
               {days.length === 0 ? (
                 <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500 font-medium">No upcoming tasks</p></div>
               ) : days.map(({ ds, d, items }) => {
@@ -796,7 +829,7 @@ export default function ChoresPage() {
                 const isPast = ds < todayL
                 return (
                   <div key={ds} id={`up-${ds}`} className="scroll-mt-2">
-                    <p className={`text-xs font-black mb-2 px-1 ${isToday ? '' : isPast ? 'text-gray-400' : 'text-gray-600'}`}
+                    <p className={`text-2xl font-black mb-2 px-1 leading-none ${isToday ? '' : isPast ? 'text-gray-400' : 'text-gray-700'}`}
                       style={isToday ? { color: 'var(--theme-from)' } : {}}>
                       {isToday ? 'Today' : d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}{isPast ? ' (past)' : ''}
                     </p>
@@ -805,36 +838,46 @@ export default function ChoresPage() {
                         const doneCount = kids.filter(k => compKey.has(`${task.id}|${k.id}|${ds}`)).length
                         const allDone = kids.length > 0 && doneCount === kids.length
                         const missed = isPast && doneCount === 0
+                        const singleDone = singleChildId ? compKey.has(`${task.id}|${singleChildId}|${ds}`) : false
+                        const struck = singleChildId ? singleDone : allDone
                         return (
                           <div key={task.id}
-                            className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${allDone ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}>
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${missed ? 'grayscale opacity-50' : ''}`}
-                              style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
+                            onClick={() => { if (!singleChildId) openTaskForChild(task) }}
+                            className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white"
+                              style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                             <div className="flex-1 min-w-0">
-                              <p className={`font-semibold text-sm truncate ${allDone ? 'line-through text-gray-400' : missed ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                              <p className="text-xs text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
+                              <p className={`font-bold text-base truncate ${struck ? 'line-through text-gray-400' : missed ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                              <p className="text-sm text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
                             </div>
-                            <div className="flex gap-1 flex-wrap justify-end max-w-[92px]">
-                              {kids.map(child => {
-                                const done = compKey.has(`${task.id}|${child.id}|${ds}`)
-                                const row = compRow.get(`${task.id}|${child.id}|${ds}`)
-                                return (
-                                  <button key={child.id}
-                                    onClick={() => { if (done && row) undoUpcoming(row, task, child.name.split(' ')[0]) }}
-                                    disabled={!done}
-                                    title={done ? `Undo for ${child.name.split(' ')[0]}` : child.name.split(' ')[0]}
-                                    className="relative flex-shrink-0 active:scale-90 transition disabled:cursor-default">
-                                    {child.avatar_url
-                                      ? <img src={child.avatar_url} className={`w-8 h-8 rounded-full object-cover ${done ? '' : 'opacity-50'}`} alt=""/>
-                                      : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${done ? '' : 'opacity-50'}`}
-                                          style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>}
-                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
-                                      {done && <span className="text-white text-[8px] font-bold">✓</span>}
+
+                            {singleChildId ? (
+                              singleDone ? (
+                                <button onClick={e => { e.stopPropagation(); const row = compRow.get(`${task.id}|${singleChildId}|${ds}`); if (row) undoUpcoming(row, task, childMap[singleChildId]?.name.split(' ')[0] || '') }}
+                                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-gray-50 text-gray-400 border border-gray-200 active:scale-95 transition">UNDO</button>
+                              ) : (
+                                <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds) }}
+                                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-white active:scale-95 transition"
+                                  style={{ border: '1.5px solid var(--theme-from)', color: 'var(--theme-from)' }}>COMPLETE</button>
+                              )
+                            ) : (
+                              <div className="flex gap-1 flex-wrap justify-end max-w-[92px]">
+                                {kids.map(child => {
+                                  const done = compKey.has(`${task.id}|${child.id}|${ds}`)
+                                  return (
+                                    <div key={child.id} className="relative flex-shrink-0" title={child.name.split(' ')[0]}>
+                                      {child.avatar_url
+                                        ? <img src={child.avatar_url} className={`w-8 h-8 rounded-full object-cover ${done ? '' : 'opacity-50'}`} alt=""/>
+                                        : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${done ? '' : 'opacity-50'}`}
+                                            style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>}
+                                      <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
+                                        {done && <span className="text-white text-[8px] font-bold">✓</span>}
+                                      </div>
                                     </div>
-                                  </button>
-                                )
-                              })}
-                            </div>
+                                  )
+                                })}
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -842,7 +885,6 @@ export default function ChoresPage() {
                   </div>
                 )
               })}
-              <p className="text-[10px] text-center text-gray-300 pt-1">Tap a ✓ avatar to undo a completion.</p>
             </div>
           )
         })()}
@@ -902,6 +944,17 @@ export default function ChoresPage() {
           className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-90 transition z-40"
           style={{ background: 'var(--theme-gradient)' }}>
           <span className="text-3xl leading-none mb-0.5">+</span>
+        </button>
+      )}
+
+      {/* Jump-to-today FAB (Upcoming tab) — calendar showing today's date */}
+      {!showForm && mainTab === 'upcoming' && (
+        <button aria-label="Jump to today"
+          onClick={() => { const el = document.getElementById(`up-${ymdLocal(new Date())}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+          className="fixed bottom-24 left-5 w-14 h-14 rounded-full bg-white shadow-xl border-2 flex flex-col items-center justify-center active:scale-90 transition z-40"
+          style={{ borderColor: 'var(--theme-from)' }}>
+          <span className="text-[8px] font-black leading-none mt-1" style={{ color: 'var(--theme-from)' }}>{new Date().toLocaleDateString('en-AU', { month: 'short' }).toUpperCase()}</span>
+          <span className="text-xl font-black leading-none" style={{ color: 'var(--theme-from)' }}>{new Date().getDate()}</span>
         </button>
       )}
 

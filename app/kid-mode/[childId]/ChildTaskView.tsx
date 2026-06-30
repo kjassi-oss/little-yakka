@@ -37,6 +37,7 @@ interface Props {
   doneHistory: DoneItem[]
   unseenPraises: Praise[]
   highlightTaskId?: string | null
+  autoSpin?: boolean
 }
 
 const RAINBOW = 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)'
@@ -62,7 +63,7 @@ export default function ChildTaskView({
   child, occurrences, completedKeys, weekEndStr, mondayStr, todayStr,
   starBalance: initialBalance, rewards, pendingRewardIds: initialPending,
   hasSpunToday, bonusCadence, bonusDay, bonusTime, maxPrize,
-  streakDays, doneHistory, unseenPraises, highlightTaskId,
+  streakDays, doneHistory, unseenPraises, highlightTaskId, autoSpin,
 }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<'tasks' | 'done'>('tasks')
@@ -88,8 +89,11 @@ export default function ChildTaskView({
     const h = now.getHours(), m = now.getMinutes()
     const nowHHMM = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
     const dueToday = bonusCadence === 'daily' || now.getDay() === bonusDay
-    setCanSpin(dueToday && nowHHMM >= bonusTime && !hasSpunToday)
-  }, [bonusCadence, bonusDay, bonusTime, hasSpunToday])
+    const eligible = dueToday && nowHHMM >= bonusTime && !hasSpunToday
+    setCanSpin(eligible)
+    // Deep-link from the home "SPIN READY" badge opens the wheel straight away
+    if (eligible && autoSpin) setShowSpin(true)
+  }, [bonusCadence, bonusDay, bonusTime, hasSpunToday, autoSpin])
 
   // Scroll to today's section on load
   useEffect(() => {
@@ -227,7 +231,7 @@ export default function ChildTaskView({
             </button>
           </div>
         </div>
-        {showSpin && <SpinWheel childColour={child.colour} maxPrize={maxPrize} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>}
+        {showSpin && <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} maxPrize={maxPrize} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>}
         {showRewards && <RewardsPanel rewards={rewards} starBalance={starBalance} pendingRewardIds={pendingRewardIds}
           requestingId={requestingId} justRequestedId={justRequestedId} onRequest={requestReward} onClose={() => setShowRewards(false)} colour={child.colour}/>}
       </div>
@@ -462,7 +466,7 @@ export default function ChildTaskView({
           onRequest={requestReward} onClose={() => setShowRewards(false)} colour={child.colour}/>
       )}
       {showSpin && (
-        <SpinWheel childColour={child.colour} maxPrize={maxPrize}
+        <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} maxPrize={maxPrize}
           onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
       )}
     </div>

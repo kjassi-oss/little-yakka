@@ -7,10 +7,10 @@ import { localNow, localDateStr, parseTzCookie } from '@/lib/localDate'
 
 export default async function ChildPage({ params, searchParams }: {
   params: Promise<{ childId: string }>
-  searchParams: Promise<{ task?: string }>
+  searchParams: Promise<{ task?: string; spin?: string }>
 }) {
   const { childId } = await params
-  const { task: highlightTaskId } = await searchParams
+  const { task: highlightTaskId, spin: autoSpin } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -171,6 +171,7 @@ export default async function ChildPage({ params, searchParams }: {
       doneHistory={doneHistory}
       unseenPraises={unseenPraises || []}
       highlightTaskId={highlightTaskId || null}
+      autoSpin={autoSpin === '1'}
     />
   )
 }

@@ -3,13 +3,21 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
+import LoadingLogo from '@/components/LoadingLogo'
 
 const REWARD_EMOJIS = [
-  '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🎪','🏆','⚽','🎭','🎠',
-  '💰','💳','🏧','💵','🍔','🍣','🍜','🍩','🍪','🎂','🧁','🥂','🍾',
-  '📺','💻','🖥️','🎧','🎤','🎵','🎼','🎉','🎊','🪄','🔮','🛍️',
-  '✈️','🚢','🏕️','🎡','🎢','🎰','🃏','🧩','🎯','🏅','🥇','👑',
-  '💎','🌟','🌈','🦋','🌺','🌻','🌸','🧸','🪆','🎈',
+  '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🏆','⚽',
+  '🎠','🍔','🍩','🍪','🎂','🧁','📺','💻','🎧','🎵','🎉','🛍️',
+  '✈️','🎡','🎢','🎯','🏅','🥇','👑','💎','🌟','🧸','🍭','🌈',
+]
+
+// Quick-start templates (same set as the setup wizard) — hidden until requested
+const REWARD_TEMPLATES: { title: string; emoji: string }[] = [
+  { title: 'Ice Cream', emoji: '🍦' }, { title: 'iPad Time', emoji: '📱' },
+  { title: 'Go To Movies', emoji: '🎬' }, { title: 'Takeaway', emoji: '🍔' },
+  { title: 'Choose Dessert', emoji: '🍰' }, { title: 'Stay Up Extra 30 Mins', emoji: '🌙' },
+  { title: '30 Mins Computer Games', emoji: '🎮' }, { title: 'Lollie', emoji: '🍭' },
+  { title: 'Choose Family Movie', emoji: '🍿' },
 ]
 
 interface Reward {
@@ -57,6 +65,7 @@ export default function RewardsPage() {
   const [scope, setScope] = useState<'family' | 'child'>('family')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -104,7 +113,7 @@ export default function RewardsPage() {
 
   function resetForm() {
     setTitle(''); setEmoji('🎁'); setStarCost(10); setScope('family'); setSelectedChildId(null)
-    setEditingRewardId(null)
+    setEditingRewardId(null); setShowTemplates(false)
   }
 
   function openEditReward(r: Reward) {
@@ -182,11 +191,7 @@ export default function RewardsPage() {
     loadData()
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-5xl animate-bounce">🎁</div>
-    </div>
-  )
+  if (loading) return <LoadingLogo />
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
@@ -194,7 +199,7 @@ export default function RewardsPage() {
         <div className="max-w-sm mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Rewards</span>
+            <span className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Rewards</span>
           </div>
           <ProfileButton/>
         </div>
@@ -223,6 +228,25 @@ export default function RewardsPage() {
               <button onClick={() => { setShowForm(false); resetForm() }} className="text-sm font-semibold text-gray-400">Cancel</button>
             </div>
 
+            {/* Templates — hidden until requested */}
+            <div>
+              <button onClick={() => setShowTemplates(t => !t)}
+                className="text-sm font-bold" style={{ color: 'var(--theme-from)' }}>
+                {showTemplates ? '× Hide templates' : '✨ Use a template'}
+              </button>
+              {showTemplates && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {REWARD_TEMPLATES.map(t => (
+                    <button key={t.title} onClick={() => { setTitle(t.title); setEmoji(t.emoji); setShowTemplates(false) }}
+                      className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-gray-50 active:scale-95 transition">
+                      <span className="text-2xl">{t.emoji}</span>
+                      <span className="text-[10px] font-semibold text-gray-500 text-center leading-tight">{t.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <input
               type="text" value={title} onChange={e => setTitle(e.target.value)}
               className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
@@ -231,10 +255,10 @@ export default function RewardsPage() {
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Choose an emoji</p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-6 gap-1.5">
                 {REWARD_EMOJIS.map(e => (
                   <button key={e} onClick={() => setEmoji(e)}
-                    className={`text-2xl p-1.5 rounded-xl transition ${emoji === e ? 'bg-pink-100 ring-2 ring-pink-400' : 'hover:bg-gray-100'}`}>
+                    className={`text-2xl p-1.5 rounded-xl transition flex items-center justify-center ${emoji === e ? 'bg-pink-100 ring-2 ring-pink-400' : 'hover:bg-gray-100'}`}>
                     {e}
                   </button>
                 ))}
@@ -242,14 +266,17 @@ export default function RewardsPage() {
             </div>
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">
-                Star cost: <span className="font-bold text-yellow-500">⭐ {starCost} stars</span>
-              </p>
-              <input type="range" min={1} max={500} value={starCost}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500">Star cost</p>
+                <input type="number" inputMode="numeric" min={1} value={starCost}
+                  onChange={e => setStarCost(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-center font-black text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-400"/>
+              </div>
+              <input type="range" min={1} max={50} value={Math.min(starCost, 50)}
                 onChange={e => setStarCost(Number(e.target.value))}
                 className="w-full accent-pink-500" />
               <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                <span>1</span><span>100</span><span>250</span><span>500</span>
+                <span>1</span><span>25</span><span>50</span>
               </div>
             </div>
 
@@ -266,14 +293,21 @@ export default function RewardsPage() {
                 </button>
               </div>
               {scope === 'child' && (
-                <div className="flex gap-2 flex-wrap">
-                  {children.map(c => (
-                    <button key={c.id} onClick={() => setSelectedChildId(c.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition ${selectedChildId === c.id ? 'ring-2 ring-pink-400' : 'opacity-50'}`}
-                      style={{ backgroundColor: c.colour + '33' }}>
-                      {c.avatar} {c.name}
-                    </button>
-                  ))}
+                <div className="flex gap-3 flex-wrap">
+                  {children.map(c => {
+                    const sel = selectedChildId === c.id
+                    return (
+                      <button key={c.id} onClick={() => setSelectedChildId(c.id)}
+                        className={`flex flex-col items-center gap-1 active:scale-95 transition ${sel ? '' : 'opacity-50'}`}>
+                        {c.avatar_url
+                          ? <img src={c.avatar_url} className="w-12 h-12 rounded-full object-cover"
+                              style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${c.colour}` : 'none' }} alt=""/>
+                          : <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                              style={{ backgroundColor: c.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${c.colour}` : 'none' }}>{c.avatar}</div>}
+                        <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? c.colour : '#9ca3af' }}>{c.name.split(' ')[0]}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -302,19 +336,19 @@ export default function RewardsPage() {
                 <p className="text-gray-400 text-sm mt-1">Tap + to create some</p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {[...rewards].sort((a, b) => a.star_cost - b.star_cost).map(reward => (
-                  <div key={reward.id} className="bg-white rounded-2xl shadow-sm p-2 flex flex-col items-center gap-1 relative">
+                  <div key={reward.id} className="bg-white rounded-2xl shadow-sm p-3 flex flex-col items-center gap-1.5 relative">
                     <button onClick={() => openEditReward(reward)}
-                      className="absolute top-1 right-1 text-gray-300 text-[10px] active:scale-90 transition">✏️</button>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl mt-1"
-                      style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>
+                      className="absolute top-1.5 right-1.5 text-gray-300 text-xs active:scale-90 transition">✏️</button>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mt-1 bg-white"
+                      style={{ border: '1.5px solid var(--theme-from)' }}>
                       {reward.emoji}
                     </div>
-                    <p className="font-semibold text-gray-800 text-[10px] text-center leading-tight line-clamp-2 w-full">{reward.title}</p>
-                    <p className="text-[10px] font-bold text-yellow-500">⭐ {reward.star_cost}</p>
+                    <p className="font-semibold text-gray-800 text-xs text-center leading-tight line-clamp-2 w-full">{reward.title}</p>
+                    <p className="text-xs font-bold text-yellow-500">⭐ {reward.star_cost}</p>
                     <button onClick={() => setRedeemTarget(reward)}
-                      className="w-full text-white text-[10px] font-bold py-1 rounded-lg active:scale-95 transition"
+                      className="w-full text-white text-xs font-bold py-1.5 rounded-lg active:scale-95 transition"
                       style={{ background: 'var(--theme-gradient)' }}>
                       Redeem
                     </button>

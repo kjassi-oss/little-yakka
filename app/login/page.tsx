@@ -80,18 +80,20 @@ export default function LoginPage() {
 
             {error && <p className="text-red-500 text-xs bg-red-50 rounded-2xl p-2.5">{error}</p>}
 
-            <button type="submit" disabled={loading}
-              className="w-full text-white font-black text-base tracking-wide py-3 rounded-2xl shadow-md active:scale-95 transition disabled:opacity-60"
-              style={{ background: RAINBOW }}>
-              {loading ? 'SIGNING IN...' : 'SIGN IN'}
-            </button>
+            <div className="flex gap-2 h-12">
+              <button type="submit" disabled={loading}
+                className="flex-1 h-full text-white font-black text-[11px] tracking-wide rounded-2xl shadow-md active:scale-95 transition disabled:opacity-60"
+                style={{ background: RAINBOW }}>
+                {loading ? 'SIGNING IN...' : 'SIGN IN'}
+              </button>
+              <Link href="/signup"
+                className="flex-1 h-full rounded-2xl p-[2px] active:scale-95 transition" style={{ background: RAINBOW }}>
+                <span className="flex items-center justify-center w-full h-full bg-white rounded-[14px] font-black text-[11px] tracking-wide text-gray-700">
+                  CREATE AN ACCOUNT
+                </span>
+              </Link>
+            </div>
           </form>
-
-          <Link href="/signup"
-            className="block w-full text-center text-white font-black text-base tracking-wide py-3 rounded-2xl shadow-md active:scale-95 transition"
-            style={{ background: '#1982C4' }}>
-            Create An Account
-          </Link>
         </div>
       </div>
     </div>
