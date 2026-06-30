@@ -26,6 +26,17 @@ export function localNow(tz: string = DEFAULT_TZ): Date {
 }
 
 /**
+ * Current wall-clock time "HH:MM" (24h) in the given timezone.
+ * Use this for time-of-day comparisons — localNow() is pinned to noon and
+ * must NOT be used to read the current time.
+ */
+export function localTimeHHMM(tz: string = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date())
+}
+
+/**
  * Accepts either:
  *   - the raw cookie value string (from next/headers cookies().get('tz')?.value)
  *   - a full document.cookie string (from client-side document.cookie, used for debugging)

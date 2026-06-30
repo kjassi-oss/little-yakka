@@ -57,12 +57,9 @@ const FREQ_OPTIONS = [
   { value: 'weekly',  label: '🗓️ Weekly' },
   { value: 'monthly', label: '📆 Monthly' },
 ]
-const TIME_GROUPS = [
-  { key: 'morning',   label: '🌅 Morning' },
-  { key: 'afternoon', label: '☀️ Afternoon' },
-  { key: 'evening',   label: '🌙 Evening' },
-  { key: null,        label: '📋 Anytime' },
-]
+const UP_TIME_ORDER: Record<string, number> = { morning: 1, afternoon: 2, evening: 3 }
+// Local-timezone YYYY-MM-DD (avoids the UTC off-by-one that toISOString causes in AEST)
+function ymdLocal(d: Date): string { return new Intl.DateTimeFormat('en-CA').format(d) }
 
 interface Task {
   id: string; title: string; emoji: string; type: 'chore' | 'routine'
@@ -80,7 +77,7 @@ interface HistoryRow {
   children: { name: string; avatar: string; colour: string; avatar_url?: string } | null
 }
 
-type MainTab = 'tasks' | 'today' | 'history'
+type MainTab = 'upcoming' | 'history' | 'tasks'
 
 export default function ChoresPage() {
   const router = useRouter()
@@ -93,13 +90,16 @@ export default function ChoresPage() {
   const [showForm, setShowForm] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
-  const [mainTab, setMainTab] = useState<MainTab>('tasks')
+  const [mainTab, setMainTab] = useState<MainTab>('upcoming')
   const [filterChildId, setFilterChildId] = useState<string | null>(null)
   const [showChildPicker, setShowChildPicker] = useState(false)
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<HistoryRow[]>([])
   const [todayOnly, setTodayOnly] = useState(false)
   const [expandedDoneChild, setExpandedDoneChild] = useState<string | null>(null)
+  // Upcoming tab: multi-select child filter (empty Set = everyone) + window completions
+  const [upcomingFilter, setUpcomingFilter] = useState<Set<string>>(new Set())
+  const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
 
   // Form state
   const [title, setTitle] = useState('')
@@ -127,7 +127,20 @@ export default function ChoresPage() {
   const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
   const benchmarkVideoRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+    // Deep-link from the home tiles: /dashboard/chores?child=<id> preselects that child
+    const params = new URLSearchParams(window.location.search)
+    const childParam = params.get('child')
+    if (childParam) { setUpcomingFilter(new Set([childParam])); setMainTab('upcoming') }
+  }, [])
+
+  // Auto-scroll the Upcoming list to today once data is loaded / tab opened
+  useEffect(() => {
+    if (mainTab !== 'upcoming' || pageLoading) return
+    const el = document.getElementById(`up-${ymdLocal(new Date())}`)
+    if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' })
+  }, [mainTab, pageLoading, windowComps.length])
 
   async function loadData() {
     const supabase = createClient()
@@ -173,6 +186,36 @@ export default function ChoresPage() {
     ])
     setHistory((historyData as any) || [])
     setPendingApprovals((approvalData as any) || [])
+
+    // Completions across the Upcoming window (past 2 weeks → today) for done/missed state
+    const winStart = new Date(); winStart.setDate(winStart.getDate() - 14)
+    const { data: winData } = await supabase.from('completions')
+      .select('id, task_id, child_id, date, status')
+      .in('child_id', childIds.length ? childIds : ['none'])
+      .gte('date', ymdLocal(winStart)).lte('date', ymdLocal(new Date()))
+    setWindowComps((winData || []).filter(c => c.status === 'approved' || c.status === 'pending')
+      .map(c => ({ id: c.id, task_id: c.task_id, child_id: c.child_id, date: c.date })))
+  }
+
+  function toggleUpcomingChild(id: string) {
+    setUpcomingFilter(prev => {
+      // From "everyone" (empty), first tap isolates to that child; further taps add/remove.
+      if (prev.size === 0) return new Set([id])
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  async function undoUpcoming(comp: { id: string; child_id: string }, task: Task, childName: string) {
+    if (!confirm(`Undo "${task.title}" for ${childName}? This removes the stars.`)) return
+    const supabase = createClient()
+    await supabase.from('completions').delete().eq('id', comp.id)
+    await supabase.from('star_ledger').insert({
+      child_id: comp.child_id, delta: -(task.star_value || 0),
+      reason: `Undo: ${task.title}`, source_type: 'undo',
+    })
+    loadData()
   }
 
   function handleTaskClick(task: Task) {
@@ -244,7 +287,9 @@ export default function ChoresPage() {
     if (assignedChildren.length === 0) { setFormError('Please assign to at least one child.'); return }
     setSaving(true); setFormError('')
     const supabase = createClient()
-    const payload = {
+
+    // Build base payload without can_do_early; add it if column exists
+    const basePayload = {
       title: title.trim(), emoji, type,
       time_of_day: timeOfDay === 'anytime' ? null : timeOfDay,
       star_value: starValue,
@@ -253,20 +298,29 @@ export default function ChoresPage() {
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
       frequency, carry_over: carryOver, difficulty,
-      can_do_early: canDoEarly,
       requires_approval: false,
       days_of_week: frequency === 'daily' && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? [...daysOfWeek].sort() : null,
     }
+    const payload = { ...basePayload, can_do_early: canDoEarly }
 
     let taskId = editingTaskId
     if (editingTaskId) {
-      const { error } = await supabase.from('tasks').update(payload).eq('id', editingTaskId)
+      let { error } = await supabase.from('tasks').update(payload).eq('id', editingTaskId)
+      if (error?.message?.includes('can_do_early')) {
+        const result = await supabase.from('tasks').update(basePayload).eq('id', editingTaskId)
+        error = result.error
+      }
       if (error) { setFormError(error.message); setSaving(false); return }
       await supabase.from('task_assignments').delete().eq('task_id', editingTaskId)
       await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: editingTaskId, child_id: cid })))
     } else {
-      const { data: task, error } = await supabase.from('tasks')
+      let { data: task, error } = await supabase.from('tasks')
         .insert({ ...payload, family_id: familyId, recurrence: frequency }).select().single()
+      if (error?.message?.includes('can_do_early')) {
+        const result = await supabase.from('tasks')
+          .insert({ ...basePayload, family_id: familyId, recurrence: frequency }).select().single()
+        task = result.data; error = result.error
+      }
       if (error || !task) { setFormError(error?.message || 'Failed to save.'); setSaving(false); return }
       taskId = task.id
       await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: task.id, child_id: cid })))
@@ -326,27 +380,24 @@ export default function ChoresPage() {
   ).filter(t => !todayOnly || occursOn(t as any, _now))
 
   const todayStr = new Date().toISOString().split('T')[0]
-  const dateLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
 
   if (pageLoading) return <LoadingLogo />
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      {/* Compact header */}
+      {/* Compact header — logo left, centred title, settings right */}
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-            <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
-          </div>
-          <ProfileButton/>
+        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+          <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+          <span className="text-2xl font-black justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
+          <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
-      {/* Tab toggle (white sub-bar) */}
+      {/* Tab toggle (white sub-bar) — Upcoming · Done · All */}
       <div className="bg-white px-4 pt-2.5 pb-1">
         <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
-          {([['tasks', '📋 All'], ['today', '📅 Today'], ['history', '✅ Done']] as const).map(([tab, label]) => (
+          {([['upcoming', '📅 Upcoming'], ['history', '✅ Done'], ['tasks', '📋 All']] as const).map(([tab, label]) => (
             <button key={tab} onClick={() => setMainTab(tab)}
               className={`relative flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
               style={mainTab === tab ? { background: 'var(--theme-gradient)' } : {}}>
@@ -356,8 +407,8 @@ export default function ChoresPage() {
         </div>
       </div>
 
-      {/* Kid filter — round photo thumbnails, 4 per row */}
-      {children.length > 0 && mainTab !== 'history' && (
+      {/* Kid filter — round photo thumbnails, 4 per row (All tab only) */}
+      {children.length > 0 && mainTab === 'tasks' && (
         <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
           <div className="max-w-sm mx-auto grid grid-cols-4 gap-3">
             {/* All */}
@@ -691,60 +742,110 @@ export default function ChoresPage() {
           </>
         )}
 
-        {/* ── TODAY TAB ── */}
-        {mainTab === 'today' && !showForm && (
-          <div className="space-y-5">
-            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--theme-from)' }}>
-              📅 {dateLabel}
-            </p>
-            {TIME_GROUPS.map(group => {
-              const groupTasks = visibleTasks.filter(t =>
-                group.key === null ? !t.time_of_day : t.time_of_day === group.key
-              )
-              if (!groupTasks.length) return null
-              return (
-                <div key={group.key ?? 'anytime'}>
-                  <p className="text-sm font-bold text-gray-600 mb-2">{group.label}</p>
-                  <div className="space-y-2">
-                    {groupTasks.map(task => {
-                      const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
-                      return (
-                        <div key={task.id} className="bg-white rounded-2xl p-3 shadow-sm flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                            style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-800 text-sm">{task.title}</p>
-                            <p className="text-xs text-gray-400">⭐ {task.star_value}</p>
-                          </div>
-                          <div className="flex gap-1 flex-wrap justify-end max-w-[80px]">
-                            {assignedKids.map(child => {
-                              const done = completedSet.has(`${task.id}-${child.id}`)
-                              return (
-                                <div key={child.id} className="relative flex-shrink-0">
-                                  {child.avatar_url
-                                    ? <img src={child.avatar_url} className={`w-8 h-8 rounded-full object-cover ${done ? 'opacity-50' : ''}`} alt=""/>
-                                    : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${done ? 'opacity-50' : ''}`}
-                                        style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
-                                  }
-                                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
-                                    {done && <span className="text-white text-[8px] font-bold">✓</span>}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+        {/* ── UPCOMING TAB ── past 2 weeks → next 2 weeks, scrolled to today ── */}
+        {mainTab === 'upcoming' && !showForm && (() => {
+          const compKey = new Set(windowComps.map(c => `${c.task_id}|${c.child_id}|${c.date}`))
+          const compRow = new Map(windowComps.map(c => [`${c.task_id}|${c.child_id}|${c.date}`, c]))
+          const todayL = ymdLocal(new Date())
+          const kidSelected = (id: string) => upcomingFilter.size === 0 || upcomingFilter.has(id)
+
+          const days: { ds: string; d: Date; items: { task: Task; kids: Child[] }[] }[] = []
+          const start = new Date(); start.setDate(start.getDate() - 14)
+          const end = new Date(); end.setDate(end.getDate() + 14)
+          for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const ds = ymdLocal(d)
+            const items = tasks
+              .filter(t => occursOn(t as any, d))
+              .map(t => ({
+                task: t,
+                kids: (assignments[t.id] || []).map(id => childMap[id]).filter(Boolean).filter(k => kidSelected(k.id)),
+              }))
+              .filter(x => x.kids.length > 0)
+              .sort((a, b) => (UP_TIME_ORDER[a.task.time_of_day ?? ''] ?? 0) - (UP_TIME_ORDER[b.task.time_of_day ?? ''] ?? 0))
+            if (items.length) days.push({ ds, d: new Date(d), items })
+          }
+
+          return (
+            <div className="space-y-4">
+              {/* Child filter — up to 3 fit the width, scroll for more */}
+              {children.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+                  {children.map(child => {
+                    const sel = kidSelected(child.id)
+                    const isAll = upcomingFilter.size === 0
+                    return (
+                      <button key={child.id} onClick={() => toggleUpcomingChild(child.id)}
+                        className="flex flex-col items-center gap-1 active:scale-95 transition flex-shrink-0"
+                        style={{ width: 'calc((100% - 1rem) / 3)' }}>
+                        {child.avatar_url
+                          ? <img src={child.avatar_url} className={`w-12 h-12 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                              style={{ boxShadow: sel && !isAll ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }} alt=""/>
+                          : <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                              style={{ backgroundColor: child.colour + '25', boxShadow: sel && !isAll ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
+                        <span className="text-[11px] font-bold truncate max-w-[64px]" style={{ color: sel && !isAll ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
+                      </button>
+                    )
+                  })}
                 </div>
-              )
-            })}
-            {visibleTasks.length === 0 && (
-              <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500">No tasks to show</p></div>
-            )}
-          </div>
-        )}
+              )}
+
+              {days.length === 0 ? (
+                <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500 font-medium">No upcoming tasks</p></div>
+              ) : days.map(({ ds, d, items }) => {
+                const isToday = ds === todayL
+                const isPast = ds < todayL
+                return (
+                  <div key={ds} id={`up-${ds}`} className="scroll-mt-2">
+                    <p className={`text-xs font-black mb-2 px-1 ${isToday ? '' : isPast ? 'text-gray-400' : 'text-gray-600'}`}
+                      style={isToday ? { color: 'var(--theme-from)' } : {}}>
+                      {isToday ? 'Today' : d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}{isPast ? ' (past)' : ''}
+                    </p>
+                    <div className="space-y-2">
+                      {items.map(({ task, kids }) => {
+                        const doneCount = kids.filter(k => compKey.has(`${task.id}|${k.id}|${ds}`)).length
+                        const allDone = kids.length > 0 && doneCount === kids.length
+                        const missed = isPast && doneCount === 0
+                        return (
+                          <div key={task.id}
+                            className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${allDone ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${missed ? 'grayscale opacity-50' : ''}`}
+                              style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-semibold text-sm truncate ${allDone ? 'line-through text-gray-400' : missed ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                              <p className="text-xs text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
+                            </div>
+                            <div className="flex gap-1 flex-wrap justify-end max-w-[92px]">
+                              {kids.map(child => {
+                                const done = compKey.has(`${task.id}|${child.id}|${ds}`)
+                                const row = compRow.get(`${task.id}|${child.id}|${ds}`)
+                                return (
+                                  <button key={child.id}
+                                    onClick={() => { if (done && row) undoUpcoming(row, task, child.name.split(' ')[0]) }}
+                                    disabled={!done}
+                                    title={done ? `Undo for ${child.name.split(' ')[0]}` : child.name.split(' ')[0]}
+                                    className="relative flex-shrink-0 active:scale-90 transition disabled:cursor-default">
+                                    {child.avatar_url
+                                      ? <img src={child.avatar_url} className={`w-8 h-8 rounded-full object-cover ${done ? '' : 'opacity-50'}`} alt=""/>
+                                      : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${done ? '' : 'opacity-50'}`}
+                                          style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>}
+                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
+                                      {done && <span className="text-white text-[8px] font-bold">✓</span>}
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+              <p className="text-[10px] text-center text-gray-300 pt-1">Tap a ✓ avatar to undo a completion.</p>
+            </div>
+          )
+        })()}
 
         {/* ── DONE / HISTORY TAB — grouped by child, collapsible ── */}
         {mainTab === 'history' && !showForm && (

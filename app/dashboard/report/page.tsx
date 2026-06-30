@@ -5,8 +5,11 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import LoadingLogo from '@/components/LoadingLogo'
 import ProfileButton from '@/components/ProfileButton'
+import { occursOn, type RecurringTask } from '@/lib/recurrence'
+import { localDateStr, parseTzCookie } from '@/lib/localDate'
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
+interface TaskMeta extends RecurringTask { id: string }
 type Period = 'week' | 'month'
 
 function computeStreak(dates: string[]): number {
@@ -24,6 +27,7 @@ function computeStreak(dates: string[]): number {
 
 export default function AnalyticsPage() {
   const [children, setChildren] = useState<Child[]>([])
+  const [tasks, setTasks] = useState<TaskMeta[]>([])
   const [assignPairs, setAssignPairs] = useState<{ task_id: string; child_id: string }[]>([])
   const [completions, setCompletions] = useState<{ child_id: string; date: string; task_id: string }[]>([])
   const [stars, setStars] = useState<{ child_id: string; delta: number; created_at: string }[]>([])
@@ -31,6 +35,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<Period>('week')
   const [selectedKid, setSelectedKid] = useState<string | null>(null)
+  const [tz] = useState(() => parseTzCookie(typeof document !== 'undefined' ? document.cookie : undefined))
 
   useEffect(() => { loadData() }, [])
 
@@ -46,7 +51,8 @@ export default function AnalyticsPage() {
     const childIds = childrenData?.map(c => c.id) || []
     const thirty = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
-    const [{ data: assignData }, { data: compData }, { data: starData }, { data: recentData }] = await Promise.all([
+    const [{ data: tasksData }, { data: assignData }, { data: compData }, { data: starData }, { data: recentData }] = await Promise.all([
+      supabase.from('tasks').select('id, frequency, start_date, created_at, days_of_week').eq('family_id', guardian.family_id),
       supabase.from('task_assignments').select('task_id, child_id').in('child_id', childIds.length ? childIds : ['none']),
       supabase.from('completions').select('child_id, date, task_id').eq('status', 'approved')
         .in('child_id', childIds.length ? childIds : ['none']).gte('date', thirty),
@@ -57,6 +63,7 @@ export default function AnalyticsPage() {
     ])
 
     setChildren(childrenData || [])
+    setTasks(tasksData || [])
     setAssignPairs(assignData || [])
     setCompletions(compData || [])
     setStars(starData || [])
@@ -64,30 +71,52 @@ export default function AnalyticsPage() {
     setLoading(false)
   }
 
-  // Period boundaries
-  const { startStr, daysElapsed, label } = useMemo(() => {
-    const now = new Date()
+  // Period boundaries (Mon–Sun week / calendar month) computed in the user's timezone.
+  const { startStr, todayStr, label } = useMemo(() => {
+    const todayS = localDateStr(new Date(), tz)
+    const [ty, tm, td] = todayS.split('-').map(Number)
     if (period === 'week') {
-      const dow = now.getDay()
+      const ref = new Date(ty, tm - 1, td, 12, 0, 0)
+      const dow = ref.getDay()
       const offset = dow === 0 ? -6 : 1 - dow
-      const start = new Date(now); start.setDate(now.getDate() + offset); start.setHours(0, 0, 0, 0)
-      const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0)
-      const days = Math.round((todayMid.getTime() - start.getTime()) / 86400000) + 1
-      return { startStr: start.toISOString().split('T')[0], daysElapsed: days, label: 'this week' }
-    } else {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1)
-      return { startStr: start.toISOString().split('T')[0], daysElapsed: now.getDate(), label: 'this month' }
+      const start = new Date(ref); start.setDate(ref.getDate() + offset)
+      const y = start.getFullYear(), m = String(start.getMonth() + 1).padStart(2, '0'), d = String(start.getDate()).padStart(2, '0')
+      return { startStr: `${y}-${m}-${d}`, todayStr: todayS, label: 'this week' }
     }
-  }, [period])
+    return { startStr: `${ty}-${String(tm).padStart(2, '0')}-01`, todayStr: todayS, label: 'this month' }
+  }, [period, tz])
+
+  // Days from period start through today (inclusive), as noon-local Dates for occursOn.
+  const periodDays = useMemo(() => {
+    const out: Date[] = []
+    const [sy, sm, sd] = startStr.split('-').map(Number)
+    const d = new Date(sy, sm - 1, sd, 12, 0, 0)
+    const fmt = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+    while (fmt(d) <= todayStr) { out.push(new Date(d)); d.setDate(d.getDate() + 1) }
+    return out
+  }, [startStr, todayStr])
 
   const stats = useMemo(() => {
     const kids = selectedKid ? children.filter(c => c.id === selectedKid) : children
     const kidIds = new Set(kids.map(c => c.id))
+    const taskById: Record<string, TaskMeta> = {}
+    tasks.forEach(t => { taskById[t.id] = t })
 
-    const assignedPerDay = assignPairs.filter(a => kidIds.has(a.child_id)).length
-    const expected = Math.max(assignedPerDay * daysElapsed, 0)
+    // Tasks actually due so far this period, per child, via occursOn (frequency aware).
+    function expectedFor(ids: Set<string>): number {
+      let total = 0
+      for (const day of periodDays) {
+        for (const a of assignPairs) {
+          if (!ids.has(a.child_id)) continue
+          const t = taskById[a.task_id]
+          if (t && occursOn(t, day)) total++
+        }
+      }
+      return total
+    }
 
-    const periodComps = completions.filter(c => kidIds.has(c.child_id) && c.date >= startStr)
+    const expected = expectedFor(kidIds)
+    const periodComps = completions.filter(c => kidIds.has(c.child_id) && c.date >= startStr && c.date <= todayStr)
     const done = periodComps.length
     const pct = expected > 0 ? Math.min(100, Math.round((done / expected) * 100)) : 0
 
@@ -100,9 +129,9 @@ export default function AnalyticsPage() {
     const bestDay = Object.entries(byDay).sort((a, b) => b[1] - a[1])[0]
 
     const perKid = children.map(child => {
-      const myAssigned = assignPairs.filter(a => a.child_id === child.id).length
-      const myExpected = Math.max(myAssigned * daysElapsed, 0)
-      const myDone = completions.filter(c => c.child_id === child.id && c.date >= startStr).length
+      const ids = new Set([child.id])
+      const myExpected = expectedFor(ids)
+      const myDone = completions.filter(c => c.child_id === child.id && c.date >= startStr && c.date <= todayStr).length
       const myPct = myExpected > 0 ? Math.min(100, Math.round((myDone / myExpected) * 100)) : 0
       const myStars = stars.filter(s => s.child_id === child.id && s.created_at.split('T')[0] >= startStr).reduce((sum, s) => sum + s.delta, 0)
       const myStreak = computeStreak([...new Set(recent30.filter(c => c.child_id === child.id).map(c => c.date))])
@@ -112,7 +141,7 @@ export default function AnalyticsPage() {
     const topStreak = Math.max(0, ...perKid.filter(k => kidIds.has(k.child.id)).map(k => k.streak))
 
     return { done, expected, pct, periodStars, bestDay, perKid, topStreak }
-  }, [selectedKid, children, assignPairs, completions, stars, recent30, startStr, daysElapsed])
+  }, [selectedKid, children, tasks, assignPairs, completions, stars, recent30, startStr, todayStr, periodDays])
 
   if (loading) return (
     <LoadingLogo />

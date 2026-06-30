@@ -1,29 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
-// Consistent profile chip shown top-right on every dashboard page → opens Settings.
+// Consistent settings chip shown top-right on every dashboard page → opens Settings.
 export default function ProfileButton({ className = '' }: { className?: string }) {
-  const [initial, setInitial] = useState('')
-
-  useEffect(() => {
-    (async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from('guardians').select('name').eq('auth_user_id', user.id).single()
-      const n = (data?.name || '').trim()
-      setInitial(n ? n.charAt(0).toUpperCase() : '')
-    })()
-  }, [])
-
   return (
-    <Link href="/dashboard/settings" aria-label="Profile and settings"
-      className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-white shadow-md active:scale-95 transition shrink-0 ${className}`}
+    <Link href="/dashboard/settings" aria-label="Settings"
+      className={`w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md active:scale-95 transition shrink-0 ${className}`}
       style={{ background: 'var(--theme-gradient)' }}>
-      {initial || '👤'}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
     </Link>
   )
 }

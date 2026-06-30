@@ -6,7 +6,7 @@ import PraiseButton from '@/components/PraiseButton'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
 import { occursOn } from '@/lib/recurrence'
-import { localNow, localDateStr, parseTzCookie } from '@/lib/localDate'
+import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -95,8 +95,9 @@ export default async function DashboardPage() {
   ])
   const bonusCadence = family?.bonus_cadence || 'weekly'
   const bonusDay = family?.bonus_day ?? 0
-  const bonusTime = family?.bonus_time || '16:00'
-  const bonusDueNow = (bonusCadence === 'daily' || now.getDay() === bonusDay) && now.toTimeString().slice(0, 5) >= bonusTime
+  const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
+  // Use real wall-clock time in the user's tz — localNow() is pinned to noon.
+  const bonusDueNow = (bonusCadence === 'daily' || now.getDay() === bonusDay) && localTimeHHMM(tz) >= bonusTime
   const spunSet = new Set((todaySpins || []).map(s => s.child_id))
 
   const completedSet = new Set(
@@ -158,37 +159,26 @@ export default async function DashboardPage() {
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
 
-  // Upcoming across the next 3 days, grouped by date
-  const upcomingDays: { ds: string; label: string; date: string; items: { task: any; pending: any[] }[] }[] = []
-  for (let i = 0; i < 3; i++) {
-    const d = new Date(now); d.setDate(now.getDate() + i)
-    const ds = localDateStr(d, tz)
-    const items = (tasks || [])
-      .filter(t => occursOn(t, d))
-      .map(t => {
-        const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
-        const pending = i === 0 ? kids.filter((k: any) => !completedSet.has(`${t.id}-${k.id}`)) : kids
-        return { task: t, pending, kids }
-      })
-      .filter(u => u.kids.length > 0 && u.pending.length > 0)
-      .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
-    if (items.length) upcomingDays.push({
-      ds,
-      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'long' }),
-      date: d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }),
-      items,
+  // Today's tasks — all of them (completed shown with a strikethrough, not hidden)
+  const todayItems = (todayTasks || [])
+    .map(t => {
+      const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
+      const pending = kids.filter((k: any) => !completedSet.has(`${t.id}-${k.id}`))
+      const allDone = kids.length > 0 && pending.length === 0
+      return { task: t, kids, pending, allDone }
     })
-  }
-  const upcomingTotal = upcomingDays.reduce((s, d) => s + d.items.length, 0)
+    .filter(u => u.kids.length > 0)
+    .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
-      {/* Header — logo left + profile right */}
+      {/* Header — logo left, centred title, settings right */}
       <div className="px-4 pt-11 pb-2 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto flex items-center justify-between">
-          <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto"/>
-          <ProfileButton/>
+        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+          <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start"/>
+          <span className="text-2xl font-black justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
+          <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
@@ -216,7 +206,7 @@ export default async function DashboardPage() {
                     <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
                   </div>
 
-                  <Link href={`/dashboard/schedule?child=${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
+                  <Link href={`/dashboard/chores?child=${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
                     {/* Avatar */}
                     <div className="relative w-14 h-14 mx-auto mb-1.5">
                       {child.avatar_url
@@ -279,53 +269,47 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Upcoming — next 3 days, by date */}
+        {/* Today's Tasks — completed shown struck-through */}
         {childData.length > 0 && (
           <div className="bg-white rounded-3xl shadow-sm p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">📋 Coming up</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">📋 Today's Tasks</p>
 
-            {upcomingTotal === 0 ? (
+            {todayItems.length === 0 ? (
               <div className="text-center py-6">
                 <div className="text-4xl mb-1">🎉</div>
-                <p className="text-sm font-semibold text-gray-600">All caught up — nothing due!</p>
+                <p className="text-sm font-semibold text-gray-600">Nothing due today!</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {upcomingDays.map(day => (
-                  <div key={day.ds}>
-                    <p className="text-[11px] font-black text-gray-700 mb-1.5">{day.label} · {day.date}</p>
-                    <div className="space-y-2">
-                      {day.items.map(({ task, pending }) => (
-                        <TaskLauncher key={task.id} taskId={task.id} kids={pending}>
-                          <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-2.5 active:scale-[0.98] transition">
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                              style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{task.emoji}</div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-gray-800 text-sm truncate">{task.title}</p>
-                              <p className="text-[11px] text-gray-400">
-                                {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
-                              </p>
-                            </div>
-                            <div className="flex -space-x-2 flex-shrink-0">
-                              {pending.slice(0, 3).map((k: any) => (
-                                k.avatar_url
-                                  ? <img key={k.id} src={k.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt=""/>
-                                  : <div key={k.id} className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
-                                      style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
-                              ))}
-                              {pending.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{pending.length - 3}</div>}
-                            </div>
-                          </div>
-                        </TaskLauncher>
-                      ))}
+              <div className="space-y-2">
+                {todayItems.map(({ task, kids, pending, allDone }) => (
+                  <TaskLauncher key={task.id} taskId={task.id} kids={pending.length ? pending : kids}>
+                    <div className={`flex items-center gap-3 rounded-2xl p-2.5 active:scale-[0.98] transition ${allDone ? 'bg-gray-50 opacity-70' : 'bg-gray-50'}`}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-gray-900">{task.emoji}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-semibold text-sm truncate ${allDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                        <p className="text-[11px] text-gray-400">
+                          {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
+                        </p>
+                      </div>
+                      <div className="flex -space-x-2 flex-shrink-0">
+                        {kids.slice(0, 3).map((k: any) => {
+                          const done = completedSet.has(`${task.id}-${k.id}`)
+                          return k.avatar_url
+                            ? <img key={k.id} src={k.avatar_url} className={`w-7 h-7 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
+                            : <div key={k.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white ${done ? 'opacity-50' : ''}`}
+                                style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
+                        })}
+                        {kids.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{kids.length - 3}</div>}
+                      </div>
                     </div>
-                  </div>
+                  </TaskLauncher>
                 ))}
-                <Link href="/dashboard/schedule" className="block text-center text-xs font-bold pt-1" style={{ color: 'var(--theme-from)' }}>
-                  See more in Calendar →
-                </Link>
               </div>
             )}
+
+            <Link href="/dashboard/chores" className="block text-center text-xs font-black pt-3 mt-1" style={{ color: 'var(--theme-from)' }}>
+              SHOW ALL TASKS →
+            </Link>
           </div>
         )}
       </div>

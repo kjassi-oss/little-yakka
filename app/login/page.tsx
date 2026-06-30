@@ -81,16 +81,17 @@ export default function LoginPage() {
             {error && <p className="text-red-500 text-xs bg-red-50 rounded-2xl p-2.5">{error}</p>}
 
             <button type="submit" disabled={loading}
-              className="w-full text-white font-bold py-3 rounded-2xl shadow-md active:scale-95 transition disabled:opacity-60"
+              className="w-full text-white font-black text-base tracking-wide py-3 rounded-2xl shadow-md active:scale-95 transition disabled:opacity-60"
               style={{ background: RAINBOW }}>
-              {loading ? 'Signing in...' : 'Sign in ✓'}
+              {loading ? 'SIGNING IN...' : 'SIGN IN'}
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400">
-            New here?{' '}
-            <Link href="/signup" className="font-bold text-pink-500">Create an account</Link>
-          </p>
+          <Link href="/signup"
+            className="block w-full text-center text-white font-black text-base tracking-wide py-3 rounded-2xl shadow-md active:scale-95 transition"
+            style={{ background: '#1982C4' }}>
+            Create An Account
+          </Link>
         </div>
       </div>
     </div>

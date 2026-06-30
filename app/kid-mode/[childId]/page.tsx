@@ -21,7 +21,7 @@ export default async function ChildPage({ params, searchParams }: {
   const { data: guardian } = await supabase
     .from('guardians').select('family_id').eq('auth_user_id', user.id).single()
   const { data: family } = await supabase
-    .from('families').select('bonus_cadence, bonus_day, bonus_time').eq('id', guardian?.family_id).maybeSingle()
+    .from('families').select('*').eq('id', guardian?.family_id).maybeSingle()
 
   // Timezone-aware dates
   const cookieStore = await cookies()
@@ -100,37 +100,48 @@ export default async function ChildPage({ params, searchParams }: {
     else break
   }
 
-  // Wheel prize tier
-  let weekTotalStars = 0
-  for (let d = new Date(monday); ymd(d) <= weekEndStr; d.setDate(d.getDate() + 1)) {
+  // Bonus wheel cadence + award value
+  const cadence = family?.bonus_cadence || 'weekly'
+  const isDaily = cadence === 'daily'
+  // Award ceiling = this % of the period's available stars (slider in Settings, default 50%)
+  const awardPct = ((family as any)?.bonus_award_pct ?? 50) / 100
+
+  // Prize period: the day (daily cadence) or the Mon–Sun week (weekly cadence)
+  const prizeStart = isDaily ? new Date(now) : new Date(monday)
+  const prizeEnd = isDaily ? new Date(now) : new Date(sunday)
+  const prizeStartStr = ymd(prizeStart)
+
+  let periodTotalStars = 0
+  for (let d = new Date(prizeStart); ymd(d) <= ymd(prizeEnd); d.setDate(d.getDate() + 1)) {
     for (const t of allTasks) {
-      if (occursOn(t, d)) weekTotalStars += t.star_value
+      if (occursOn(t, d)) periodTotalStars += t.star_value
     }
   }
-  let tierDone = 0, tierExpected = 0
-  for (let d = new Date(monday); ymd(d) <= todayStr; d.setDate(d.getDate() + 1)) {
+  let tierExpected = 0
+  for (let d = new Date(prizeStart); ymd(d) <= todayStr; d.setDate(d.getDate() + 1)) {
     for (const t of allTasks) {
       if (occursOn(t, d)) tierExpected++
     }
   }
-  tierDone = (completions || []).filter(c => c.date >= mondayStr && c.date <= todayStr).length
+  const tierDone = (completions || []).filter(c => c.date >= prizeStartStr && c.date <= todayStr).length
   const completionRatio = tierExpected > 0 ? tierDone / tierExpected : 0
 
+  // Ceiling scales with the award-value slider; performance scales within the ceiling.
+  const ceiling = Math.round(periodTotalStars * awardPct)
   let maxPrize = 1
-  if (weekTotalStars === 0) {
+  if (periodTotalStars === 0) {
     maxPrize = 1
   } else if (completionRatio >= 0.8) {
-    maxPrize = weekTotalStars
+    maxPrize = Math.max(1, ceiling)
   } else if (completionRatio >= 0.5) {
-    maxPrize = Math.max(3, Math.round(weekTotalStars * 0.45))
+    maxPrize = Math.max(2, Math.round(ceiling * 0.6))
   } else if (completionRatio > 0) {
-    maxPrize = Math.max(2, Math.round(weekTotalStars * 0.25))
+    maxPrize = Math.max(1, Math.round(ceiling * 0.3))
   } else {
     maxPrize = 1
   }
 
-  // Bonus wheel
-  const cadence = family?.bonus_cadence || 'weekly'
+  // Bonus wheel timing
   const bonusDay = family?.bonus_day ?? 0
   const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
   const { data: spinToday } = await supabase

@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [bonusCadence, setBonusCadence] = useState<'daily' | 'weekly'>('weekly')
   const [bonusDay, setBonusDay] = useState(0)
   const [bonusTime, setBonusTime] = useState('16:00')
+  const [bonusAwardPct, setBonusAwardPct] = useState(50)
   const [savingBonus, setSavingBonus] = useState(false)
   const [bonusSaved, setBonusSaved] = useState(false)
   const [curPw, setCurPw] = useState('')
@@ -99,13 +100,14 @@ export default function SettingsPage() {
     setParentPin(guardian.parent_pin || '')
     const [{ data: childrenData }, { data: familyData }] = await Promise.all([
       supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-      supabase.from('families').select('name, bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).single(),
+      supabase.from('families').select('*').eq('id', guardian.family_id).single(),
     ])
     setChildren(childrenData || [])
     setFamilyName(familyData?.name || '')
     if (familyData?.bonus_cadence) setBonusCadence(familyData.bonus_cadence === 'daily' ? 'daily' : 'weekly')
     if (familyData?.bonus_day != null) setBonusDay(familyData.bonus_day)
     if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
+    if ((familyData as any)?.bonus_award_pct != null) setBonusAwardPct((familyData as any).bonus_award_pct)
     setLoading(false)
   }
 
@@ -118,9 +120,11 @@ export default function SettingsPage() {
 
   async function saveBonus() {
     setSavingBonus(true); setBonusSaved(false)
-    await createClient().from('families').update({
-      bonus_cadence: bonusCadence, bonus_day: bonusDay, bonus_time: bonusTime,
-    }).eq('id', familyId)
+    const supabase = createClient()
+    const base = { bonus_cadence: bonusCadence, bonus_day: bonusDay, bonus_time: bonusTime }
+    // Include award % if the column exists; retry without it if the migration hasn't run.
+    const { error } = await supabase.from('families').update({ ...base, bonus_award_pct: bonusAwardPct }).eq('id', familyId)
+    if (error) await supabase.from('families').update(base).eq('id', familyId)
     setSavingBonus(false); setBonusSaved(true)
     setTimeout(() => setBonusSaved(false), 2000)
   }
@@ -173,13 +177,22 @@ export default function SettingsPage() {
     const amount = parseInt(adjustAmount, 10)
     if (!amount || isNaN(amount)) { setAdjustError('Enter a valid number (e.g. 5 or -5).'); return }
     setAdjustSaving(true); setAdjustError('')
-    const { error } = await createClient().from('star_ledger').insert({
+    const supabase = createClient()
+    const base = {
       child_id: adjustChild.id, delta: amount,
       reason: adjustReason.trim() || (amount > 0 ? 'Bonus stars' : 'Stars removed'),
-      source_type: 'manual',
-    })
+    }
+    // Try source_type:'manual'; if a CHECK/enum constraint rejects it, fall back to a
+    // known-valid value (completion/undo) so the adjustment still saves.
+    let { error } = await supabase.from('star_ledger').insert({ ...base, source_type: 'manual' })
+    if (error) {
+      const retry = await supabase.from('star_ledger')
+        .insert({ ...base, source_type: amount > 0 ? 'completion' : 'undo' })
+      error = retry.error
+    }
     if (error) { setAdjustError(error.message); setAdjustSaving(false); return }
     setAdjustChild(null); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustSaving(false)
+    loadData()
   }
 
   async function saveEditChild() {
@@ -384,7 +397,7 @@ export default function SettingsPage() {
         {/* Bonus wheel */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <h2 className="font-bold text-gray-800 mb-1">🎰 Bonus Wheel</h2>
-          <p className="text-xs text-gray-400 mb-3">When kids can spin for bonus stars. The prize scales with how much of their work is done by then.</p>
+          <p className="text-xs text-gray-400 mb-3">Awards bonus stars based on the {bonusCadence === 'daily' ? 'day' : 'week'}'s performance. The prize scales with how much of their work is done by spin time.</p>
 
           <div className="flex bg-gray-100 rounded-2xl p-1 mb-3">
             {(['weekly', 'daily'] as const).map(c => (
@@ -411,6 +424,20 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-500">Available from</p>
             <input type="time" value={bonusTime} onChange={e => setBonusTime(e.target.value)}
               className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+          </div>
+
+          {/* Award value — % of the period's available stars */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-gray-500">Award value</p>
+              <p className="text-xs font-bold" style={{ color: 'var(--theme-from)' }}>{bonusAwardPct}%</p>
+            </div>
+            <input type="range" min={10} max={100} step={5} value={bonusAwardPct}
+              onChange={e => setBonusAwardPct(Number(e.target.value))} className="w-full"/>
+            <div className="flex justify-between text-[11px] text-gray-400 mt-0.5">
+              <span>10% of {bonusCadence === 'daily' ? 'day' : 'week'}'s stars</span>
+              <span>100%</span>
+            </div>
           </div>
 
           <button onClick={saveBonus} disabled={savingBonus}
