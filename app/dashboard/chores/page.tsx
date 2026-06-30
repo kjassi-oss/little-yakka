@@ -136,12 +136,6 @@ export default function ChoresPage() {
     if (childParam) { setUpcomingFilter(new Set([childParam])); setMainTab('upcoming') }
   }, [])
 
-  // Auto-scroll the Upcoming list to today once data is loaded / tab opened
-  useEffect(() => {
-    if (mainTab !== 'upcoming' || pageLoading) return
-    const el = document.getElementById(`up-${ymdLocal(new Date())}`)
-    if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' })
-  }, [mainTab, pageLoading, windowComps.length])
 
   async function loadData() {
     const supabase = createClient()
@@ -788,9 +782,16 @@ export default function ChoresPage() {
 
           return (
             <div className="space-y-4">
-              {/* Child filter — up to 3 fit the width, scroll for more */}
+              {/* Child filter — All + up to 3 fit the width, scroll for more */}
               {children.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+                  <button onClick={() => setUpcomingFilter(new Set())}
+                    className="flex flex-col items-center gap-1 active:scale-95 transition flex-shrink-0"
+                    style={{ width: 'calc((100% - 1rem) / 3)' }}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-black ${upcomingFilter.size === 0 ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                      style={upcomingFilter.size === 0 ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
+                    <span className="text-[11px] font-bold" style={{ color: upcomingFilter.size === 0 ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
+                  </button>
                   {children.map(child => {
                     const sel = kidSelected(child.id)
                     const isAll = upcomingFilter.size === 0
@@ -810,9 +811,9 @@ export default function ChoresPage() {
                 </div>
               )}
 
-              <p className="text-[11px] text-center text-gray-400">
-                {singleChildId ? 'Tap COMPLETE to tick a task off' : 'Tap a task to choose a child'}
-              </p>
+              {singleChildId && (
+                <p className="text-[11px] text-center text-gray-400">Tap COMPLETE to tick a task off</p>
+              )}
 
               {/* Load earlier days (up to a week back) */}
               {pastWindow < 7 && (
@@ -858,6 +859,9 @@ export default function ChoresPage() {
                               ) : (ds > todayL && !((task as any).can_do_early ?? true)) ? (
                                 // Future task that can't be done early — match the kid zone
                                 <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
+                              ) : (ds < todayL && !((task as any).carry_over ?? true)) ? (
+                                // Missed past day that doesn't carry over — expired
+                                <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">missed</div>
                               ) : (
                                 <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds) }}
                                   className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-white active:scale-95 transition"

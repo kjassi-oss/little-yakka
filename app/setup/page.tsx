@@ -180,6 +180,13 @@ export default function SetupPage() {
     setSkipped(true)
   }
 
+  // Back from step 1 leaves setup entirely — sign out so /login doesn't bounce
+  // an authenticated user straight back here.
+  async function backToLogin() {
+    await createClient().auth.signOut()
+    router.push('/login'); router.refresh()
+  }
+
   async function handleFinish() {
     if (children.length === 0) { setError('Please add at least one child.'); setStep(1); return }
     setLoading(true); setError('')
@@ -258,7 +265,7 @@ export default function SetupPage() {
   // ── STEP 1 — child details ──────────────────────────────────────────────────
   if (step === 1) return (
     <Page>
-      <BackBtn onClick={() => router.push('/login')}/>
+      <BackBtn onClick={backToLogin}/>
       <GradientTitle>Family Details</GradientTitle>
       <p className="text-sm text-gray-400 text-center mb-5">Tell us about your family</p>
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SpinWheel from '@/components/SpinWheel'
 
-interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean }
+interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean }
 
 const TIME_SORT: Record<string, number> = { anytime: 0, morning: 1, afternoon: 2, evening: 3 }
 function sortOccs(occs: Occurrence[]) {
@@ -132,6 +132,8 @@ export default function ChildTaskView({
 
   async function completeTask(occ: Occurrence) {
     if (completed.has(occ.id) || occ.date > weekEndStr) return
+    // A missed day can only be caught up if the task carries over (until Sunday)
+    if (occ.date < todayStr && !occ.carryOver) return
     const supabase = createClient()
     const { data: completion } = await supabase.from('completions').insert({
       task_id: occ.taskId, child_id: child.id, date: occ.date, status: 'approved',
@@ -246,23 +248,26 @@ export default function ChildTaskView({
     const isPast = occ.date < todayStr
     const isFutureThisWeek = occ.date > todayStr && !locked
     const notYetAvailable = isFutureThisWeek && !occ.canDoEarly
-    const expired = isPast && !done && !locked
+    // Missed day: carry-over → still catchable (red); otherwise it's expired/gone
+    const overdueCatchup = isPast && !done && !locked && occ.carryOver
+    const missedExpired = isPast && !done && !locked && !occ.carryOver
+    const muted = locked || notYetAvailable || missedExpired
     return (
       <div key={occ.id} id={`occ-${occ.id}`}
         className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300
           ${done ? 'bg-gray-50 border-gray-100 opacity-70'
-            : expired ? 'bg-red-50 border-red-100'
-            : locked || notYetAvailable ? 'bg-gray-50 border-gray-100 opacity-60'
+            : overdueCatchup ? 'bg-red-50 border-red-100'
+            : muted ? 'bg-gray-50 border-gray-100 opacity-60'
             : 'bg-white border-gray-100 shadow-sm'}
           ${justClaimedId === occ.id ? 'scale-95' : ''}
           ${pulseId === occ.id ? 'bounce-in' : ''}`}
         style={pulseId === occ.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${locked || notYetAvailable ? 'grayscale opacity-40' : ''}`}
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${muted ? 'grayscale opacity-40' : ''}`}
           style={{ backgroundColor: child.colour + '22' }}>
           {occ.emoji}
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : expired ? 'text-red-500' : locked || notYetAvailable ? 'text-gray-400' : 'text-gray-800'}`}>
+          <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : overdueCatchup ? 'text-red-500' : muted ? 'text-gray-400' : 'text-gray-800'}`}>
             {occ.title}
           </p>
           <p className="text-xs text-gray-400">{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐</p>
@@ -273,10 +278,12 @@ export default function ChildTaskView({
           <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
         ) : notYetAvailable ? (
           <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
+        ) : missedExpired ? (
+          <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">missed</div>
         ) : (
           <button onClick={() => completeTask(occ)}
             className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
-            style={{ background: expired ? '#EF4444' : `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
+            style={{ background: overdueCatchup ? '#EF4444' : `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
             DONE
           </button>
         )}
