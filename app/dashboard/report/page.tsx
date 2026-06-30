@@ -155,25 +155,25 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      {/* Header */}
+      {/* Header — logo left, centred title, settings right */}
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-            <span className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Summary</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-gray-100 rounded-2xl p-1">
-              {(['week', 'month'] as Period[]).map(p => (
-                <button key={p} onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${period === p ? 'text-white shadow' : 'text-gray-400'}`}
-                  style={period === p ? { background: 'var(--theme-gradient)' } : {}}>
-                  {p === 'week' ? 'Week' : 'Month'}
-                </button>
-              ))}
-            </div>
-            <ProfileButton/>
-          </div>
+        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+          <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+          <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Summary</span>
+          <div className="justify-self-end"><ProfileButton/></div>
+        </div>
+      </div>
+
+      {/* Week / Month tabs */}
+      <div className="bg-white px-4 pt-2.5 pb-1">
+        <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
+          {(['week', 'month'] as Period[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${period === p ? 'text-white shadow' : 'text-gray-400'}`}
+              style={period === p ? { background: 'var(--theme-gradient)' } : {}}>
+              {p === 'week' ? 'Week' : 'Month'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -241,17 +241,6 @@ export default function AnalyticsPage() {
             </div>
           ))}
         </div>
-
-        {/* Best day insight */}
-        {stats.bestDay && (
-          <div className="rounded-3xl p-4 text-white shadow-sm" style={{ background: 'var(--theme-gradient)' }}>
-            <p className="text-xs font-bold uppercase tracking-wide opacity-80">🏅 Most productive day</p>
-            <p className="text-lg font-black mt-0.5">
-              {new Date(stats.bestDay[0] + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}
-            </p>
-            <p className="text-sm opacity-90">{stats.bestDay[1]} task{stats.bestDay[1] === 1 ? '' : 's'} smashed 💪</p>
-          </div>
-        )}
 
         {/* Completion champions */}
         {!selectedKid && children.length > 1 && (

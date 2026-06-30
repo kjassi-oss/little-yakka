@@ -383,8 +383,8 @@ export default function SetupPage() {
             ))}
           </div>
           <button onClick={() => startTask()}
-            className="w-full py-3 rounded-2xl font-black text-base text-white active:scale-95 transition mb-4" style={{ background: RAINBOW }}>
-            ＋ Create Your Own
+            className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold text-sm active:scale-95 transition mb-4">
+            ✏️ Create your own
           </button>
 
           <button onClick={() => { setError(''); setStep(3) }}
@@ -434,16 +434,16 @@ export default function SetupPage() {
             ))}
           </div>
           <button onClick={() => startReward()}
-            className="w-full py-3 rounded-2xl font-black text-base text-white active:scale-95 transition mb-5" style={{ background: RAINBOW }}>
-            ＋ Create Your Own
+            className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold text-sm active:scale-95 transition mb-5">
+            ✏️ Create your own
           </button>
 
           {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
           <button onClick={handleFinish} disabled={loading}
-            className="w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight font-black text-base"
+            className="w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight font-black text-xl"
             style={{ border: '2px solid var(--theme-from)' }}>
             <span style={{ fontFamily: DISPLAY, background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-              {loading ? 'Setting up…' : "ALL SET! LET'S START BUILDING SOME POSITIVE HABITS!"}
+              {loading ? 'Setting up…' : 'ALL DONE'}
             </span>
           </button>
         </>

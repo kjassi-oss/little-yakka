@@ -100,7 +100,7 @@ export default function ChoresPage() {
   // Upcoming tab: multi-select child filter (empty Set = everyone) + window completions
   const [upcomingFilter, setUpcomingFilter] = useState<Set<string>>(new Set())
   const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
-  const [pastWindow, setPastWindow] = useState(1) // days of history shown in Upcoming (max 7)
+  const [pastWindow, setPastWindow] = useState(0) // days of history shown in Upcoming (0 = today only; max 7)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -855,6 +855,9 @@ export default function ChoresPage() {
                               singleDone ? (
                                 <button onClick={e => { e.stopPropagation(); const row = compRow.get(`${task.id}|${singleChildId}|${ds}`); if (row) undoUpcoming(row, task, childMap[singleChildId]?.name.split(' ')[0] || '') }}
                                   className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-gray-50 text-gray-400 border border-gray-200 active:scale-95 transition">UNDO</button>
+                              ) : (ds > todayL && !((task as any).can_do_early ?? true)) ? (
+                                // Future task that can't be done early — match the kid zone
+                                <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
                               ) : (
                                 <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds) }}
                                   className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-white active:scale-95 transition"

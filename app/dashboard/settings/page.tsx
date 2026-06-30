@@ -263,12 +263,10 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <div className="pt-11 pb-3 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-            <span className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Settings</span>
-          </div>
-          <ProfileButton/>
+        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+          <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+          <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Settings</span>
+          <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
@@ -291,12 +289,13 @@ export default function SettingsPage() {
             <div className="mt-4 space-y-3">
               {[
                 { e: '👶', t: 'Add your kids', d: 'Create a profile and photo for each child below.' },
-                { e: '📋', t: 'Create tasks', d: 'Add chores & routines, set stars, assign to kids. Tap + on the Tasks page.' },
-                { e: '⭐', t: 'Kids earn stars', d: 'Open Kid Mode (⭐, top-right) — kids tap tasks to tick them off and collect stars.' },
-                { e: '🕓', t: 'Approve if needed', d: 'Tasks marked "needs approval" wait for your OK before stars are given.' },
-                { e: '🎁', t: 'Spend on rewards', d: 'Set up rewards; kids swap stars for them. You approve each request.' },
-                { e: '📅', t: 'Plan with Calendar', d: 'See an agenda, week or month view of what\'s coming up.' },
-                { e: '📊', t: 'Track with Stats', d: 'Completion %, streaks and star charts — weekly or monthly, per kid.' },
+                { e: '📋', t: 'Create tasks', d: 'Add chores & routines, set stars and how often. Tap + on the Tasks page.' },
+                { e: '⭐', t: 'Kids earn stars', d: 'Tap a task on Home or Tasks to open that child\'s Kid Zone, where they tick tasks off and collect stars.' },
+                { e: '🎁', t: 'Spend on rewards', d: 'Set up rewards on the Rewards tab; kids swap their stars for them.' },
+                { e: '🎰', t: 'Bonus Wheel', d: 'Kids spin for bonus stars at a time you choose — the prize scales with how much they\'ve done.' },
+                { e: '📅', t: 'See what\'s coming', d: 'The Tasks tab has Upcoming, Done and All views of every task.' },
+                { e: '📊', t: 'Track progress', d: 'The Summary tab shows completion %, streaks and stars — weekly or monthly, per kid.' },
+                { e: '⚙️', t: 'Settings & more', d: 'The cog (top-right) is where you manage kids, themes, the bonus wheel and your account.' },
                 { e: '🎨', t: 'Make it yours', d: 'Pick a colour theme below to restyle the whole app.' },
               ].map(s => (
                 <div key={s.t} className="flex gap-3">
