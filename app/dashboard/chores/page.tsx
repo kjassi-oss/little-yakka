@@ -7,6 +7,7 @@ import ProfileButton from '@/components/ProfileButton'
 import { occursOn } from '@/lib/recurrence'
 import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
+import { completionFeedback } from '@/lib/feedback'
 
 // Searchable emoji set (keywords drive the search box)
 const EMOJI_OPTIONS: { e: string; kw: string }[] = [
@@ -217,6 +218,7 @@ export default function ChoresPage() {
 
   // Complete a task occurrence for a specific child straight from the Upcoming list
   async function completeUpcoming(task: Task, childId: string, date: string, child?: Child) {
+    completionFeedback()
     setBurst({ colour: child?.colour || '#EC4899', emoji: task.emoji, title: 'Nice one! 🎉', sub: `+${task.star_value} ⭐` })
     const supabase = createClient()
     const { data: completion } = await supabase.from('completions')
@@ -404,7 +406,7 @@ export default function ChoresPage() {
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Compact header — logo left, centred title, settings right */}
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
           <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
           <div className="justify-self-end"><ProfileButton/></div>
@@ -413,7 +415,7 @@ export default function ChoresPage() {
 
       {/* Tab toggle (white sub-bar) — Upcoming · Done · All */}
       <div className="bg-white px-4 pt-2.5 pb-1">
-        <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
+        <div className="max-w-sm lg:max-w-3xl mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
           {([['upcoming', '📅 Upcoming'], ['history', '✅ Done'], ['tasks', '📋 All']] as const).map(([tab, label]) => (
             <button key={tab} onClick={() => setMainTab(tab)}
               className={`relative flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${mainTab === tab ? 'text-white shadow' : 'text-gray-400'}`}
@@ -427,7 +429,7 @@ export default function ChoresPage() {
       {/* Kid filter — round photo thumbnails, 4 per row (All tab only) */}
       {children.length > 0 && mainTab === 'tasks' && (
         <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-          <div className="max-w-sm mx-auto grid grid-cols-4 gap-3">
+          <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-4 gap-3">
             {/* All */}
             <button onClick={() => setFilterChildId(null)} className="flex flex-col items-center gap-1 active:scale-95 transition">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black ${!filterChildId ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
@@ -459,7 +461,7 @@ export default function ChoresPage() {
         </div>
       )}
 
-      <div className="max-w-sm mx-auto px-4 mt-4 space-y-4">
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
 
         {/* Add/Edit Form */}
         {showForm && (
@@ -714,7 +716,7 @@ export default function ChoresPage() {
               </button>
             </div>
             {visibleTasks.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 lg:grid-cols-5 gap-2">
                 {visibleTasks.map(task => {
                   const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
                   return (

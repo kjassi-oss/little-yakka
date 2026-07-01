@@ -175,14 +175,14 @@ export default async function DashboardPage() {
 
       {/* Header — logo left, centred title, settings right */}
       <div className="px-4 pt-11 pb-2 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start"/>
           <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 space-y-4">
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 space-y-4">
 
         {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
         {childData.length > 0 ? (
@@ -196,7 +196,7 @@ export default async function DashboardPage() {
               const showMedal = childData.length > 1 && rank < 3 && weekStars > 0
               return (
                 <div key={child.id}
-                  className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px]' : 'flex-1 min-w-0 max-w-[150px]'}`}>
+                  className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px] lg:w-[200px]' : 'flex-1 min-w-0 max-w-[150px] lg:max-w-[220px]'}`}>
                   {/* Weekly rank medal, top-left */}
                   {showMedal && (
                     <div className="absolute top-1.5 left-1.5 z-10 text-base drop-shadow-sm">{MEDALS[rank]}</div>

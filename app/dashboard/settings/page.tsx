@@ -78,6 +78,8 @@ export default function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [manualLog, setManualLog] = useState<{ id: string; child_id: string; delta: number; reason: string | null; created_at: string }[]>([])
+  const [manualOpen, setManualOpen] = useState(false)
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const newChildPhotoRef = useRef<HTMLInputElement>(null)
 
@@ -113,6 +115,16 @@ export default function SettingsPage() {
     if (familyData?.bonus_day != null) setBonusDay(familyData.bonus_day)
     if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
     if ((familyData as any)?.bonus_award_pct != null) setBonusAwardPct((familyData as any).bonus_award_pct)
+
+    // Manual star-adjustment history (audit log)
+    const cIds = (childrenData || []).map(c => c.id)
+    if (cIds.length) {
+      const { data: ml } = await supabase.from('star_ledger')
+        .select('id, child_id, delta, reason, created_at')
+        .eq('source_type', 'manual').in('child_id', cIds)
+        .order('created_at', { ascending: false }).limit(40)
+      setManualLog(ml || [])
+    }
     setLoading(false)
   }
 
@@ -200,6 +212,16 @@ export default function SettingsPage() {
     loadData()
   }
 
+  // Reverse a past manual adjustment by posting the opposite entry (audit-preserving)
+  async function undoManualAdjust(entry: { child_id: string; delta: number; reason: string | null }) {
+    if (!confirm(`Reverse this ${entry.delta > 0 ? '+' : ''}${entry.delta}⭐ adjustment?`)) return
+    const supabase = createClient()
+    const base = { child_id: entry.child_id, delta: -entry.delta, reason: `Reversed: ${entry.reason || 'adjustment'}` }
+    let { error } = await supabase.from('star_ledger').insert({ ...base, source_type: 'manual' })
+    if (error) await supabase.from('star_ledger').insert({ ...base, source_type: entry.delta > 0 ? 'undo' : 'completion' })
+    loadData()
+  }
+
   async function confirmDeleteAccount() {
     if (deleteConfirm.trim().toUpperCase() !== 'DELETE') return
     setDeleting(true); setDeleteError('')
@@ -263,14 +285,14 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <div className="pt-11 pb-3 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
           <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Settings</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 mt-4 space-y-6">
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-6">
 
         {/* How it works — collapsible visual guide */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
@@ -600,6 +622,43 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+
+        {/* Manual star history (audit) */}
+        {manualLog.length > 0 && (
+          <div className="bg-white rounded-3xl shadow-sm p-5">
+            <button onClick={() => setManualOpen(o => !o)} className="w-full flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🧾</span>
+                <div className="text-left">
+                  <h2 className="font-bold text-gray-800 leading-tight">Manual star history</h2>
+                  <p className="text-xs text-gray-400">{manualLog.length} adjustment{manualLog.length !== 1 ? 's' : ''} — tap Undo to reverse</p>
+                </div>
+              </div>
+              <span className={`text-gray-300 text-xl transition-transform ${manualOpen ? 'rotate-90' : ''}`}>›</span>
+            </button>
+            {manualOpen && (
+              <div className="mt-4 space-y-2">
+                {manualLog.map(e => {
+                  const child = children.find(c => c.id === e.child_id)
+                  const when = new Date(e.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
+                  return (
+                    <div key={e.id} className="flex items-center gap-3 bg-gray-50 rounded-2xl px-3 py-2.5">
+                      {child?.avatar_url
+                        ? <img src={child.avatar_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt=""/>
+                        : <div className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0" style={{ backgroundColor: (child?.colour || '#ccc') + '33' }}>{child?.avatar || '👤'}</div>}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{child?.name.split(' ')[0] || '—'} · <span className={e.delta > 0 ? 'text-green-600' : 'text-red-500'}>{e.delta > 0 ? '+' : ''}{e.delta} ⭐</span></p>
+                        <p className="text-xs text-gray-400 truncate">{e.reason || 'Adjustment'} · {when}</p>
+                      </div>
+                      <button onClick={() => undoManualAdjust(e)}
+                        className="text-xs text-gray-300 hover:text-red-400 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 flex-shrink-0 transition">Undo</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sign out */}
         <button onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login' }}

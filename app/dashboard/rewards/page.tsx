@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
+import { redeemFeedback } from '@/lib/feedback'
 
 const REWARD_EMOJIS = [
   '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🏆','⚽',
@@ -147,6 +148,7 @@ export default function RewardsPage() {
   // Parent redeems a reward directly for a child (deducts stars now).
   async function directRedeem(reward: Reward, childId: string) {
     const child = children.find(c => c.id === childId)
+    redeemFeedback()
     setRedeemTarget(null)
     setRedeemBurst({
       colour: child?.colour || '#EC4899', emoji: reward.emoji,
@@ -204,7 +206,7 @@ export default function RewardsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
           <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Rewards</span>
           <div className="justify-self-end"><ProfileButton/></div>
@@ -213,7 +215,7 @@ export default function RewardsPage() {
 
       {/* Tab toggle */}
       <div className="bg-white px-4 pt-2.5 pb-1">
-        <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
+        <div className="max-w-sm lg:max-w-3xl mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
           {([['catalogue', 'Catalogue'], ['redeemed', 'Redeemed']] as const).map(([tab, lbl]) => (
             <button key={tab}
               onClick={() => setActiveTab(tab)}
@@ -225,7 +227,7 @@ export default function RewardsPage() {
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 mt-4 space-y-4">
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
         {/* Create form */}
         {showForm && (
           <div className="bg-white rounded-3xl shadow-sm p-5 space-y-4">
@@ -342,7 +344,7 @@ export default function RewardsPage() {
                 <p className="text-gray-400 text-sm mt-1">Tap + to create some</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
                 {[...rewards].sort((a, b) => a.star_cost - b.star_cost).map(reward => (
                   <div key={reward.id} className="bg-white rounded-2xl shadow-sm p-3 flex flex-col items-center gap-1.5 relative">
                     <button onClick={() => openEditReward(reward)}

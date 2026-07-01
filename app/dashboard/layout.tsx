@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import BottomNav from '@/components/BottomNav'
+import SideNav from '@/components/SideNav'
+import RealtimeRefresh from '@/components/RealtimeRefresh'
 import OnboardingTour from '@/components/OnboardingTour'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -19,8 +21,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {children}
+      <SideNav />
+      <div className="lg:pl-56">
+        {children}
+      </div>
       <BottomNav />
+      <RealtimeRefresh />
       <OnboardingTour />
     </div>
   )

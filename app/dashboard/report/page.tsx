@@ -156,7 +156,7 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header — logo left, centred title, settings right */}
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
           <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Summary</span>
           <div className="justify-self-end"><ProfileButton/></div>
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
 
       {/* Week / Month tabs */}
       <div className="bg-white px-4 pt-2.5 pb-1">
-        <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
+        <div className="max-w-sm lg:max-w-3xl mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
           {(['week', 'month'] as Period[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)}
               className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${period === p ? 'text-white shadow' : 'text-gray-400'}`}
@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
         const item = scroll ? 'flex-shrink-0 w-16' : 'flex-1 min-w-0'
         return (
           <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-            <div className={`max-w-sm mx-auto flex gap-2 ${scroll ? 'overflow-x-auto' : ''}`}>
+            <div className={`max-w-sm lg:max-w-3xl mx-auto flex gap-2 ${scroll ? 'overflow-x-auto' : ''}`}>
               <button onClick={() => setSelectedKid(null)} className={`flex flex-col items-center gap-1 active:scale-95 transition ${item}`}>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-black ${!selectedKid ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
                   style={!selectedKid ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
@@ -207,7 +207,7 @@ export default function AnalyticsPage() {
         )
       })()}
 
-      <div className="max-w-sm mx-auto px-4 mt-4 space-y-4">
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
         {/* Completion ring hero */}
         <div className="bg-white rounded-3xl shadow-sm p-5 flex items-center gap-5">
           <div className="relative flex-shrink-0">

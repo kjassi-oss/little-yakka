@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SpinWheel from '@/components/SpinWheel'
+import { completionFeedback, redeemFeedback } from '@/lib/feedback'
 
 interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean }
 
@@ -127,6 +128,7 @@ export default function ChildTaskView({
     if (completed.has(occ.id) || occ.date > weekEndStr) return
     // A missed day can only be caught up if the task carries over (until Sunday)
     if (occ.date < todayStr && !occ.carryOver) return
+    completionFeedback()
     const supabase = createClient()
     const { data: completion } = await supabase.from('completions').insert({
       task_id: occ.taskId, child_id: child.id, date: occ.date, status: 'approved',
@@ -158,6 +160,7 @@ export default function ChildTaskView({
 
   async function requestReward(reward: Reward) {
     if (pendingRewardIds.has(reward.id) || starBalance < reward.star_cost) return
+    redeemFeedback()
     setRequestingId(reward.id)
     await createClient().from('redemptions').insert({ reward_id: reward.id, child_id: child.id, status: 'requested' })
     setPendingRewardIds(prev => new Set([...prev, reward.id]))

@@ -31,3 +31,12 @@ BEGIN
       CHECK (source_type IN ('completion','undo','redemption','spin','manual','bonus','adjustment'));
   END IF;
 END $$;
+
+-- 5) Enable Realtime for co-parent live sync (completions, stars, redemptions).
+--    Without this the app still works — it just won't update live for a second parent.
+DO $$
+BEGIN
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE completions; EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE star_ledger;  EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE redemptions;  EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_object THEN NULL; END;
+END $$;
