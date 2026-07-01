@@ -206,7 +206,7 @@ export default async function DashboardPage() {
                     <PraiseButton childId={child.id} childName={child.name} childColour={child.colour} variant="icon"/>
                   </div>
 
-                  <Link href={`/dashboard/chores?child=${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
+                  <Link href={`/kid-mode/${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
                     {/* Avatar */}
                     <div className="relative w-14 h-14 mx-auto mb-1.5">
                       {child.avatar_url
