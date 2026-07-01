@@ -15,13 +15,12 @@ type Period = 'week' | 'month'
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
   const set = new Set(dates)
+  const local = (d: Date) => new Intl.DateTimeFormat('en-CA').format(d) // local YYYY-MM-DD
   const check = new Date()
+  // Today may still be in progress — a blank today shouldn't zero the streak
+  if (!set.has(local(check))) check.setDate(check.getDate() - 1)
   let streak = 0
-  while (true) {
-    const ds = check.toISOString().split('T')[0]
-    if (set.has(ds)) { streak++; check.setDate(check.getDate() - 1) }
-    else break
-  }
+  while (set.has(local(check))) { streak++; check.setDate(check.getDate() - 1) }
   return streak
 }
 

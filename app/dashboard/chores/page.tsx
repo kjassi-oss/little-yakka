@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import { occursOn } from '@/lib/recurrence'
 import LoadingLogo from '@/components/LoadingLogo'
+import CelebrationBurst from '@/components/CelebrationBurst'
 
 // Searchable emoji set (keywords drive the search box)
 const EMOJI_OPTIONS: { e: string; kw: string }[] = [
@@ -101,6 +102,7 @@ export default function ChoresPage() {
   const [upcomingFilter, setUpcomingFilter] = useState<Set<string>>(new Set())
   const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
   const [pastWindow, setPastWindow] = useState(0) // days of history shown in Upcoming (0 = today only; max 7)
+  const [burst, setBurst] = useState<{ colour: string; emoji: string; title: string; sub?: string } | null>(null)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -214,7 +216,8 @@ export default function ChoresPage() {
   }
 
   // Complete a task occurrence for a specific child straight from the Upcoming list
-  async function completeUpcoming(task: Task, childId: string, date: string) {
+  async function completeUpcoming(task: Task, childId: string, date: string, child?: Child) {
+    setBurst({ colour: child?.colour || '#EC4899', emoji: task.emoji, title: 'Nice one! 🎉', sub: `+${task.star_value} ⭐` })
     const supabase = createClient()
     const { data: completion } = await supabase.from('completions')
       .insert({ task_id: task.id, child_id: childId, date, status: 'approved' }).select('id').single()
@@ -763,6 +766,7 @@ export default function ChoresPage() {
           const todayL = ymdLocal(new Date())
           const kidSelected = (id: string) => upcomingFilter.size === 0 || upcomingFilter.has(id)
           const singleChildId = upcomingFilter.size === 1 ? [...upcomingFilter][0] : null
+          const singleChild = singleChildId ? childMap[singleChildId] : null
 
           const days: { ds: string; d: Date; items: { task: Task; kids: Child[] }[] }[] = []
           const start = new Date(); start.setDate(start.getDate() - pastWindow)
@@ -845,8 +849,8 @@ export default function ChoresPage() {
                           <div key={task.id}
                             onClick={() => { if (!singleChildId) openTaskForChild(task) }}
                             className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}>
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white"
-                              style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${missed ? 'grayscale opacity-50' : ''}`}
+                              style={singleChild ? { backgroundColor: singleChild.colour + '22' } : { border: '1.5px solid var(--theme-from)', backgroundColor: '#fff' }}>{task.emoji}</div>
                             <div className="flex-1 min-w-0">
                               <p className={`font-bold text-base truncate ${struck ? 'line-through text-gray-400' : missed ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
                               <p className="text-sm text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
@@ -854,8 +858,8 @@ export default function ChoresPage() {
 
                             {singleChildId ? (
                               singleDone ? (
-                                <button onClick={e => { e.stopPropagation(); const row = compRow.get(`${task.id}|${singleChildId}|${ds}`); if (row) undoUpcoming(row, task, childMap[singleChildId]?.name.split(' ')[0] || '') }}
-                                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-gray-50 text-gray-400 border border-gray-200 active:scale-95 transition">UNDO</button>
+                                <button title="Undo" onClick={e => { e.stopPropagation(); const row = compRow.get(`${task.id}|${singleChildId}|${ds}`); if (row) undoUpcoming(row, task, singleChild?.name.split(' ')[0] || '') }}
+                                  className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg active:scale-90 transition">✓</button>
                               ) : (ds > todayL && !((task as any).can_do_early ?? true)) ? (
                                 // Future task that can't be done early — match the kid zone
                                 <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
@@ -863,9 +867,9 @@ export default function ChoresPage() {
                                 // Missed past day that doesn't carry over — expired
                                 <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">missed</div>
                               ) : (
-                                <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds) }}
-                                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-black bg-white active:scale-95 transition"
-                                  style={{ border: '1.5px solid var(--theme-from)', color: 'var(--theme-from)' }}>COMPLETE</button>
+                                <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds, singleChild || undefined) }}
+                                  className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
+                                  style={{ background: singleChild ? `linear-gradient(135deg, ${singleChild.colour}, ${singleChild.colour}cc)` : 'var(--theme-gradient)' }}>DONE</button>
                               )
                             ) : (
                               <div className="flex gap-1 flex-wrap justify-end max-w-[92px]">
@@ -944,6 +948,8 @@ export default function ChoresPage() {
           </div>
         )}
       </div>
+
+      {burst && <CelebrationBurst colour={burst.colour} emoji={burst.emoji} title={burst.title} sub={burst.sub} onDone={() => setBurst(null)} />}
 
       {/* Large + FAB — add a task / reward */}
       {!showForm && (

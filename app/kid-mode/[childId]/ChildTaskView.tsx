@@ -95,13 +95,6 @@ export default function ChildTaskView({
     if (eligible && autoSpin) setShowSpin(true)
   }, [bonusCadence, bonusDay, bonusTime, hasSpunToday, autoSpin])
 
-  // Scroll to today's section on load
-  useEffect(() => {
-    if (tab !== 'tasks') return
-    const el = document.getElementById(`date-${todayStr}`)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [todayStr, tab])
-
   // Pulse scroll to highlighted task
   useEffect(() => {
     if (!pulseId || currentPraise) return

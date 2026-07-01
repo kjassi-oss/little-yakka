@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
+import CelebrationBurst from '@/components/CelebrationBurst'
 
 const REWARD_EMOJIS = [
   '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🏆','⚽',
@@ -58,6 +59,7 @@ export default function RewardsPage() {
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null)
   const [redeemTarget, setRedeemTarget] = useState<Reward | null>(null)
   const [expandedChild, setExpandedChild] = useState<string | null>(null)
+  const [redeemBurst, setRedeemBurst] = useState<{ colour: string; emoji: string; photo?: string | null; avatar?: string; title: string; sub?: string } | null>(null)
 
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('🎁')
@@ -144,6 +146,13 @@ export default function RewardsPage() {
 
   // Parent redeems a reward directly for a child (deducts stars now).
   async function directRedeem(reward: Reward, childId: string) {
+    const child = children.find(c => c.id === childId)
+    setRedeemTarget(null)
+    setRedeemBurst({
+      colour: child?.colour || '#EC4899', emoji: reward.emoji,
+      photo: child?.avatar_url, avatar: child?.avatar,
+      title: 'Redeemed! 🎉', sub: reward.title,
+    })
     const supabase = createClient()
     const { data: redemption } = await supabase.from('redemptions')
       .insert({ reward_id: reward.id, child_id: childId, status: 'approved' }).select('id').single()
@@ -151,7 +160,6 @@ export default function RewardsPage() {
       child_id: childId, delta: -(reward.star_cost),
       reason: `Redeemed: ${reward.title}`, source_type: 'redemption', source_id: redemption?.id,
     })
-    setRedeemTarget(null)
     loadData()
   }
 
@@ -438,6 +446,12 @@ export default function RewardsPage() {
               className="w-full text-gray-500 font-semibold py-3 rounded-2xl border border-gray-200 active:scale-95 transition">Cancel</button>
           </div>
         </div>
+      )}
+
+      {redeemBurst && (
+        <CelebrationBurst colour={redeemBurst.colour} emoji={redeemBurst.emoji} photo={redeemBurst.photo}
+          avatar={redeemBurst.avatar} title={redeemBurst.title} sub={redeemBurst.sub}
+          duration={2400} onDone={() => setRedeemBurst(null)} />
       )}
 
       {/* Large + FAB */}
