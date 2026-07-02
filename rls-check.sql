@@ -166,3 +166,77 @@ create policy inv_family on public.guardian_invitations for all
 -- STORAGE: also check the 'kid-avatars' and 'task-benchmarks' buckets. Child
 -- photos should NOT be world-readable. Review Storage > Policies in the
 -- dashboard and scope object access to the owning family (path is family_id/...).
+
+
+-- =====================================================================
+-- PART E — POLICIES ACTUALLY APPLIED (hardening session)
+-- =====================================================================
+-- Starting state: RLS was ENABLED on every table, and most were correctly
+-- family-scoped. BUT six tables had wide-open policies (using: true, or
+-- "auth.uid() IS NOT NULL"), meaning any authenticated user (or anyone, for
+-- invitations) could read/write EVERY family's rows. The blocks below are the
+-- exact fixes applied to close them. Pattern: scope every row to the caller's
+-- family via guardians.auth_user_id = auth.uid().
+
+-- spin_results (was: true)
+drop policy if exists "All access spin_results" on public.spin_results;
+create policy "spin_results_family" on public.spin_results for all
+  using (child_id in (select id from public.children where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())))
+  with check (child_id in (select id from public.children where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())));
+
+-- praises (was: true)
+drop policy if exists "All access praises" on public.praises;
+create policy "praises_family" on public.praises for all
+  using (child_id in (select id from public.children where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())))
+  with check (child_id in (select id from public.children where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())));
+
+-- task_benchmark_photos (was: true) — scoped via task -> family
+drop policy if exists "Family access benchmark photos" on public.task_benchmark_photos;
+create policy "task_benchmark_photos_family" on public.task_benchmark_photos for all
+  using (task_id in (select id from public.tasks where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())))
+  with check (task_id in (select id from public.tasks where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())));
+
+-- completion_photos (was: true) — has child_id column
+drop policy if exists "Family access completion photos" on public.completion_photos;
+create policy "completion_photos_family" on public.completion_photos for all
+  using (child_id in (select id from public.children where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())))
+  with check (child_id in (select id from public.children where family_id in (select family_id from public.guardians where auth_user_id = auth.uid())));
+
+-- families (was: auth.uid() IS NOT NULL). Split: read/update own family only;
+-- INSERT allowed for any authenticated user (family is created during signup
+-- BEFORE the guardian row exists). No client DELETE (done via service role).
+drop policy if exists "Family access" on public.families;
+create policy "families_select" on public.families for select
+  using (id in (select family_id from public.guardians where auth_user_id = auth.uid()));
+create policy "families_update" on public.families for update
+  using (id in (select family_id from public.guardians where auth_user_id = auth.uid()))
+  with check (id in (select family_id from public.guardians where auth_user_id = auth.uid()));
+create policy "families_insert" on public.families for insert
+  with check (auth.uid() is not null);
+
+-- guardian_invitations (was: SELECT true, UPDATE true, INSERT check true).
+-- Token lookup for the (non-member) /join flow moved to a SECURITY DEFINER
+-- function that returns ONLY the invite matching the token, so the table can be
+-- locked to family members. app/join/[token]/page.tsx calls this via supabase.rpc.
+create or replace function public.get_invitation(invite_token text)
+returns table (family_id uuid, invited_email text, used boolean, family_name text)
+language sql stable security definer set search_path = public as $$
+  select gi.family_id, gi.invited_email, gi.used, f.name
+  from public.guardian_invitations gi
+  join public.families f on f.id = gi.family_id
+  where gi.token::text = invite_token
+$$;
+grant execute on function public.get_invitation(text) to anon, authenticated;
+drop policy if exists "Anyone can read valid invite" on public.guardian_invitations;
+drop policy if exists "Anyone can mark used"          on public.guardian_invitations;
+drop policy if exists "Guardians can create invites"  on public.guardian_invitations;
+create policy "invites_select_family" on public.guardian_invitations for select
+  using (family_id in (select family_id from public.guardians where auth_user_id = auth.uid()));
+create policy "invites_insert_family" on public.guardian_invitations for insert
+  with check (family_id in (select family_id from public.guardians where auth_user_id = auth.uid()));
+create policy "invites_update_family" on public.guardian_invitations for update
+  using (family_id in (select family_id from public.guardians where auth_user_id = auth.uid()))
+  with check (family_id in (select family_id from public.guardians where auth_user_id = auth.uid()));
+
+-- STILL TODO (not table RLS): review Supabase STORAGE bucket policies for
+-- 'kid-avatars' and 'task-benchmarks' so child photos are not world-readable.
