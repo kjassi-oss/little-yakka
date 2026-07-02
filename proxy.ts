@@ -26,9 +26,9 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
-  // Pages reachable without a session (auth + recovery flows)
+  // Pages reachable without a session (auth + recovery + co-parent invite flow)
   const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password']
-  const isPublic = publicPaths.includes(pathname)
+  const isPublic = publicPaths.includes(pathname) || pathname.startsWith('/join/')
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))
