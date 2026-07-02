@@ -21,21 +21,20 @@ export default function JoinPage() {
 
   async function loadInvite() {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('guardian_invitations')
-      .select('family_id, invited_email, used, families(name)')
-      .eq('token', token)
-      .single()
+    // Secure token lookup via a SECURITY DEFINER function — returns only the
+    // single invite matching this token, so the table itself stays private.
+    const { data, error } = await supabase.rpc('get_invitation', { invite_token: token })
+    const row = Array.isArray(data) ? data[0] : data
 
-    if (!data || data.used) {
+    if (error || !row || row.used) {
       setError('This invite link is invalid or has already been used.')
     } else {
       setInvite({
-        family_id: data.family_id,
-        invited_email: data.invited_email,
-        family_name: (data.families as any)?.name || 'your family',
+        family_id: row.family_id,
+        invited_email: row.invited_email,
+        family_name: row.family_name || 'your family',
       })
-      setEmail(data.invited_email)
+      setEmail(row.invited_email)
     }
     setLoading(false)
   }
