@@ -41,7 +41,7 @@ interface Props {
   autoSpin?: boolean
 }
 
-const RAINBOW = 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)'
+const RAINBOW = 'var(--theme-gradient)'
 const CELEBRATION_EMOJIS = ['⭐','🎉','✨','🌟','🎊','💫','🏆','🥳','🎈','🌈']
 
 function dateLabel(ds: string, todayStr: string): string {
@@ -184,7 +184,7 @@ export default function ChildTaskView({
           <p className="text-2xl font-black text-gray-800 leading-snug mb-6">"{currentPraise.message}"</p>
           <button onClick={dismissPraise}
             className="w-full text-white font-black text-lg py-4 rounded-2xl active:scale-95 transition"
-            style={{ background: `linear-gradient(135deg, ${child.colour}, #EC4899)` }}>
+            style={{ background: 'var(--theme-gradient)' }}>
             {praiseQueue.length > 1 ? `Next (${praiseQueue.length - 1} more) →` : '❤️ Thanks!'}
           </button>
         </div>
@@ -216,7 +216,7 @@ export default function ChildTaskView({
             {canSpin && (
               <button onClick={() => setShowSpin(true)}
                 className="w-full font-black text-xl py-5 rounded-3xl shadow-lg active:scale-95 transition text-white"
-                style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>🎰 Bonus Spin!</button>
+                style={{ background: 'var(--theme-gradient)' }}>🎰 Bonus Spin!</button>
             )}
             {rewards.length > 0 && (
               <button onClick={() => setShowRewards(true)}
@@ -258,8 +258,8 @@ export default function ChildTaskView({
           ${justClaimedId === occ.id ? 'scale-95' : ''}
           ${pulseId === occ.id ? 'bounce-in' : ''}`}
         style={pulseId === occ.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${muted ? 'grayscale opacity-40' : ''}`}
-          style={{ backgroundColor: child.colour + '22' }}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white ${muted ? 'grayscale opacity-40' : ''}`}
+          style={{ border: '1.5px solid var(--theme-from)' }}>
           {occ.emoji}
         </div>
         <div className="flex-1 min-w-0">
@@ -279,7 +279,7 @@ export default function ChildTaskView({
         ) : (
           <button onClick={() => completeTask(occ)}
             className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
-            style={{ background: overdueCatchup ? '#EF4444' : `linear-gradient(135deg, ${child.colour}, ${child.colour}cc)` }}>
+            style={{ background: overdueCatchup ? '#EF4444' : 'var(--theme-gradient)' }}>
             DONE
           </button>
         )}
@@ -350,7 +350,7 @@ export default function ChildTaskView({
             {canSpin && (
               <button onClick={() => setShowSpin(true)}
                 className="w-full flex items-center justify-center gap-2 text-white font-black text-base py-3 rounded-2xl shadow-sm active:scale-95 transition"
-                style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                style={{ background: 'var(--theme-gradient)' }}>
                 🎰 Bonus spin ready! Tap to play
               </button>
             )}
@@ -425,8 +425,8 @@ export default function ChildTaskView({
               doneHistory.map(item => (
                 <div key={item.key + item.createdAt}
                   className="bg-white border border-gray-100 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                    style={{ backgroundColor: child.colour + '22' }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
+                    style={{ border: '1.5px solid var(--theme-from)' }}>
                     {item.emoji}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -449,14 +449,14 @@ export default function ChildTaskView({
           {rewards.length > 0 && (
             <button onClick={() => setShowRewards(true)}
               className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-2xl shadow-sm active:scale-95 transition"
-              style={{ background: 'linear-gradient(135deg, #EC4899, #F97316)' }}>
+              style={{ background: 'var(--theme-gradient)' }}>
               🎁 Spend Stars
             </button>
           )}
           {canSpin && (
             <button onClick={() => setShowSpin(true)}
               className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-2xl shadow-sm active:scale-95 transition"
-              style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+              style={{ background: 'var(--theme-gradient)' }}>
               🎰 Spin!
             </button>
           )}
@@ -501,8 +501,8 @@ function RewardsPanel({ rewards, starBalance, pendingRewardIds, requestingId, ju
             return (
               <div key={reward.id}
                 className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition ${isPending ? 'border-green-200 bg-green-50' : canAfford ? 'border-gray-100 bg-white' : 'border-gray-100 bg-gray-50 opacity-55'}`}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                  style={{ backgroundColor: colour + '22' }}>{reward.emoji}</div>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
+                  style={{ border: '1.5px solid var(--theme-from)' }}>{reward.emoji}</div>
                 <div className="flex-1">
                   <p className="font-bold text-gray-800">{reward.title}</p>
                   <p className="text-sm text-yellow-500 font-bold">⭐ {reward.star_cost}</p>
@@ -511,7 +511,7 @@ function RewardsPanel({ rewards, starBalance, pendingRewardIds, requestingId, ju
                 <button onClick={() => !isPending && canAfford && onRequest(reward)}
                   disabled={!canAfford || isPending || requestingId === reward.id}
                   className={`flex-shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition active:scale-95 ${isPending ? 'bg-green-100 text-green-600' : canAfford ? 'text-white shadow' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                  style={canAfford && !isPending ? { background: `linear-gradient(135deg, #EC4899, #F97316)` } : {}}>
+                  style={canAfford && !isPending ? { background: 'var(--theme-gradient)' } : {}}>
                   {justDone ? '✓ Done!' : isPending ? '⏳ Waiting' : canAfford ? 'Redeem' : "Can't afford"}
                 </button>
               </div>

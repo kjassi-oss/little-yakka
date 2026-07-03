@@ -3,10 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* Default theme: Rainbow */
-  --theme-from: #D6336C;
-  --theme-to: #7048E8;
-  --theme-gradient: linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93);
+  /* Default theme: Ocean */
+  --theme-from: #0EA5E9;
+  --theme-to: #2563EB;
+  --theme-gradient: linear-gradient(135deg, #0EA5E9, #2563EB);
 }
 
 @theme inline {

@@ -208,7 +208,7 @@ export default function RewardsPage() {
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-          <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Rewards</span>
+          <span className="text-4xl font-black leading-none justify-self-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Rewards</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>

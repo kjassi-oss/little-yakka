@@ -33,7 +33,7 @@ export default function LoginPage() {
     if (error) { setError(error.message); setGoogleLoading(false) }
   }
 
-  const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
+  const RAINBOW = 'var(--theme-gradient)'
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-10 bg-white">

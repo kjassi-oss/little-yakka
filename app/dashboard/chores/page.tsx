@@ -408,7 +408,7 @@ export default function ChoresPage() {
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start" onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-          <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
+          <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tasks</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
@@ -851,8 +851,8 @@ export default function ChoresPage() {
                           <div key={task.id}
                             onClick={() => { if (!singleChildId) openTaskForChild(task) }}
                             className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}>
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${missed ? 'grayscale opacity-50' : ''}`}
-                              style={singleChild ? { backgroundColor: singleChild.colour + '22' } : { border: '1.5px solid var(--theme-from)', backgroundColor: '#fff' }}>{task.emoji}</div>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white ${missed ? 'grayscale opacity-50' : ''}`}
+                              style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                             <div className="flex-1 min-w-0">
                               <p className={`font-bold text-base truncate ${struck ? 'line-through text-gray-400' : missed ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
                               <p className="text-sm text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
@@ -871,7 +871,7 @@ export default function ChoresPage() {
                               ) : (
                                 <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds, singleChild || undefined) }}
                                   className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
-                                  style={{ background: singleChild ? `linear-gradient(135deg, ${singleChild.colour}, ${singleChild.colour}cc)` : 'var(--theme-gradient)' }}>DONE</button>
+                                  style={{ background: 'var(--theme-gradient)' }}>DONE</button>
                               )
                             ) : (
                               <div className="flex gap-1 flex-wrap justify-end max-w-[92px]">

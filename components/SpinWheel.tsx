@@ -110,7 +110,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
 
       {/* Header */}
       <div className="text-center mb-5 relative z-10">
-        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
           Bonus Spin
         </h2>
         <p className="text-gray-400 text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Spin to win bonus stars!</p>

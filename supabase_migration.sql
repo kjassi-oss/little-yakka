@@ -40,3 +40,45 @@ BEGIN
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE star_ledger;  EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_object THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE redemptions;  EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_object THEN NULL; END;
 END $$;
+
+-- 6) Co-parent join: accept an invitation server-side (SECURITY DEFINER).
+--    Validates the token, creates the guardian row with all required fields,
+--    and marks the invite used — replaces the client-side insert that failed
+--    silently and left new co-parents stuck at /setup.
+create or replace function public.accept_invitation(invite_token text, guardian_name text default null)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  inv record;
+  uemail text;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in to join a family.';
+  end if;
+
+  select * into inv from public.guardian_invitations where token::text = invite_token;
+  if inv is null then
+    raise exception 'This invite link is invalid.';
+  end if;
+  if inv.used then
+    raise exception 'This invite has already been used.';
+  end if;
+
+  -- Already a guardian somewhere? Keep previous behaviour: don't create a
+  -- second guardian row, just consume the invite.
+  if not exists (select 1 from public.guardians where auth_user_id = auth.uid()) then
+    select email into uemail from auth.users where id = auth.uid();
+    insert into public.guardians (auth_user_id, family_id, name, email, parent_pin)
+    values (
+      auth.uid(),
+      inv.family_id,
+      coalesce(nullif(guardian_name, ''), nullif(split_part(coalesce(uemail, ''), '@', 1), ''), 'Parent'),
+      uemail,
+      ''
+    );
+  end if;
+
+  update public.guardian_invitations set used = true where id = inv.id;
+end $$;
+
+grant execute on function public.accept_invitation(text, text) to authenticated;

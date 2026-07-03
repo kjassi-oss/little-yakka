@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import BrandLogo from '@/components/BrandLogo'
 
-const RAINBOW = 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)'
+const RAINBOW = 'var(--theme-gradient)'
 
 export default function ResetPasswordPage() {
   const router = useRouter()

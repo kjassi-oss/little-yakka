@@ -17,7 +17,7 @@ export const THEMES = {
 } as const
 
 export type ThemeKey = keyof typeof THEMES
-const DEFAULT_THEME: ThemeKey = 'rainbow'
+const DEFAULT_THEME: ThemeKey = 'ocean'
 
 function applyTheme(key: string) {
   const theme = THEMES[key as ThemeKey] ?? THEMES[DEFAULT_THEME]

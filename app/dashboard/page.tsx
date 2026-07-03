@@ -177,7 +177,7 @@ export default async function DashboardPage() {
       <div className="px-4 pt-11 pb-2 bg-white border-b border-gray-100">
         <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto justify-self-start"/>
-          <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'linear-gradient(135deg, #16BDCA, #F59E0B, #7C3AED, #22B14C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
+          <span className="text-4xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
@@ -258,7 +258,7 @@ export default async function DashboardPage() {
                   {canSpin && (
                     <Link href={`/kid-mode/${child.id}?spin=1`}
                       className="block mx-2.5 mb-2.5 text-center text-[10px] font-black text-white rounded-full px-2 py-1 animate-pulse active:scale-95 transition"
-                      style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                      style={{ background: 'var(--theme-gradient)' }}>
                       🎰 SPIN READY!
                     </Link>
                   )}
