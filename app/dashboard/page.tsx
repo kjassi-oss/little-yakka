@@ -63,7 +63,7 @@ export default async function DashboardPage() {
 
   const [{ data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
     supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-    supabase.from('tasks').select('id, title, emoji, star_value, time_of_day, frequency, start_date, created_at, days_of_week').eq('family_id', guardian.family_id),
+    supabase.from('tasks').select('*').eq('family_id', guardian.family_id),
     supabase.from('task_assignments').select('task_id, child_id'),
     supabase.from('star_ledger').select('child_id, delta'),
   ])
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
     supabase.from('star_ledger').select('child_id, delta')
       .in('child_id', childIds.length ? childIds : ['none'])
       .gte('created_at', weekStart.toISOString()),
-    supabase.from('completions').select('child_id').eq('status', 'approved')
+    supabase.from('completions').select('child_id, task_id').eq('status', 'approved')
       .in('child_id', childIds.length ? childIds : ['none']),
   ])
 
@@ -158,6 +158,11 @@ export default async function DashboardPage() {
   const rankMap: Record<string, number> = {}
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
+
+  // Up-for-grabs tasks — unassigned bounties any child can claim (first done wins)
+  const ufgClaimed: Record<string, string> = {}
+  ;(allCompletions || []).forEach((c: any) => { if (c.task_id) ufgClaimed[c.task_id] = c.child_id })
+  const ufgTasks = (tasks || []).filter((t: any) => t.up_for_grabs && (!t.expires_on || t.expires_on >= today))
 
   // Today's tasks — all of them (completed shown with a strikethrough, not hidden)
   const todayItems = (todayTasks || [])
@@ -311,6 +316,38 @@ export default async function DashboardPage() {
                     </div>
                   </TaskLauncher>
                 ))}
+              </div>
+            )}
+
+            {/* Up for grabs — visually distinct amber bounties */}
+            {ufgTasks.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-black text-amber-500 uppercase tracking-wide">🙌 Up for grabs</p>
+                {ufgTasks.map((task: any) => {
+                  const claimerId = ufgClaimed[task.id]
+                  const claimer = claimerId ? childMap[claimerId] : null
+                  return (
+                    <TaskLauncher key={task.id} taskId={task.id} kids={claimer ? [claimer] : (children || [])}>
+                      <div className={`flex items-center gap-3 rounded-2xl p-2.5 border-2 border-dashed border-amber-300 bg-amber-50 active:scale-[0.98] transition ${claimer ? 'opacity-75' : ''}`}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white" style={{ border: '1.5px solid #F59E0B' }}>{task.emoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold text-sm truncate ${claimer ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                          <p className="text-[11px] font-semibold text-amber-600">
+                            {claimer
+                              ? `Claimed by ${claimer.name.split(' ')[0]} 🎉`
+                              : `Anyone can claim · ⭐ ${task.star_value}${task.expires_on ? ` · ends ${new Date(task.expires_on + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}` : ''}`}
+                          </p>
+                        </div>
+                        {claimer && (
+                          claimer.avatar_url
+                            ? <img src={claimer.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white flex-shrink-0" alt=""/>
+                            : <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white flex-shrink-0"
+                                style={{ backgroundColor: claimer.colour + '33' }}>{claimer.avatar}</div>
+                        )}
+                      </div>
+                    </TaskLauncher>
+                  )
+                })}
               </div>
             )}
 

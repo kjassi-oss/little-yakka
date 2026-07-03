@@ -82,3 +82,8 @@ begin
 end $$;
 
 grant execute on function public.accept_invitation(text, text) to authenticated;
+
+-- 7) "Up For Grabs" tasks — unassigned bounties any child can claim
+--    (first done wins). Optional expiry date; blank = open until claimed.
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS up_for_grabs boolean DEFAULT false;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS expires_on date;

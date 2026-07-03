@@ -126,6 +126,10 @@ export default function ChoresPage() {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [requiresApproval, setRequiresApproval] = useState(false)
   const [canDoEarly, setCanDoEarly] = useState(true)
+  const [upForGrabs, setUpForGrabs] = useState(false)
+  const [expiresOn, setExpiresOn] = useState('')
+  // Up-for-grabs claim state: task_id -> completion row (any child, any date)
+  const [ufgClaims, setUfgClaims] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
@@ -193,6 +197,16 @@ export default function ChoresPage() {
       .gte('date', ymdLocal(winStart)).lte('date', ymdLocal(new Date()))
     setWindowComps((winData || []).filter(c => c.status === 'approved' || c.status === 'pending')
       .map(c => ({ id: c.id, task_id: c.task_id, child_id: c.child_id, date: c.date })))
+
+    // Up-for-grabs claims: first completion (any child, any date) claims the task
+    const ufgIds = (tasksData || []).filter((t: any) => t.up_for_grabs).map(t => t.id)
+    if (ufgIds.length) {
+      const { data: claims } = await supabase.from('completions')
+        .select('id, task_id, child_id, date').in('task_id', ufgIds)
+      setUfgClaims((claims || []) as any)
+    } else {
+      setUfgClaims([])
+    }
   }
 
   function toggleUpcomingChild(id: string) {
@@ -273,6 +287,7 @@ export default function ChoresPage() {
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
     setRequiresApproval(false); setCanDoEarly(true); setDaysOfWeek([])
+    setUpForGrabs(false); setExpiresOn('')
     setFormError('')
     setShowForm(true)
   }
@@ -292,6 +307,8 @@ export default function ChoresPage() {
     setRequiresApproval((task as any).requires_approval || false)
     setCanDoEarly((task as any).can_do_early ?? true)
     setDaysOfWeek(task.days_of_week || [])
+    setUpForGrabs((task as any).up_for_grabs ?? false)
+    setExpiresOn((task as any).expires_on || '')
     setFormError('')
     setShowForm(true)
     const supabase = createClient()
@@ -303,11 +320,11 @@ export default function ChoresPage() {
 
   async function saveTask() {
     if (!title.trim()) { setFormError('Please enter a task name.'); return }
-    if (assignedChildren.length === 0) { setFormError('Please assign to at least one child.'); return }
+    if (!upForGrabs && assignedChildren.length === 0) { setFormError('Please assign to at least one child.'); return }
     setSaving(true); setFormError('')
     const supabase = createClient()
 
-    // Build base payload without can_do_early; add it if column exists
+    // Build base payload without newer columns; add them if they exist
     const basePayload = {
       title: title.trim(), emoji, type,
       time_of_day: timeOfDay === 'anytime' ? null : timeOfDay,
@@ -316,33 +333,36 @@ export default function ChoresPage() {
       requires_photo: requiresPhoto || requiresBenchmarkPhoto,
       requires_benchmark_photo: requiresBenchmarkPhoto,
       benchmark_differs_per_child: benchmarkDiffersPerChild,
-      frequency, carry_over: carryOver, difficulty,
+      // Up-for-grabs is a one-off: no recurrence, no carry-over restrictions
+      frequency: upForGrabs ? 'daily' : frequency,
+      carry_over: upForGrabs ? false : carryOver,
+      difficulty,
       requires_approval: false,
-      days_of_week: frequency === 'daily' && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? [...daysOfWeek].sort() : null,
+      days_of_week: !upForGrabs && frequency === 'daily' && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? [...daysOfWeek].sort() : null,
     }
-    const payload = { ...basePayload, can_do_early: canDoEarly }
+    const midPayload = { ...basePayload, can_do_early: upForGrabs ? true : canDoEarly }
+    const payload = { ...midPayload, up_for_grabs: upForGrabs, expires_on: upForGrabs && expiresOn ? expiresOn : null }
+
+    // Try full payload, then progressively drop columns the DB doesn't have yet
+    async function saveWith(id: string | null): Promise<{ data: any; error: any }> {
+      const attempt = (p: any) => id
+        ? supabase.from('tasks').update(p).eq('id', id).select().single()
+        : supabase.from('tasks').insert({ ...p, family_id: familyId, recurrence: p.frequency }).select().single()
+      let res = await attempt(payload)
+      if (res.error?.message?.includes('up_for_grabs') || res.error?.message?.includes('expires_on')) res = await attempt(midPayload)
+      if (res.error?.message?.includes('can_do_early')) res = await attempt(basePayload)
+      return res
+    }
 
     let taskId = editingTaskId
-    if (editingTaskId) {
-      let { error } = await supabase.from('tasks').update(payload).eq('id', editingTaskId)
-      if (error?.message?.includes('can_do_early')) {
-        const result = await supabase.from('tasks').update(basePayload).eq('id', editingTaskId)
-        error = result.error
-      }
-      if (error) { setFormError(error.message); setSaving(false); return }
-      await supabase.from('task_assignments').delete().eq('task_id', editingTaskId)
-      await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: editingTaskId, child_id: cid })))
-    } else {
-      let { data: task, error } = await supabase.from('tasks')
-        .insert({ ...payload, family_id: familyId, recurrence: frequency }).select().single()
-      if (error?.message?.includes('can_do_early')) {
-        const result = await supabase.from('tasks')
-          .insert({ ...basePayload, family_id: familyId, recurrence: frequency }).select().single()
-        task = result.data; error = result.error
-      }
-      if (error || !task) { setFormError(error?.message || 'Failed to save.'); setSaving(false); return }
-      taskId = task.id
-      await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: task.id, child_id: cid })))
+    const { data: task, error } = await saveWith(editingTaskId)
+    if (error || !task) { setFormError(error?.message || 'Failed to save.'); setSaving(false); return }
+    taskId = task.id
+
+    // Up-for-grabs tasks have no assignments; normal tasks get reassigned
+    if (editingTaskId) await supabase.from('task_assignments').delete().eq('task_id', editingTaskId)
+    if (!upForGrabs && assignedChildren.length) {
+      await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: taskId, child_id: cid })))
     }
 
     if (taskId && requiresBenchmarkPhoto) {
@@ -502,6 +522,28 @@ export default function ChoresPage() {
               </div>
             </div>
 
+            {/* Up for grabs — unassigned; any child can claim it, first done wins */}
+            <div className="rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-amber-700">🙌 Up For Grabs</p>
+                  <p className="text-xs text-amber-600">{upForGrabs ? 'Anyone can claim it — first done wins the stars!' : 'No child assigned — any child can do it'}</p>
+                </div>
+                <button onClick={() => setUpForGrabs(!upForGrabs)}
+                  className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${upForGrabs ? 'bg-amber-400' : 'bg-gray-200'}`}>
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${upForGrabs ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+                </button>
+              </div>
+              {upForGrabs && (
+                <div>
+                  <p className="text-xs text-amber-600 mb-1">Expiry date <span className="opacity-60">(optional — leave blank to keep it open)</span></p>
+                  <input type="date" value={expiresOn} onChange={e => setExpiresOn(e.target.value)}
+                    className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"/>
+                </div>
+              )}
+            </div>
+
+            {!upForGrabs && (<>
             <div>
               <p className="text-xs text-gray-500 mb-2">How often?</p>
               <div className="flex gap-2">
@@ -533,6 +575,7 @@ export default function ChoresPage() {
                 <p className="text-[11px] text-gray-400 mt-1">Leave all off for every day, or pick specific days.</p>
               </div>
             )}
+            </>)}
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Time of day</p>
@@ -553,6 +596,7 @@ export default function ChoresPage() {
                 className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
             </div>
 
+            {!upForGrabs && (<>
             <div className="flex items-center justify-between py-1">
               <div><p className="text-sm font-medium text-gray-700">Carry over if missed ↩️</p><p className="text-xs text-gray-400">{carryOver ? 'Shows as overdue' : 'Marked expired'}</p></div>
               <button onClick={() => setCarryOver(!carryOver)}
@@ -573,6 +617,7 @@ export default function ChoresPage() {
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${canDoEarly ? 'translate-x-6' : 'translate-x-0.5'}`}/>
               </button>
             </div>
+            </>)}
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Stars to earn: <span className="font-bold text-yellow-500">⭐ {starValue}</span></p>
@@ -660,6 +705,7 @@ export default function ChoresPage() {
               </div>
             )}
 
+            {!upForGrabs && (
             <div>
               <p className="text-xs text-gray-500 mb-2">Assign to</p>
               <div className="grid grid-cols-4 gap-3">
@@ -682,6 +728,7 @@ export default function ChoresPage() {
                 })}
               </div>
             </div>
+            )}
 
             {formError && <p className="text-red-500 text-sm">{formError}</p>}
             <div className="flex gap-2">
@@ -721,11 +768,14 @@ export default function ChoresPage() {
                   const assignedKids = (assignments[task.id] || []).map(id => childMap[id]).filter(Boolean)
                   return (
                     <div key={task.id} onClick={() => handleTaskClick(task)}
-                      className="bg-white rounded-2xl p-2.5 shadow-sm flex flex-col items-center gap-1.5 relative cursor-pointer active:scale-95 transition">
+                      className={`rounded-2xl p-2.5 shadow-sm flex flex-col items-center gap-1.5 relative cursor-pointer active:scale-95 transition ${(task as any).up_for_grabs ? 'bg-amber-50 border-2 border-dashed border-amber-300' : 'bg-white'}`}>
                       <div className="absolute top-1.5 right-1.5 z-10">
                         <button onClick={e => { e.stopPropagation(); openEditForm(task) }} className="text-gray-300 text-xs active:scale-90 transition">✏️</button>
                       </div>
                       {(() => {
+                        if ((task as any).up_for_grabs) {
+                          return <span className="absolute top-1.5 left-1.5 z-10 text-[10px] w-5 h-5 rounded-md flex items-center justify-center bg-amber-100">🙌</span>
+                        }
                         const f = task.frequency || 'daily'
                         const fc = f === 'weekly' ? { l: 'W', c: '#7C3AED' } : f === 'monthly' ? { l: 'M', c: '#F59E0B' } : { l: 'D', c: '#1E88E5' }
                         return <span className="absolute top-1.5 left-1.5 z-10 text-[10px] font-black w-5 h-5 rounded-md flex items-center justify-center"
@@ -828,6 +878,47 @@ export default function ChoresPage() {
                   ↑ Load earlier days
                 </button>
               )}
+
+              {/* Up for grabs — unassigned bounties, first done wins */}
+              {(() => {
+                const claimMap = new Map(ufgClaims.map(c => [c.task_id, c]))
+                const ufgList = tasks.filter((t: any) => t.up_for_grabs && (!t.expires_on || t.expires_on >= todayL))
+                if (!ufgList.length) return null
+                return (
+                  <div>
+                    <p className="text-2xl font-black mb-2 px-1 leading-none text-amber-500">🙌 Up for Grabs</p>
+                    <div className="space-y-2">
+                      {ufgList.map(task => {
+                        const claim = claimMap.get(task.id)
+                        const claimer = claim ? childMap[claim.child_id] : null
+                        return (
+                          <div key={task.id}
+                            onClick={() => { if (!claim && !singleChildId) openTaskForChild(task) }}
+                            className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border-2 border-dashed border-amber-300 bg-amber-50 ${!claim && !singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${claim ? 'opacity-75' : ''}`}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white" style={{ border: '1.5px solid #F59E0B' }}>{task.emoji}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold text-base truncate ${claim ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                              <p className="text-sm font-semibold text-amber-600">
+                                {claim
+                                  ? `Claimed by ${claimer?.name.split(' ')[0] || '—'}`
+                                  : `Anyone can claim · ⭐ ${task.star_value}${(task as any).expires_on ? ` · ends ${new Date((task as any).expires_on + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}` : ''}`}
+                              </p>
+                            </div>
+                            {claim ? (
+                              <button title="Undo claim" onClick={e => { e.stopPropagation(); undoUpcoming(claim, task, claimer?.name.split(' ')[0] || '') }}
+                                className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg active:scale-90 transition">✓</button>
+                            ) : singleChildId ? (
+                              <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, todayL, singleChild || undefined) }}
+                                className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
+                                style={{ background: '#F59E0B' }}>DONE</button>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {days.length === 0 ? (
                 <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500 font-medium">No upcoming tasks</p></div>
@@ -981,7 +1072,10 @@ export default function ChoresPage() {
             <h3 className="font-black text-gray-800 text-lg mb-1">Who's doing this? ⭐</h3>
             <p className="text-gray-400 text-sm mb-4">Tap a child to enter their zone</p>
             <div className="grid grid-cols-3 gap-3 mb-3">
-              {(pendingTaskId ? (assignments[pendingTaskId] || []).map(id => childMap[id]).filter(Boolean) : children).map(child => (
+              {(pendingTaskId && (assignments[pendingTaskId] || []).length
+                ? (assignments[pendingTaskId] || []).map(id => childMap[id]).filter(Boolean)
+                : children /* up-for-grabs tasks have no assignments — anyone can take them */
+              ).map(child => (
                 <button key={child.id} onClick={() => router.push(`/kid-mode/${child.id}${pendingTaskId ? `?task=${pendingTaskId}` : ''}`)}
                   className="flex flex-col items-center gap-1.5 p-2 rounded-2xl active:scale-95 transition">
                   {child.avatar_url

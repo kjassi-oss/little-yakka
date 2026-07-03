@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import SpinWheel from '@/components/SpinWheel'
 import { completionFeedback, redeemFeedback } from '@/lib/feedback'
 
-interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean }
+interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean; upForGrabs?: boolean }
 
 const TIME_SORT: Record<string, number> = { anytime: 0, morning: 1, afternoon: 2, evening: 3 }
 function sortOccs(occs: Occurrence[]) {
@@ -252,6 +252,7 @@ export default function ChildTaskView({
       <div key={occ.id} id={`occ-${occ.id}`}
         className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300
           ${done ? 'bg-gray-50 border-gray-100 opacity-70'
+            : occ.upForGrabs ? 'bg-amber-50 border-2 border-dashed border-amber-300 shadow-sm'
             : overdueCatchup ? 'bg-red-50 border-red-100'
             : muted ? 'bg-gray-50 border-gray-100 opacity-60'
             : 'bg-white border-gray-100 shadow-sm'}
@@ -263,10 +264,15 @@ export default function ChildTaskView({
           {occ.emoji}
         </div>
         <div className="flex-1 min-w-0">
+          {occ.upForGrabs && !done && (
+            <span className="inline-block text-[9px] font-black bg-amber-100 text-amber-600 rounded-full px-1.5 py-0.5 mb-0.5">🙌 UP FOR GRABS</span>
+          )}
           <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : overdueCatchup ? 'text-red-500' : muted ? 'text-gray-400' : 'text-gray-800'}`}>
             {occ.title}
           </p>
-          <p className="text-xs text-gray-400">{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐</p>
+          <p className={`text-xs ${occ.upForGrabs && !done ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
+            {occ.upForGrabs && !done ? 'First done wins! · ' : ''}{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐
+          </p>
         </div>
         {done ? (
           <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg">✓</div>
@@ -279,7 +285,7 @@ export default function ChildTaskView({
         ) : (
           <button onClick={() => completeTask(occ)}
             className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
-            style={{ background: overdueCatchup ? '#EF4444' : 'var(--theme-gradient)' }}>
+            style={{ background: occ.upForGrabs ? '#F59E0B' : overdueCatchup ? '#EF4444' : 'var(--theme-gradient)' }}>
             DONE
           </button>
         )}

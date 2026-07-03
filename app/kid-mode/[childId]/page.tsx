@@ -59,6 +59,29 @@ export default async function ChildPage({ params, searchParams }: {
     .gte('date', mondayStr).lte('date', ymd(horizonEnd))
   const completedKeys = (completions || []).map(c => `${c.task_id}|${c.date}`)
 
+  // Up-for-grabs bounties — one-offs any child can claim (first done wins).
+  // Shown on today until claimed/expired; hidden here once a sibling claims it.
+  const { data: ufgData } = await supabase
+    .from('tasks').select('*').eq('family_id', guardian?.family_id).eq('up_for_grabs', true)
+  const ufgTasks = (ufgData || []).filter((t: any) => !t.expires_on || t.expires_on >= todayStr)
+  if (ufgTasks.length) {
+    const { data: ufgComps } = await supabase
+      .from('completions').select('task_id, child_id, date').in('task_id', ufgTasks.map((t: any) => t.id))
+    const claimedBy: Record<string, string> = {}
+    ;(ufgComps || []).forEach((c: any) => { claimedBy[c.task_id] = c.child_id })
+    for (const t of ufgTasks) {
+      const claimer = claimedBy[t.id]
+      if (claimer && claimer !== childId) continue // a sibling got there first
+      occurrences.push({
+        id: `${t.id}|${todayStr}`, taskId: t.id, title: t.title, emoji: t.emoji,
+        star_value: t.star_value, time_of_day: t.time_of_day ?? null, date: todayStr,
+        canDoEarly: true, carryOver: true, upForGrabs: true,
+      })
+      // claimed by THIS child (possibly on an earlier day) — show as done
+      if (claimer && !completedKeys.includes(`${t.id}|${todayStr}`)) completedKeys.push(`${t.id}|${todayStr}`)
+    }
+  }
+
   // Completed history (last 30 days) for the "Done" tab — with timestamps
   const thirtyAgo = new Date(now); thirtyAgo.setDate(now.getDate() - 30)
   const { data: completedHistory } = await supabase
