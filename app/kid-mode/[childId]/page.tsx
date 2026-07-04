@@ -15,13 +15,12 @@ export default async function ChildPage({ params, searchParams }: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: child } = await supabase.from('children').select('*').eq('id', childId).single()
+  // Stage 1 (parallel): the child + the caller's family id
+  const [{ data: child }, { data: guardian }] = await Promise.all([
+    supabase.from('children').select('*').eq('id', childId).single(),
+    supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single(),
+  ])
   if (!child) redirect('/kid-mode')
-
-  const { data: guardian } = await supabase
-    .from('guardians').select('family_id').eq('auth_user_id', user.id).single()
-  const { data: family } = await supabase
-    .from('families').select('*').eq('id', guardian?.family_id).maybeSingle()
 
   // Timezone-aware dates
   const cookieStore = await cookies()
@@ -33,9 +32,34 @@ export default async function ChildPage({ params, searchParams }: {
   const weekEndStr = ymd(sunday)
   const mondayStr = ymd(monday)
   const horizonEnd = new Date(monday); horizonEnd.setDate(monday.getDate() + 20)
+  const thirtyAgo = new Date(now); thirtyAgo.setDate(now.getDate() - 30)
 
-  const { data: assignments } = await supabase
-    .from('task_assignments').select('task_id, tasks(*)').eq('child_id', childId)
+  // Stage 2: everything else in ONE parallel batch (was ~12 sequential trips)
+  const [
+    { data: family }, { data: assignments }, { data: completions }, { data: completedHistory },
+    { data: starData }, { data: rewards }, { data: pendingRedemptions }, { data: ufgData },
+    { count: totalCompletions }, { data: unlockRows }, { data: spinToday }, { data: unseenPraises },
+  ] = await Promise.all([
+    supabase.from('families').select('*').eq('id', guardian?.family_id).maybeSingle(),
+    supabase.from('task_assignments').select('task_id, tasks(*)').eq('child_id', childId),
+    supabase.from('completions').select('task_id, date, created_at').eq('child_id', childId)
+      .gte('date', mondayStr).lte('date', ymd(horizonEnd)),
+    supabase.from('completions')
+      .select('task_id, date, created_at, tasks(title, emoji, star_value)')
+      .eq('child_id', childId).eq('status', 'approved')
+      .gte('date', ymd(thirtyAgo))
+      .order('created_at', { ascending: false }).limit(60),
+    supabase.from('star_ledger').select('delta').eq('child_id', childId),
+    supabase.from('rewards').select('id, title, emoji, star_cost').eq('family_id', guardian?.family_id)
+      .or(`scope.eq.family,and(scope.eq.child,child_id.eq.${childId})`).order('star_cost'),
+    supabase.from('redemptions').select('reward_id').eq('child_id', childId).eq('status', 'requested'),
+    supabase.from('tasks').select('*').eq('family_id', guardian?.family_id).eq('up_for_grabs', true),
+    supabase.from('completions').select('id', { count: 'exact', head: true })
+      .eq('child_id', childId).eq('status', 'approved'),
+    supabase.from('child_unlocks').select('item_id').eq('child_id', childId),
+    supabase.from('spin_results').select('id').eq('child_id', childId).eq('date', todayStr).maybeSingle(),
+    supabase.from('praises').select('id, message').eq('child_id', childId).eq('seen', false).order('created_at'),
+  ])
   const allTasks = (assignments?.map(a => a.tasks).flat().filter(Boolean) || []) as any[]
 
   // Build occurrences from this Monday through 3-week horizon
@@ -54,15 +78,10 @@ export default async function ChildPage({ params, searchParams }: {
     }
   }
 
-  const { data: completions } = await supabase
-    .from('completions').select('task_id, date, created_at').eq('child_id', childId)
-    .gte('date', mondayStr).lte('date', ymd(horizonEnd))
   const completedKeys = (completions || []).map(c => `${c.task_id}|${c.date}`)
 
   // Up-for-grabs bounties — one-offs any child can claim (first done wins).
   // Shown on today until claimed/expired; hidden here once a sibling claims it.
-  const { data: ufgData } = await supabase
-    .from('tasks').select('*').eq('family_id', guardian?.family_id).eq('up_for_grabs', true)
   const ufgTasks = (ufgData || []).filter((t: any) => !t.expires_on || t.expires_on >= todayStr)
   if (ufgTasks.length) {
     const { data: ufgComps } = await supabase
@@ -83,15 +102,6 @@ export default async function ChildPage({ params, searchParams }: {
   }
 
   // Completed history (last 30 days) for the "Done" tab — with timestamps
-  const thirtyAgo = new Date(now); thirtyAgo.setDate(now.getDate() - 30)
-  const { data: completedHistory } = await supabase
-    .from('completions')
-    .select('task_id, date, created_at, tasks(title, emoji, star_value)')
-    .eq('child_id', childId)
-    .eq('status', 'approved')
-    .gte('date', ymd(thirtyAgo))
-    .order('created_at', { ascending: false })
-    .limit(60)
   const doneHistory = (completedHistory || []).map(c => ({
     key: `${c.task_id}|${c.date}`,
     date: c.date as string,
@@ -101,22 +111,8 @@ export default async function ChildPage({ params, searchParams }: {
     starValue: (c.tasks as any)?.star_value || 0,
   }))
 
-  const { data: starData } = await supabase.from('star_ledger').select('delta').eq('child_id', childId)
   const starBalance = starData?.reduce((sum, r) => sum + r.delta, 0) || 0
-
-  const { data: rewards } = await supabase
-    .from('rewards').select('id, title, emoji, star_cost').eq('family_id', guardian?.family_id)
-    .or(`scope.eq.family,and(scope.eq.child,child_id.eq.${childId})`).order('star_cost')
-  const { data: pendingRedemptions } = await supabase
-    .from('redemptions').select('reward_id').eq('child_id', childId).eq('status', 'requested')
   const pendingRewardIds = pendingRedemptions?.map(r => r.reward_id) || []
-
-  // Trophy + style-shop data
-  const [{ count: totalCompletions }, { data: unlockRows }] = await Promise.all([
-    supabase.from('completions').select('id', { count: 'exact', head: true })
-      .eq('child_id', childId).eq('status', 'approved'),
-    supabase.from('child_unlocks').select('item_id').eq('child_id', childId),
-  ])
   const unlockedIds = (unlockRows || []).map(r => r.item_id as string)
 
   // Streak — uses the 30-day history, with a 🧊 freeze: one missed day per
@@ -179,12 +175,7 @@ export default async function ChildPage({ params, searchParams }: {
   // Bonus wheel timing
   const bonusDay = family?.bonus_day ?? 0
   const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
-  const { data: spinToday } = await supabase
-    .from('spin_results').select('id').eq('child_id', childId).eq('date', todayStr).maybeSingle()
   const hasSpunToday = !!spinToday
-
-  const { data: unseenPraises } = await supabase
-    .from('praises').select('id, message').eq('child_id', childId).eq('seen', false).order('created_at')
 
   return (
     <ChildTaskView

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { compressImage } from '@/lib/imageCompress'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
@@ -206,9 +207,10 @@ export default function SetupPage() {
       if (!created) continue
       childIds.push(created.id)
       if (c.photo) {
-        const ext = c.photo.name.split('.').pop()
+        const photo = await compressImage(c.photo)
+        const ext = photo.name.split('.').pop()
         const path = `${familyId}/${created.id}/avatar.${ext}`
-        const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, c.photo, { upsert: true })
+        const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, photo, { upsert: true })
         if (!upErr) {
           const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
           await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)

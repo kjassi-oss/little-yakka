@@ -6,6 +6,7 @@ import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
 import { redeemFeedback } from '@/lib/feedback'
+import { getCachedFamily } from '@/lib/familyCache'
 
 const REWARD_EMOJIS = [
   '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🏆','⚽',
@@ -74,35 +75,27 @@ export default function RewardsPage() {
 
   async function loadData() {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    // Cached family + one parallel batch (RLS scopes redemptions/star_ledger
+    // to this family, so no child-id pre-fetch is needed).
+    const fam = await getCachedFamily(supabase)
+    if (!fam) return
+    setFamilyId(fam.familyId)
 
-    const { data: guardian } = await supabase
-      .from('guardians').select('family_id').eq('auth_user_id', user.id).single()
-    if (!guardian) return
-    setFamilyId(guardian.family_id)
-
-    const { data: childrenData } = await supabase
-      .from('children').select('*').eq('family_id', guardian.family_id).order('name')
-    const childIds = childrenData?.map(c => c.id) || []
-
-    const [{ data: rewardsData }, { data: pendingData }, { data: redeemedData }] = await Promise.all([
-      supabase.from('rewards').select('*').eq('family_id', guardian.family_id).order('star_cost'),
+    const [{ data: childrenData }, { data: rewardsData }, { data: pendingData }, { data: redeemedData }, { data: starData }] = await Promise.all([
+      supabase.from('children').select('*').eq('family_id', fam.familyId).order('name'),
+      supabase.from('rewards').select('*').eq('family_id', fam.familyId).order('star_cost'),
       supabase.from('redemptions')
         .select('*, rewards(title, emoji, star_cost), children(name, avatar, colour, avatar_url)')
         .eq('status', 'requested')
-        .in('child_id', childIds.length ? childIds : ['none'])
         .order('created_at', { ascending: false }),
       supabase.from('redemptions')
         .select('*, rewards(title, emoji, star_cost), children(name, avatar, colour, avatar_url)')
         .eq('status', 'approved')
-        .in('child_id', childIds.length ? childIds : ['none'])
         .order('created_at', { ascending: false })
         .limit(80),
+      supabase.from('star_ledger').select('child_id, delta'),
     ])
 
-    const { data: starData } = await supabase.from('star_ledger').select('child_id, delta')
-      .in('child_id', childIds.length ? childIds : ['none'])
     const bal: Record<string, number> = {}
     starData?.forEach(s => { bal[s.child_id] = (bal[s.child_id] || 0) + s.delta })
 

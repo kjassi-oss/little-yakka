@@ -7,6 +7,7 @@ import LoadingLogo from '@/components/LoadingLogo'
 import ProfileButton from '@/components/ProfileButton'
 import { occursOn, type RecurringTask } from '@/lib/recurrence'
 import { localDateStr, parseTzCookie } from '@/lib/localDate'
+import { getCachedFamily } from '@/lib/familyCache'
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface TaskMeta extends RecurringTask { id: string }
@@ -46,25 +47,18 @@ export default function AnalyticsPage() {
 
   async function loadData() {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: guardian } = await supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single()
-    if (!guardian) return
-
-    const { data: childrenData } = await supabase
-      .from('children').select('*').eq('family_id', guardian.family_id).order('name')
-    const childIds = childrenData?.map(c => c.id) || []
+    // Cached family + one parallel batch (RLS scopes everything to this family)
+    const fam = await getCachedFamily(supabase)
+    if (!fam) return
     const thirty = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
-    const [{ data: tasksData }, { data: assignData }, { data: compData }, { data: starData }, { data: recentData }] = await Promise.all([
-      supabase.from('tasks').select('id, frequency, start_date, created_at, days_of_week').eq('family_id', guardian.family_id),
-      supabase.from('task_assignments').select('task_id, child_id').in('child_id', childIds.length ? childIds : ['none']),
-      supabase.from('completions').select('child_id, date, task_id').eq('status', 'approved')
-        .in('child_id', childIds.length ? childIds : ['none']).gte('date', thirty),
-      supabase.from('star_ledger').select('child_id, delta, created_at')
-        .in('child_id', childIds.length ? childIds : ['none']).gte('created_at', thirty + 'T00:00:00'),
-      supabase.from('completions').select('child_id, date').eq('status', 'approved')
-        .in('child_id', childIds.length ? childIds : ['none']).gte('date', thirty),
+    const [{ data: childrenData }, { data: tasksData }, { data: assignData }, { data: compData }, { data: starData }, { data: recentData }] = await Promise.all([
+      supabase.from('children').select('*').eq('family_id', fam.familyId).order('name'),
+      supabase.from('tasks').select('id, frequency, start_date, created_at, days_of_week').eq('family_id', fam.familyId),
+      supabase.from('task_assignments').select('task_id, child_id'),
+      supabase.from('completions').select('child_id, date, task_id').eq('status', 'approved').gte('date', thirty),
+      supabase.from('star_ledger').select('child_id, delta, created_at').gte('created_at', thirty + 'T00:00:00'),
+      supabase.from('completions').select('child_id, date').eq('status', 'approved').gte('date', thirty),
     ])
 
     setChildren(childrenData || [])

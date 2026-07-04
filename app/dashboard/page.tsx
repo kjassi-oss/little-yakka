@@ -62,37 +62,30 @@ export default async function DashboardPage() {
   const now = localNow(tz)                          // Date with correct local y/m/d
   const today = localDateStr(new Date(), tz)        // YYYY-MM-DD in user's timezone
 
-  const [{ data: children }, { data: tasks }, { data: assignments }, { data: allStarData }] = await Promise.all([
-    supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
-    supabase.from('tasks').select('*').eq('family_id', guardian.family_id),
-    supabase.from('task_assignments').select('task_id, child_id'),
-    supabase.from('star_ledger').select('child_id, delta'),
-  ])
-
   const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(now.getDate() - 30)
-  const childIds = children?.map(c => c.id) || []
-
   const dayOfWeek = now.getDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
   const weekStart = new Date(now); weekStart.setDate(now.getDate() + mondayOffset); weekStart.setHours(0, 0, 0, 0)
 
-  const [{ data: completions }, { data: recentCompletions }, { data: weekStarData }, { data: allCompletions }] = await Promise.all([
-    supabase.from('completions').select('task_id, child_id, status').eq('date', today)
-      .in('child_id', childIds.length ? childIds : ['none']),
+  // ONE parallel batch — RLS scopes completions/stars/spins to this family,
+  // so no child-id pre-fetch (and no extra round-trip stages) are needed.
+  const [
+    { data: children }, { data: tasks }, { data: assignments }, { data: allStarData },
+    { data: completions }, { data: recentCompletions }, { data: weekStarData }, { data: allCompletions },
+    { data: family }, { data: todaySpins },
+  ] = await Promise.all([
+    supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
+    supabase.from('tasks').select('*').eq('family_id', guardian.family_id),
+    supabase.from('task_assignments').select('task_id, child_id'),
+    supabase.from('star_ledger').select('child_id, delta'),
+    supabase.from('completions').select('task_id, child_id, status').eq('date', today),
     supabase.from('completions').select('child_id, date').eq('status', 'approved')
-      .in('child_id', childIds.length ? childIds : ['none'])
       .gte('date', localDateStr(thirtyDaysAgo, tz)),
     supabase.from('star_ledger').select('child_id, delta')
-      .in('child_id', childIds.length ? childIds : ['none'])
       .gte('created_at', weekStart.toISOString()),
-    supabase.from('completions').select('child_id, task_id').eq('status', 'approved')
-      .in('child_id', childIds.length ? childIds : ['none']),
-  ])
-
-  // Bonus-wheel availability for the home alert badge
-  const [{ data: family }, { data: todaySpins }] = await Promise.all([
+    supabase.from('completions').select('child_id, task_id').eq('status', 'approved'),
     supabase.from('families').select('bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).maybeSingle(),
-    supabase.from('spin_results').select('child_id').eq('date', today).in('child_id', childIds.length ? childIds : ['none']),
+    supabase.from('spin_results').select('child_id').eq('date', today),
   ])
   const bonusCadence = family?.bonus_cadence || 'weekly'
   const bonusDay = family?.bonus_day ?? 0

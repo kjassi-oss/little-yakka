@@ -13,17 +13,11 @@ export default function SideNav() {
   useEffect(() => {
     (async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: guardian } = await supabase
-        .from('guardians').select('family_id').eq('auth_user_id', user.id).single()
-      if (!guardian) return
-      const { data: children } = await supabase
-        .from('children').select('id').eq('family_id', guardian.family_id)
-      if (!children?.length) return
+      // Local session read + RLS-scoped count — a single round trip
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
       const { count } = await supabase.from('redemptions')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'requested').in('child_id', children.map(c => c.id))
+        .select('id', { count: 'exact', head: true }).eq('status', 'requested')
       setPendingCount(count || 0)
     })()
   }, [pathname])

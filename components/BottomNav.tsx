@@ -25,20 +25,13 @@ export default function BottomNav() {
 
   async function loadBadges() {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: guardian } = await supabase
-      .from('guardians').select('family_id').eq('auth_user_id', user.id).single()
-    if (!guardian) return
-    const { data: children } = await supabase
-      .from('children').select('id').eq('family_id', guardian.family_id)
-    if (!children?.length) return
-    const ids = children.map(c => c.id)
+    // getSession reads local storage (no network); RLS scopes both counts to
+    // this family, so no guardian/children lookups are needed — 1 round trip.
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
     const [{ count: redeemCount }, { count: approveCount }] = await Promise.all([
-      supabase.from('redemptions').select('id', { count: 'exact', head: true })
-        .eq('status', 'requested').in('child_id', ids),
-      supabase.from('completions').select('id', { count: 'exact', head: true })
-        .eq('status', 'pending').in('child_id', ids),
+      supabase.from('redemptions').select('id', { count: 'exact', head: true }).eq('status', 'requested'),
+      supabase.from('completions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
     setPendingCount(redeemCount || 0)
     setApprovalCount(approveCount || 0)

@@ -7,6 +7,7 @@ import ProfileButton from '@/components/ProfileButton'
 import { occursOn } from '@/lib/recurrence'
 import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
+import { getCachedFamily } from '@/lib/familyCache'
 import { completionFeedback } from '@/lib/feedback'
 
 // Searchable emoji set (keywords drive the search box)
@@ -146,18 +147,35 @@ export default function ChoresPage() {
 
   async function loadData() {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: guardian } = await supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single()
-    if (!guardian) return
-    setFamilyId(guardian.family_id)
+    // Cached family lookup (no auth/guardian round trips), then ONE parallel
+    // batch — RLS already scopes completions to this family, so the .in(child)
+    // filters that forced a second stage aren't needed.
+    const fam = await getCachedFamily(supabase)
+    if (!fam) return
+    setFamilyId(fam.familyId)
 
     const today = new Date().toISOString().split('T')[0]
-    const [{ data: tasksData }, { data: childrenData }, { data: assignmentsData }, { data: completionsData }] = await Promise.all([
-      supabase.from('tasks').select('*').eq('family_id', guardian.family_id).order('created_at'),
-      supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
+    const winStart = new Date(); winStart.setDate(winStart.getDate() - 14)
+    const [
+      { data: tasksData }, { data: childrenData }, { data: assignmentsData }, { data: completionsData },
+      { data: historyData }, { data: approvalData }, { data: winData },
+    ] = await Promise.all([
+      supabase.from('tasks').select('*').eq('family_id', fam.familyId).order('created_at'),
+      supabase.from('children').select('*').eq('family_id', fam.familyId).order('name'),
       supabase.from('task_assignments').select('task_id, child_id'),
       supabase.from('completions').select('task_id, child_id, status').eq('date', today),
+      supabase.from('completions')
+        .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(120),
+      supabase.from('completions')
+        .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase.from('completions')
+        .select('id, task_id, child_id, date, status')
+        .gte('date', ymdLocal(winStart)).lte('date', ymdLocal(new Date())),
     ])
 
     const map: Record<string, string[]> = {}
@@ -169,34 +187,11 @@ export default function ChoresPage() {
       completionsData?.filter(c => c.status === 'approved' || c.status === 'pending')
         .map(c => `${c.task_id}-${c.child_id}`) || []
     ))
-    setPageLoading(false)
-
-    // Completion history + pending approvals (moved here from the old History page)
-    const childIds = childrenData?.map(c => c.id) || []
-    const [{ data: historyData }, { data: approvalData }] = await Promise.all([
-      supabase.from('completions')
-        .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
-        .eq('status', 'approved')
-        .in('child_id', childIds.length ? childIds : ['none'])
-        .order('created_at', { ascending: false })
-        .limit(120),
-      supabase.from('completions')
-        .select('id, date, child_id, tasks(title, emoji, star_value), children(name, avatar, colour, avatar_url)')
-        .eq('status', 'pending')
-        .in('child_id', childIds.length ? childIds : ['none'])
-        .order('created_at', { ascending: false }),
-    ])
     setHistory((historyData as any) || [])
     setPendingApprovals((approvalData as any) || [])
-
-    // Completions across the Upcoming window (past 2 weeks → today) for done/missed state
-    const winStart = new Date(); winStart.setDate(winStart.getDate() - 14)
-    const { data: winData } = await supabase.from('completions')
-      .select('id, task_id, child_id, date, status')
-      .in('child_id', childIds.length ? childIds : ['none'])
-      .gte('date', ymdLocal(winStart)).lte('date', ymdLocal(new Date()))
     setWindowComps((winData || []).filter(c => c.status === 'approved' || c.status === 'pending')
       .map(c => ({ id: c.id, task_id: c.task_id, child_id: c.child_id, date: c.date })))
+    setPageLoading(false)
 
     // Up-for-grabs claims: first completion (any child, any date) claims the task
     const ufgIds = (tasksData || []).filter((t: any) => t.up_for_grabs).map(t => t.id)

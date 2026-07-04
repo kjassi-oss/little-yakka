@@ -8,6 +8,7 @@ import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
+import { compressImage } from '@/lib/imageCompress'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -214,9 +215,10 @@ export default function SettingsPage() {
       .insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
       .select('id').single()
     if (created && newChildPhoto) {
-      const ext = newChildPhoto.name.split('.').pop()
+      const photo = await compressImage(newChildPhoto)
+      const ext = photo.name.split('.').pop()
       const path = `${familyId}/${created.id}/avatar.${ext}`
-      const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, newChildPhoto, { upsert: true })
+      const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, photo, { upsert: true })
       if (!upErr) {
         const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
         await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
@@ -307,9 +309,10 @@ export default function SettingsPage() {
     loadData()
   }
 
-  async function uploadChildPhoto(childId: string, file: File) {
+  async function uploadChildPhoto(childId: string, rawFile: File) {
     setUploadingPhotoId(childId)
     const supabase = createClient()
+    const file = await compressImage(rawFile)
     const ext = file.name.split('.').pop()
     const path = `${familyId}/${childId}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage.from('kid-avatars').upload(path, file, { upsert: true })
