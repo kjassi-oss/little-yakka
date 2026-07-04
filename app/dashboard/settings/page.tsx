@@ -7,6 +7,7 @@ import LoadingLogo from '@/components/LoadingLogo'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
+import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -32,7 +33,10 @@ const COLOURS = [
   '#EE5A24','#C0392B','#6C5CE7','#00B894','#E17055','#74B9FF','#A29BFE','#55EFC4',
 ]
 
-interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
+interface Child {
+  id: string; name: string; avatar: string; colour: string; avatar_url?: string
+  goal_title?: string | null; goal_emoji?: string | null; goal_target?: number | null
+}
 
 export default function SettingsPage() {
   const [children, setChildren] = useState<Child[]>([])
@@ -80,6 +84,8 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState('')
   const [manualLog, setManualLog] = useState<{ id: string; child_id: string; delta: number; reason: string | null; created_at: string }[]>([])
   const [manualOpen, setManualOpen] = useState(false)
+  const [notifStatus, setNotifStatus] = useState<'checking' | 'unsupported' | 'off' | 'on' | 'denied'>('checking')
+  const [notifBusy, setNotifBusy] = useState(false)
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const newChildPhotoRef = useRef<HTMLInputElement>(null)
 
@@ -126,6 +132,54 @@ export default function SettingsPage() {
       setManualLog(ml || [])
     }
     setLoading(false)
+  }
+
+  // ── Push notifications ─────────────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setNotifStatus('unsupported'); return
+      }
+      if (Notification.permission === 'denied') { setNotifStatus('denied'); return }
+      try {
+        const reg = await navigator.serviceWorker.getRegistration()
+        const sub = await reg?.pushManager.getSubscription()
+        setNotifStatus(sub ? 'on' : 'off')
+      } catch { setNotifStatus('off') }
+    })()
+  }, [])
+
+  async function enableNotifications() {
+    setNotifBusy(true)
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') { setNotifStatus('denied'); return }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+      })
+      const json = sub.toJSON() as any
+      await createClient().from('push_subscriptions').upsert({
+        family_id: familyId, endpoint: sub.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth,
+      }, { onConflict: 'endpoint' })
+      setNotifStatus('on')
+    } catch {
+      setNotifStatus('off')
+    } finally { setNotifBusy(false) }
+  }
+
+  async function disableNotifications() {
+    setNotifBusy(true)
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      const sub = await reg?.pushManager.getSubscription()
+      if (sub) {
+        await createClient().from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+        await sub.unsubscribe()
+      }
+      setNotifStatus('off')
+    } finally { setNotifBusy(false) }
   }
 
   async function saveTz(tz: string) {
@@ -234,9 +288,16 @@ export default function SettingsPage() {
   async function saveEditChild() {
     if (!editingChild) return
     setSaving(true)
-    await createClient().from('children').update({
-      name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour,
-    }).eq('id', editingChild.id)
+    const supabase = createClient()
+    const base = { name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour }
+    const goal = {
+      goal_title: editingChild.goal_title?.trim() || null,
+      goal_emoji: editingChild.goal_emoji?.trim() || null,
+      goal_target: editingChild.goal_target || null,
+    }
+    // Include the savings goal; retry without it if the columns don't exist yet
+    const { error } = await supabase.from('children').update({ ...base, ...goal }).eq('id', editingChild.id)
+    if (error) await supabase.from('children').update(base).eq('id', editingChild.id)
     setEditingChild(null); setSaving(false); loadData()
   }
 
@@ -502,6 +563,34 @@ export default function SettingsPage() {
           <p className="text-[11px] text-gray-400">Current: <span className="font-semibold text-gray-600">{timezone}</span></p>
         </div>
 
+        {/* Push notifications */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-1">🔔 Notifications</h2>
+          <p className="text-xs text-gray-400 mb-3">Get a nudge on this device when tasks are done, rewards are redeemed, and when tasks are still waiting in the evening.</p>
+          {notifStatus === 'unsupported' && (
+            <p className="text-xs text-gray-400 bg-gray-50 rounded-2xl p-3">This browser doesn't support notifications. On iPhone, add Little Yakka to your Home Screen first (Share → Add to Home Screen), then enable here.</p>
+          )}
+          {notifStatus === 'denied' && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-2xl p-3">Notifications are blocked for this site — allow them in your browser settings, then come back.</p>
+          )}
+          {(notifStatus === 'off' || notifStatus === 'checking') && (
+            <button onClick={enableNotifications} disabled={notifBusy || notifStatus === 'checking'}
+              className="w-full text-white font-bold py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
+              style={{ background: 'var(--theme-gradient)' }}>
+              {notifBusy ? 'Enabling…' : 'Enable notifications on this device'}
+            </button>
+          )}
+          {notifStatus === 'on' && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-green-600">✓ Notifications are on</p>
+              <button onClick={disableNotifications} disabled={notifBusy}
+                className="text-xs font-semibold text-gray-400 px-3 py-2 rounded-xl bg-gray-50 active:scale-95 transition disabled:opacity-50">
+                Turn off
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Children */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
@@ -582,6 +671,23 @@ export default function SettingsPage() {
                         ))}
                       </div>
                     </div>
+                    {/* Savings goal — shown as a filling star jar in the kid zone */}
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-xs font-bold text-gray-600 mb-0.5">🏦 Savings goal <span className="text-gray-300 font-normal">(optional)</span></p>
+                      <p className="text-[11px] text-gray-400 mb-2">Something to save stars for — e.g. 🛴 Scooter, 200 ⭐</p>
+                      <div className="flex gap-2">
+                        <input type="text" value={editingChild.goal_emoji || ''} maxLength={4}
+                          onChange={e => setEditingChild({ ...editingChild, goal_emoji: e.target.value })}
+                          className="w-14 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="🛴"/>
+                        <input type="text" value={editingChild.goal_title || ''}
+                          onChange={e => setEditingChild({ ...editingChild, goal_title: e.target.value })}
+                          className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Goal name"/>
+                        <input type="number" inputMode="numeric" min={1} value={editingChild.goal_target || ''}
+                          onChange={e => setEditingChild({ ...editingChild, goal_target: Number(e.target.value) || null })}
+                          className="w-20 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="⭐"/>
+                      </div>
+                    </div>
+
                     <div className="flex gap-2">
                       <button onClick={() => setEditingChild(null)} className="flex-1 border border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm">Cancel</button>
                       <button onClick={saveEditChild} disabled={saving}

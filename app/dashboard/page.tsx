@@ -5,6 +5,7 @@ import Link from 'next/link'
 import PraiseButton from '@/components/PraiseButton'
 import ProfileButton from '@/components/ProfileButton'
 import TaskLauncher from '@/components/TaskLauncher'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { occursOn } from '@/lib/recurrence'
 import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
 
@@ -126,6 +127,7 @@ export default async function DashboardPage() {
     const childTasks = (tasks || []).filter(t => (assignmentMap[t.id] || []).includes(childId))
     if (childTasks.length === 0) return 0
     let streak = 0
+    let lastFreeze = -99
     for (let i = 0; i < 45; i++) {
       const d = new Date(now); d.setDate(now.getDate() - i)
       const ds = localDateStr(d, tz)
@@ -134,6 +136,7 @@ export default async function DashboardPage() {
       const done = doneCount[`${childId}|${ds}`] || 0
       if (done >= due) streak++
       else if (i === 0) continue // today still in progress — don't break the streak yet
+      else if (i - lastFreeze > 7) { lastFreeze = i; continue } // streak freeze 🧊 — one slip per week forgiven
       else break
     }
     return streak
@@ -212,18 +215,11 @@ export default async function DashboardPage() {
                   </div>
 
                   <Link href={`/kid-mode/${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
-                    {/* Avatar */}
-                    <div className="relative w-14 h-14 mx-auto mb-1.5">
-                      {child.avatar_url
-                        ? <img src={child.avatar_url} className="w-14 h-14 rounded-2xl object-cover"
-                            style={{ border: `3px solid ${child.colour}` }} alt=""/>
-                        : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
-                            style={{ backgroundColor: child.colour + '25', border: `3px solid ${child.colour}40` }}>
-                            {child.avatar}
-                          </div>
-                      }
+                    {/* Avatar (with any equipped style-shop hat/frame) */}
+                    <div className="relative w-14 h-14 mx-auto mb-1.5 mt-2">
+                      <DecoratedAvatar child={child} size={56}/>
                       {allDone && (
-                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow">
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow z-10">
                           <span className="text-white text-[10px] font-black">✓</span>
                         </div>
                       )}

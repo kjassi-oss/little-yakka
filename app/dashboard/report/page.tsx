@@ -20,7 +20,13 @@ function computeStreak(dates: string[]): number {
   // Today may still be in progress — a blank today shouldn't zero the streak
   if (!set.has(local(check))) check.setDate(check.getDate() - 1)
   let streak = 0
-  while (set.has(local(check))) { streak++; check.setDate(check.getDate() - 1) }
+  let sinceFreeze = 99 // streak freeze 🧊 — forgive one missed day per rolling week
+  for (let i = 0; i < 90; i++) {
+    if (set.has(local(check))) { streak++; sinceFreeze++ }
+    else if (sinceFreeze > 7) { sinceFreeze = 0 }
+    else break
+    check.setDate(check.getDate() - 1)
+  }
   return streak
 }
 

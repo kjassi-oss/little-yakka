@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SpinWheel from '@/components/SpinWheel'
 import { completionFeedback, redeemFeedback } from '@/lib/feedback'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
+import StarJar from '@/components/StarJar'
+import BuddyGreeting from '@/components/BuddyGreeting'
+import TrophyShelf from '@/components/TrophyShelf'
+import StyleShop from '@/components/StyleShop'
 
 interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean; upForGrabs?: boolean }
 
@@ -14,7 +19,11 @@ function sortOccs(occs: Occurrence[]) {
     (TIME_SORT[a.time_of_day ?? 'anytime'] ?? 0) - (TIME_SORT[b.time_of_day ?? 'anytime'] ?? 0)
   )
 }
-interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
+interface Child {
+  id: string; name: string; avatar: string; colour: string; avatar_url?: string
+  goal_title?: string | null; goal_emoji?: string | null; goal_target?: number | null
+  equipped_hat?: string | null; equipped_frame?: string | null
+}
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
 interface Praise { id: string; message: string }
 interface DoneItem { key: string; date: string; createdAt: string; title: string; emoji: string; starValue: number }
@@ -39,6 +48,8 @@ interface Props {
   unseenPraises: Praise[]
   highlightTaskId?: string | null
   autoSpin?: boolean
+  totalCompletions: number
+  unlockedIds: string[]
 }
 
 const RAINBOW = 'var(--theme-gradient)'
@@ -65,6 +76,7 @@ export default function ChildTaskView({
   starBalance: initialBalance, rewards, pendingRewardIds: initialPending,
   hasSpunToday, bonusCadence, bonusDay, bonusTime, maxPrize,
   streakDays, doneHistory, unseenPraises, highlightTaskId, autoSpin,
+  totalCompletions, unlockedIds,
 }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<'tasks' | 'done'>('tasks')
@@ -83,6 +95,9 @@ export default function ChildTaskView({
   const [claimBurst, setClaimBurst] = useState<{ stars: number; emoji: string } | null>(null)
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
+  const [showShop, setShowShop] = useState(false)
+  const [equippedHat, setEquippedHat] = useState<string | null>(child.equipped_hat ?? null)
+  const [equippedFrame, setEquippedFrame] = useState<string | null>(child.equipped_frame ?? null)
 
   // canSpin uses LOCAL device time (avoids UTC mismatch on server)
   useEffect(() => {
@@ -137,6 +152,11 @@ export default function ChildTaskView({
       child_id: child.id, delta: occ.star_value,
       reason: `Completed: ${occ.title}`, source_type: 'completion', source_id: completion?.id,
     })
+    // Nudge the family's subscribed devices (fire-and-forget)
+    fetch('/api/push/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '⭐ Task done!', body: `${child.name.split(' ')[0]} finished "${occ.title}" (+${occ.star_value} ⭐)` }),
+    }).catch(() => {})
     setJustClaimedId(occ.id)
     setTimeout(() => setJustClaimedId(null), 600)
     setClaimBurst({ stars: occ.star_value, emoji: occ.emoji })
@@ -293,12 +313,23 @@ export default function ChildTaskView({
     )
   }
 
+  const todayOccs = occurrences.filter(o => o.date === todayStr)
+  const tasksLeftToday = todayOccs.filter(o => !completed.has(o.id)).length
+  const allDoneToday = todayOccs.length > 0 && tasksLeftToday === 0
+
   return (
-    <div className="min-h-screen bg-white pb-32 relative">
+    <div className="min-h-screen pb-32 relative"
+      style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--theme-from) 10%, white) 0%, #ffffff 55%)' }}>
+      {/* Floating background shapes — soft and kid-friendly, never in the way */}
+      {['⭐', '✨', '☁️', '⭐', '☁️', '✨'].map((e, i) => (
+        <span key={`bg-${i}`} className="fixed select-none pointer-events-none float-drift"
+          style={{ top: `${[10, 20, 34, 56, 72, 86][i]}%`, left: `${[6, 85, 10, 88, 4, 82][i]}%`,
+            fontSize: [22, 16, 30, 20, 26, 15][i], opacity: 0.15, animationDelay: `${i * 0.8}s`, zIndex: 0 }}>{e}</span>
+      ))}
       {claimBurst && <ClaimBurst stars={claimBurst.stars} emoji={claimBurst.emoji} colour={child.colour}/>}
 
       {/* Header */}
-      <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
+      <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100 relative z-10">
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto"/>
           <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -312,31 +343,45 @@ export default function ChildTaskView({
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 pt-4 space-y-3">
+      <div className="max-w-sm mx-auto px-4 pt-4 space-y-3 relative z-10">
 
-        {/* Stats row */}
+        {/* Yakka buddy greeting */}
+        <BuddyGreeting name={child.name.split(' ')[0]} tasksLeft={tasksLeftToday} allDone={allDoneToday}/>
+
+        {/* Stats row — decorated avatar (tap for Style Shop) + week star jar */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
-          {child.avatar_url
-            ? <img src={child.avatar_url} className="w-14 h-14 rounded-2xl object-cover flex-shrink-0"
-                style={{ border: `2px solid ${child.colour}` }} alt=""/>
-            : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                style={{ backgroundColor: child.colour + '22', border: `2px solid ${child.colour}44` }}>
-                {child.avatar}
-              </div>}
+          <button onClick={() => setShowShop(true)} className="relative flex-shrink-0 active:scale-95 transition mt-2" aria-label="Style shop">
+            <DecoratedAvatar child={{ ...child, equipped_hat: equippedHat, equipped_frame: equippedFrame }} size={56}/>
+            <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm">✨</span>
+          </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap text-sm font-bold text-gray-700 mb-1.5">
+            <div className="flex items-center gap-3 flex-wrap text-sm font-bold text-gray-700">
               <span>📋 {claimableDone}/{claimable.length} this week</span>
               <span>⭐ {starBalance}</span>
               {streakDays > 0 && <span className="text-orange-500">🔥 {streakDays}d streak</span>}
             </div>
-            {claimable.length > 0 && (
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${progress}%`, backgroundColor: child.colour }}/>
-              </div>
-            )}
+            <p className="text-[11px] text-gray-400 font-semibold mt-1">Tap your picture to visit the ✨ Style Shop</p>
           </div>
+          {claimable.length > 0 && <StarJar done={claimableDone} total={claimable.length} label="this week"/>}
         </div>
+
+        {/* Savings goal jar */}
+        {!!child.goal_target && child.goal_target > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+            <StarJar done={starBalance} total={child.goal_target} width={46} height={60}/>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">Saving up for</p>
+              <p className="font-black text-gray-800 truncate">{child.goal_emoji || '🎁'} {child.goal_title || 'My goal'}</p>
+              <p className="text-xs font-semibold text-gray-400">⭐ {starBalance} / {child.goal_target}</p>
+              {starBalance >= child.goal_target && (
+                <p className="text-xs font-black text-green-500 mt-0.5 animate-pulse">🎉 GOAL REACHED — tell a grown-up!</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Trophy shelf */}
+        <TrophyShelf stars={starBalance} streak={streakDays} completions={totalCompletions}/>
 
         {/* Tabs */}
         <div className="flex bg-gray-100 rounded-2xl p-1">
@@ -450,8 +495,13 @@ export default function ChildTaskView({
       </div>
 
       {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 px-4 pb-6 pt-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 px-4 pb-6 pt-3 z-10">
         <div className="max-w-sm mx-auto flex items-center gap-3">
+          <button onClick={() => setShowShop(true)}
+            className="flex-shrink-0 flex items-center justify-center gap-1 font-bold py-3 px-4 rounded-2xl border-2 bg-white shadow-sm active:scale-95 transition"
+            style={{ borderColor: 'var(--theme-from)', color: 'var(--theme-from)' }}>
+            ✨
+          </button>
           {rewards.length > 0 && (
             <button onClick={() => setShowRewards(true)}
               className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-2xl shadow-sm active:scale-95 transition"
@@ -477,6 +527,13 @@ export default function ChildTaskView({
       {showSpin && (
         <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} maxPrize={maxPrize}
           onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
+      )}
+      {showShop && (
+        <StyleShop child={child} starBalance={starBalance} unlocked={new Set(unlockedIds)}
+          equippedHat={equippedHat} equippedFrame={equippedFrame}
+          onSpend={cost => setStarBalance(b => b - cost)}
+          onEquip={(kind, id) => kind === 'hat' ? setEquippedHat(id) : setEquippedFrame(id)}
+          onClose={() => setShowShop(false)}/>
       )}
     </div>
   )

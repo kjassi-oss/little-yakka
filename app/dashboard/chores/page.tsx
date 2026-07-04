@@ -241,6 +241,11 @@ export default function ChoresPage() {
       child_id: childId, delta: task.star_value || 0,
       reason: `Completed: ${task.title}`, source_type: 'completion', source_id: completion?.id,
     })
+    // Nudge the family's subscribed devices (fire-and-forget)
+    fetch('/api/push/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '⭐ Task done!', body: `${child?.name.split(' ')[0] || 'Someone'} finished "${task.title}" (+${task.star_value} ⭐)` }),
+    }).catch(() => {})
     loadData()
   }
 

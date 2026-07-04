@@ -162,6 +162,11 @@ export default function RewardsPage() {
       child_id: childId, delta: -(reward.star_cost),
       reason: `Redeemed: ${reward.title}`, source_type: 'redemption', source_id: redemption?.id,
     })
+    // Nudge the family's subscribed devices (fire-and-forget)
+    fetch('/api/push/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '🎁 Reward redeemed!', body: `${child?.name.split(' ')[0] || 'Someone'} redeemed "${reward.title}" (−${reward.star_cost} ⭐)` }),
+    }).catch(() => {})
     loadData()
   }
 

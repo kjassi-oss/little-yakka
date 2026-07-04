@@ -126,3 +126,16 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 .claim-pop { animation: claimPop 0.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
+
+/* Kid-zone glow-up: mascot wobble + drifting background shapes */
+@keyframes buddyWobble {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(5deg) translateY(-2px); }
+}
+.buddy-wobble { display: inline-block; animation: buddyWobble 2.4s ease-in-out infinite; transform-origin: 50% 80%; }
+
+@keyframes floatDrift {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+.float-drift { animation: floatDrift 5.5s ease-in-out infinite; }

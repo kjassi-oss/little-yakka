@@ -87,3 +87,40 @@ grant execute on function public.accept_invitation(text, text) to authenticated;
 --    (first done wins). Optional expiry date; blank = open until claimed.
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS up_for_grabs boolean DEFAULT false;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS expires_on date;
+
+-- 8) v1.1 features: push notifications, savings goals, avatar style shop
+-- Push subscriptions (one row per device that enabled notifications)
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  endpoint text unique not null,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz default now()
+);
+alter table push_subscriptions enable row level security;
+drop policy if exists push_subs_family on push_subscriptions;
+create policy push_subs_family on push_subscriptions for all
+  using (family_id in (select family_id from guardians where auth_user_id = auth.uid()))
+  with check (family_id in (select family_id from guardians where auth_user_id = auth.uid()));
+
+-- Savings goal per child ("Save 200 stars for a scooter")
+alter table children add column if not exists goal_title text;
+alter table children add column if not exists goal_emoji text;
+alter table children add column if not exists goal_target int;
+
+-- Avatar style shop (hats + frames bought with stars)
+alter table children add column if not exists equipped_hat text;
+alter table children add column if not exists equipped_frame text;
+create table if not exists child_unlocks (
+  id uuid primary key default gen_random_uuid(),
+  child_id uuid not null references children(id) on delete cascade,
+  item_id text not null,
+  created_at timestamptz default now(),
+  unique (child_id, item_id)
+);
+alter table child_unlocks enable row level security;
+drop policy if exists child_unlocks_family on child_unlocks;
+create policy child_unlocks_family on child_unlocks for all
+  using (child_id in (select id from children where family_id in (select family_id from guardians where auth_user_id = auth.uid())))
+  with check (child_id in (select id from children where family_id in (select family_id from guardians where auth_user_id = auth.uid())));

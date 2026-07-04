@@ -111,16 +111,27 @@ export default async function ChildPage({ params, searchParams }: {
     .from('redemptions').select('reward_id').eq('child_id', childId).eq('status', 'requested')
   const pendingRewardIds = pendingRedemptions?.map(r => r.reward_id) || []
 
-  // Streak
+  // Trophy + style-shop data
+  const [{ count: totalCompletions }, { data: unlockRows }] = await Promise.all([
+    supabase.from('completions').select('id', { count: 'exact', head: true })
+      .eq('child_id', childId).eq('status', 'approved'),
+    supabase.from('child_unlocks').select('item_id').eq('child_id', childId),
+  ])
+  const unlockedIds = (unlockRows || []).map(r => r.item_id as string)
+
+  // Streak — uses the 30-day history, with a 🧊 freeze: one missed day per
+  // rolling 7 days is forgiven so a single slip doesn't wipe a long streak.
   let streakDays = 0
+  let lastFreeze = -99
   for (let i = 0; i < 30; i++) {
     const d = new Date(now); d.setDate(now.getDate() - i)
     const ds = localDateStr(d, tz)
     const tasksOnDay = allTasks.filter((t: any) => occursOn(t, d))
     if (tasksOnDay.length === 0) continue
-    const doneOnDay = (completions || []).filter(c => c.date === ds).length
+    const doneOnDay = (completedHistory || []).filter(c => c.date === ds).length
     if (doneOnDay >= tasksOnDay.length) streakDays++
-    else if (i === 0) continue
+    else if (i === 0) continue // today still in progress
+    else if (i - lastFreeze > 7) { lastFreeze = i; continue } // streak freeze 🧊
     else break
   }
 
@@ -196,6 +207,8 @@ export default async function ChildPage({ params, searchParams }: {
       unseenPraises={unseenPraises || []}
       highlightTaskId={highlightTaskId || null}
       autoSpin={autoSpin === '1'}
+      totalCompletions={totalCompletions ?? 0}
+      unlockedIds={unlockedIds}
     />
   )
 }
