@@ -105,6 +105,8 @@ export default function ChoresPage() {
   const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
   const [pastWindow, setPastWindow] = useState(0) // days of history shown in Upcoming (0 = today only; max 7)
   const [burst, setBurst] = useState<{ colour: string; emoji: string; title: string; sub?: string } | null>(null)
+  // Themed confirmation dialog (replaces browser confirm() popups)
+  const [confirmAsk, setConfirmAsk] = useState<{ emoji: string; title: string; sub: string; onConfirm: () => void } | null>(null)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -112,10 +114,10 @@ export default function ChoresPage() {
   const [type, setType] = useState<'chore' | 'routine'>('chore')
   const [timeOfDay, setTimeOfDay] = useState('anytime')
   const [startDate, setStartDate] = useState('')
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([])
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6])
   const [emojiSearch, setEmojiSearch] = useState('')
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
-  const [carryOver, setCarryOver] = useState(true)
+  const [carryOver, setCarryOver] = useState(false)
   const [starValue, setStarValue] = useState(3)
   const [requiresPhoto, setRequiresPhoto] = useState(false)
   const [requiresBenchmarkPhoto, setRequiresBenchmarkPhoto] = useState(false)
@@ -126,7 +128,7 @@ export default function ChoresPage() {
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [requiresApproval, setRequiresApproval] = useState(false)
-  const [canDoEarly, setCanDoEarly] = useState(true)
+  const [canDoEarly, setCanDoEarly] = useState(false)
   const [upForGrabs, setUpForGrabs] = useState(false)
   const [expiresOn, setExpiresOn] = useState('')
   // Up-for-grabs claim state: task_id -> completion row (any child, any date)
@@ -214,15 +216,22 @@ export default function ChoresPage() {
     })
   }
 
-  async function undoUpcoming(comp: { id: string; child_id: string }, task: Task, childName: string) {
-    if (!confirm(`Undo "${task.title}"${childName ? ' for ' + childName : ''}? This removes the stars.`)) return
-    const supabase = createClient()
-    await supabase.from('completions').delete().eq('id', comp.id)
-    await supabase.from('star_ledger').insert({
-      child_id: comp.child_id, delta: -(task.star_value || 0),
-      reason: `Undo: ${task.title}`, source_type: 'undo',
+  function undoUpcoming(comp: { id: string; child_id: string }, task: Task, childName: string) {
+    setConfirmAsk({
+      emoji: task.emoji,
+      title: `Undo "${task.title}"${childName ? ` for ${childName}` : ''}?`,
+      sub: `This gives back ${task.star_value} ⭐`,
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        const supabase = createClient()
+        await supabase.from('completions').delete().eq('id', comp.id)
+        await supabase.from('star_ledger').insert({
+          child_id: comp.child_id, delta: -(task.star_value || 0),
+          reason: `Undo: ${task.title}`, source_type: 'undo',
+        })
+        loadData()
+      },
     })
-    loadData()
   }
 
   // Complete a task occurrence for a specific child straight from the Upcoming list
@@ -281,12 +290,12 @@ export default function ChoresPage() {
   function openNewForm() {
     setEditingTaskId(null)
     setTitle(''); setEmoji('⭐'); setType('chore'); setTimeOfDay('anytime')
-    setFrequency('daily'); setCarryOver(true); setStarValue(3)
+    setFrequency('daily'); setCarryOver(false); setStarValue(3)
     setStartDate(new Date().toISOString().split('T')[0])
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
-    setRequiresApproval(false); setCanDoEarly(true); setDaysOfWeek([])
+    setRequiresApproval(false); setCanDoEarly(false); setDaysOfWeek([0, 1, 2, 3, 4, 5, 6])
     setUpForGrabs(false); setExpiresOn('')
     setFormError('')
     setShowForm(true)
@@ -306,7 +315,7 @@ export default function ChoresPage() {
     setDifficulty((task as any).difficulty || 'medium')
     setRequiresApproval((task as any).requires_approval || false)
     setCanDoEarly((task as any).can_do_early ?? true)
-    setDaysOfWeek(task.days_of_week || [])
+    setDaysOfWeek(task.days_of_week?.length ? task.days_of_week : [0, 1, 2, 3, 4, 5, 6])
     setUpForGrabs((task as any).up_for_grabs ?? false)
     setExpiresOn((task as any).expires_on || '')
     setFormError('')
@@ -396,17 +405,24 @@ export default function ChoresPage() {
     loadData()
   }
 
-  async function undoCompletion(row: HistoryRow) {
-    if (!confirm(`Undo "${row.tasks?.title}" for ${row.children?.name}? This removes the stars.`)) return
-    const supabase = createClient()
-    await supabase.from('completions').delete().eq('id', row.id)
-    await supabase.from('star_ledger').insert({
-      child_id: row.child_id,
-      delta: -(row.tasks?.star_value || 0),
-      reason: `Undo: ${row.tasks?.title}`,
-      source_type: 'undo',
+  function undoCompletion(row: HistoryRow) {
+    setConfirmAsk({
+      emoji: row.tasks?.emoji || '📋',
+      title: `Undo "${row.tasks?.title}" for ${row.children?.name?.split(' ')[0] || 'this child'}?`,
+      sub: `This gives back ${row.tasks?.star_value || 0} ⭐`,
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        const supabase = createClient()
+        await supabase.from('completions').delete().eq('id', row.id)
+        await supabase.from('star_ledger').insert({
+          child_id: row.child_id,
+          delta: -(row.tasks?.star_value || 0),
+          reason: `Undo: ${row.tasks?.title}`,
+          source_type: 'undo',
+        })
+        loadData()
+      },
     })
-    loadData()
   }
 
   const childMap: Record<string, Child> = {}
@@ -510,9 +526,11 @@ export default function ChoresPage() {
                   className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                   placeholder="🔍 Search icons (e.g. bed, teeth, dog)"/>
               </div>
-              <div className="grid grid-cols-7 gap-1 max-h-40 overflow-y-auto p-1 bg-gray-50 rounded-2xl">
+              {/* 3 rows max, no scrolling — use the search box to find more */}
+              <div className="grid grid-cols-7 gap-1 p-1 bg-gray-50 rounded-2xl">
                 {EMOJI_OPTIONS
                   .filter(o => { const q = emojiSearch.trim().toLowerCase(); return !q || o.kw.includes(q) })
+                  .slice(0, 21)
                   .map((o, i) => (
                     <button key={`${o.e}-${i}`} onClick={() => setEmoji(o.e)}
                       className={`text-2xl p-1.5 rounded-xl transition ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'hover:bg-white'}`}>
@@ -572,28 +590,27 @@ export default function ChoresPage() {
                     )
                   })}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">Leave all off for every day, or pick specific days.</p>
+                <p className="text-[11px] text-gray-400 mt-1">All days are on by default — tap to deselect the ones you don't need.</p>
               </div>
             )}
             </>)}
 
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Time of day</p>
-              <div className="grid grid-cols-2 gap-2">
-                {TIME_OPTIONS.map(opt => (
-                  <button key={opt.value} onClick={() => setTimeOfDay(opt.value)}
-                    className={`py-2 rounded-2xl text-xs font-semibold transition ${timeOfDay === opt.value ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-                    style={timeOfDay === opt.value ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
-                    {opt.label}
-                  </button>
-                ))}
+            {/* Time of day + start date on one row */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <p className="text-xs text-gray-500 mb-2">Time of day</p>
+                <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}
+                  className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                  {TIME_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Start date <span className="text-gray-300">(optional — defaults to today)</span></p>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+              <div className="flex-1">
+                <p className="text-xs text-gray-500 mb-2">Start date</p>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+              </div>
             </div>
 
             {!upForGrabs && (<>
@@ -620,9 +637,15 @@ export default function ChoresPage() {
             </>)}
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">Stars to earn: <span className="font-bold text-yellow-500">⭐ {starValue}</span></p>
-              <input type="range" min={1} max={250} value={starValue} onChange={e => setStarValue(Number(e.target.value))} className="w-full"/>
-              <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>50</span><span>100</span><span>250</span></div>
+              <p className="text-xs text-gray-500 mb-2">Stars to earn ⭐</p>
+              <div className="flex items-center gap-3">
+                <input type="range" min={1} max={50} value={Math.min(starValue, 50)}
+                  onChange={e => setStarValue(Number(e.target.value))} className="flex-1"/>
+                <input type="number" inputMode="numeric" min={1} value={starValue}
+                  onChange={e => setStarValue(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-20 border border-gray-200 rounded-xl px-2 py-2 text-center font-black text-yellow-500 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>25</span><span>50 · or type any number →</span></div>
             </div>
 
             <div className="flex items-center justify-between py-1">
@@ -965,8 +988,8 @@ export default function ChoresPage() {
                                   style={{ background: 'var(--theme-gradient)' }}>DONE</button>
                               )
                             ) : (
-                              <div className="flex gap-1 flex-wrap justify-end max-w-[92px]">
-                                {kids.map(child => {
+                              <div className="flex gap-1 justify-end flex-shrink-0">
+                                {kids.slice(0, 3).map(child => {
                                   const done = compKey.has(`${task.id}|${child.id}|${ds}`)
                                   return (
                                     <div key={child.id} className="relative flex-shrink-0" title={child.name.split(' ')[0]}>
@@ -1043,6 +1066,29 @@ export default function ChoresPage() {
       </div>
 
       {burst && <CelebrationBurst colour={burst.colour} emoji={burst.emoji} title={burst.title} sub={burst.sub} onDone={() => setBurst(null)} />}
+
+      {/* Themed confirmation dialog */}
+      {confirmAsk && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6" onClick={() => setConfirmAsk(null)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
+              style={{ border: '2px solid var(--theme-from)' }}>{confirmAsk.emoji}</div>
+            <h3 className="text-lg font-black text-gray-800 leading-tight mb-1">{confirmAsk.title}</h3>
+            <p className="text-sm font-semibold text-gray-400 mb-5">{confirmAsk.sub}</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmAsk(null)}
+                className="flex-1 py-3 rounded-2xl font-black text-sm text-white shadow active:scale-95 transition"
+                style={{ background: 'var(--theme-gradient)' }}>
+                Keep it ✓
+              </button>
+              <button onClick={confirmAsk.onConfirm}
+                className="flex-1 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
+                Undo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Large + FAB — add a task / reward */}
       {!showForm && (

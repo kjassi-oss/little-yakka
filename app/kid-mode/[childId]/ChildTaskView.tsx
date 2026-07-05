@@ -55,6 +55,22 @@ interface Props {
 const RAINBOW = 'var(--theme-gradient)'
 const CELEBRATION_EMOJIS = ['⭐','🎉','✨','🌟','🎊','💫','🏆','🥳','🎈','🌈']
 
+// 12 random cheers shown when a task is completed
+const CHEERS = [
+  'Whoooo whooooooo! 🥳',
+  'Great work, little one! 🌟',
+  'Clap clap clap! 👏👏👏',
+  'Fireworks for YOU! 🎆',
+  'You absolute legend! 🏆',
+  'Keep up the great work! 💪',
+  'Superstar move! ⭐',
+  'High five! ✋',
+  'BOOM! Nailed it! 💥',
+  "You're on fire! 🔥",
+  'Amazing effort! 🎈',
+  'Champion work! 👑',
+]
+
 function dateLabel(ds: string, todayStr: string): string {
   if (ds === todayStr) return 'Today'
   const tomorrow = new Date(todayStr + 'T00:00:00')
@@ -83,8 +99,8 @@ export default function ChildTaskView({
   // Local copies so the Done tab and My Rewards update live as the kid taps
   const [doneList, setDoneList] = useState<DoneItem[]>(doneHistory)
   const [myRewardsList, setMyRewardsList] = useState<MyReward[]>(myRewards)
-  const [showPast, setShowPast] = useState(false)
   const [pulseId, setPulseId] = useState<string | null>(highlightTaskId ? `${highlightTaskId}|${todayStr}` : null)
+  const [pendingUndo, setPendingUndo] = useState<Occurrence | null>(null)
   const [completed, setCompleted] = useState(new Set(completedKeys))
   const [starBalance, setStarBalance] = useState(initialBalance)
   const [pendingRewardIds, setPendingRewardIds] = useState(new Set(initialPending))
@@ -95,7 +111,7 @@ export default function ChildTaskView({
   const [requestingId, setRequestingId] = useState<string | null>(null)
   const [justRequestedId, setJustRequestedId] = useState<string | null>(null)
   const [justClaimedId, setJustClaimedId] = useState<string | null>(null)
-  const [claimBurst, setClaimBurst] = useState<{ stars: number; emoji: string } | null>(null)
+  const [claimBurst, setClaimBurst] = useState<{ emoji: string; title: string; sub: string } | null>(null)
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
 
@@ -110,6 +126,19 @@ export default function ChildTaskView({
     // Deep-link from the home "SPIN READY" badge opens the wheel straight away
     if (eligible && autoSpin) setShowSpin(true)
   }, [bonusCadence, bonusDay, bonusTime, hasSpunToday, autoSpin])
+
+  // Default the list to TODAY — past days sit above and are reached by scrolling up
+  useEffect(() => {
+    if (tab !== 'tasks' || currentPraise) return
+    const el = document.getElementById(`date-${todayStr}`)
+    if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function scrollToToday() {
+    const el = document.getElementById(`date-${todayStr}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Pulse scroll to highlighted task
   useEffect(() => {
@@ -159,8 +188,12 @@ export default function ChildTaskView({
     }).catch(() => {})
     setJustClaimedId(occ.id)
     setTimeout(() => setJustClaimedId(null), 600)
-    setClaimBurst({ stars: occ.star_value, emoji: occ.emoji })
-    setTimeout(() => setClaimBurst(null), 1900)
+    setClaimBurst({
+      emoji: occ.emoji,
+      title: CHEERS[Math.floor(Math.random() * CHEERS.length)],
+      sub: `+${occ.star_value} ⭐`,
+    })
+    setTimeout(() => setClaimBurst(null), 2200)
     setStarBalance(prev => prev + occ.star_value)
     // Done tab updates live
     setDoneList(prev => [{
@@ -172,10 +205,11 @@ export default function ChildTaskView({
     if (remaining === 0) setTimeout(() => setShowCelebration(true), 700)
   }
 
-  // Kids can undo their own tick (removes the completion + the stars)
+  // Kids can undo their own tick (removes the completion + the stars).
+  // Confirmation happens in the themed modal (pendingUndo), not a browser popup.
   async function undoTask(occ: Occurrence) {
     if (!completed.has(occ.id)) return
-    if (!confirm(`Undo "${occ.title}"? You'll give back ${occ.star_value} ⭐`)) return
+    setPendingUndo(null)
     const supabase = createClient()
     await supabase.from('completions').delete()
       .eq('task_id', occ.taskId).eq('child_id', child.id).eq('date', occ.date)
@@ -227,6 +261,9 @@ export default function ChildTaskView({
       before: starBalance, after: starBalance - reward.star_cost,
     }, ...prev])
     setStarBalance(prev => prev - reward.star_cost)
+    // Reward celebration 🎉
+    setClaimBurst({ emoji: reward.emoji, title: 'Woohoo! Enjoy it! 🥳', sub: `${reward.title} · −${reward.star_cost} ⭐` })
+    setTimeout(() => setClaimBurst(null), 2400)
     setJustRequestedId(reward.id)
     setTimeout(() => setJustRequestedId(null), 2000)
     setRequestingId(null)
@@ -338,7 +375,7 @@ export default function ChildTaskView({
           </p>
         </div>
         {done ? (
-          <button onClick={() => undoTask(occ)} title="Undo"
+          <button onClick={() => setPendingUndo(occ)} title="Undo"
             className="flex-shrink-0 flex flex-col items-center active:scale-90 transition">
             <span className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold text-lg">✓</span>
             <span className="text-[9px] font-bold text-gray-300 mt-0.5">undo</span>
@@ -369,46 +406,55 @@ export default function ChildTaskView({
           style={{ top: `${[10, 20, 34, 56, 72, 86][i]}%`, left: `${[6, 85, 10, 88, 4, 82][i]}%`,
             fontSize: [22, 16, 30, 20, 26, 15][i], opacity: 0.15, animationDelay: `${i * 0.8}s`, zIndex: 0 }}>{e}</span>
       ))}
-      {claimBurst && <ClaimBurst stars={claimBurst.stars} emoji={claimBurst.emoji} colour={child.colour}/>}
+      {claimBurst && <ClaimBurst emoji={claimBurst.emoji} title={claimBurst.title} sub={claimBurst.sub} colour={child.colour}/>}
 
       {/* Header */}
       <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100 relative z-10">
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
           <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto"/>
-          <span className="text-2xl font-black" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <span className="text-3xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {child.name.split(' ')[0]}
           </span>
-          <button onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
-            style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
-            ← BACK
-          </button>
+          <div className="w-16"/>
         </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 pt-2 space-y-3 relative z-10">
 
-        {/* Sticky stats — avatar + lolly jar stay pinned while scrolling.
-            The jar fills live as tasks are marked DONE. */}
+        {/* Sticky stats — avatar, stars and BACK stay pinned while scrolling */}
         <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-1"
           style={{ background: 'color-mix(in srgb, var(--theme-from) 8%, white)' }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
             <div className="flex-shrink-0 mt-2">
-              <DecoratedAvatar child={child} size={56}/>
+              <DecoratedAvatar child={child} size={52}/>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
-              <p className="text-sm font-bold text-gray-600 mt-1.5">📋 {claimableDone}/{claimable.length} done this week</p>
+              <p className="text-sm font-bold text-gray-600 mt-1">📋 {claimableDone}/{claimable.length} done this week</p>
               {streakDays > 0 && <p className="text-sm font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
             </div>
-            {claimable.length > 0 && <StarJar done={claimableDone} total={claimable.length} label="this week"/>}
+            <button onClick={() => router.push('/dashboard')}
+              className="flex-shrink-0 px-3.5 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
+              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
+              ← BACK
+            </button>
+          </div>
+        </div>
+
+        {/* Sweets jar + trophies, side by side — keeps focus on the tasks below */}
+        <div className="flex gap-3 items-stretch">
+          <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex flex-col items-center justify-center">
+            <StarJar done={claimableDone} total={claimable.length} label="this week" size={68}/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <TrophyShelf stars={starBalance} streak={streakDays} completions={totalCompletions}/>
           </div>
         </div>
 
         {/* Savings goal jar */}
         {!!child.goal_target && child.goal_target > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
-            <StarJar done={starBalance} total={child.goal_target} width={46} height={60} emojis={['⭐', '⭐', '⭐']}/>
+            <StarJar done={starBalance} total={child.goal_target} size={50}/>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">Saving up for</p>
               <p className="font-black text-gray-800 truncate">{child.goal_emoji || '🎁'} {child.goal_title || 'My goal'}</p>
@@ -419,9 +465,6 @@ export default function ChildTaskView({
             </div>
           </div>
         )}
-
-        {/* Trophy shelf */}
-        <TrophyShelf stars={starBalance} streak={streakDays} completions={totalCompletions}/>
 
         {/* Tabs */}
         <div className="flex bg-gray-100 rounded-2xl p-1">
@@ -446,31 +489,18 @@ export default function ChildTaskView({
               </button>
             )}
 
-            {/* Past days this week — hidden by default */}
-            {pastDates.length > 0 && (
-              <div>
-                <button onClick={() => setShowPast(p => !p)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 rounded-2xl text-sm font-bold text-gray-500 active:scale-95 transition mb-2">
-                  <span>⬆ Past days this week ({pastDates.length} day{pastDates.length !== 1 ? 's' : ''})</span>
-                  <span className={`text-gray-300 text-lg transition-transform ${showPast ? 'rotate-90' : ''}`}>›</span>
-                </button>
-                {showPast && (
-                  <div className="space-y-4">
-                    {pastDates.map(ds => {
-                      const items = sortOccs(byDate[ds])
-                      return (
-                        <div key={ds} id={`date-${ds}`}>
-                          <p className="text-xs font-black text-red-400 mb-2 px-1">
-                            {dateLabel(ds, todayStr)}
-                          </p>
-                          <div className="space-y-2">{items.map(renderTaskRow)}</div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Past days sit above today — scroll UP to see them (view starts at Today) */}
+            {pastDates.map(ds => {
+              const items = sortOccs(byDate[ds])
+              return (
+                <div key={ds} id={`date-${ds}`} className="scroll-mt-32">
+                  <p className="text-2xl font-black text-gray-400 mb-2 px-1 leading-none">
+                    {dateLabel(ds, todayStr)}
+                  </p>
+                  <div className="space-y-2">{items.map(renderTaskRow)}</div>
+                </div>
+              )
+            })}
 
             {/* Today + upcoming */}
             {upcomingDates.map(ds => {
@@ -478,9 +508,9 @@ export default function ChildTaskView({
               const isToday = ds === todayStr
               const items = sortOccs(byDate[ds])
               return (
-                <div key={ds} id={`date-${ds}`}>
+                <div key={ds} id={`date-${ds}`} className="scroll-mt-32">
                   <div className="flex items-center gap-2 mb-2 px-1">
-                    <p className={`text-sm font-black ${isToday ? '' : 'text-gray-600'}`}
+                    <p className={`text-2xl font-black leading-none ${isToday ? '' : 'text-gray-700'}`}
                       style={isToday ? { color: 'var(--theme-from)' } : {}}>
                       {dateLabel(ds, todayStr)}
                     </p>
@@ -588,6 +618,39 @@ export default function ChildTaskView({
         </div>
       </div>
 
+      {/* Jump-back-to-today FAB — little calendar showing today's date */}
+      {tab === 'tasks' && (
+        <button aria-label="Back to today" onClick={scrollToToday}
+          className="fixed bottom-24 left-5 w-14 h-14 rounded-full bg-white shadow-xl border-2 flex flex-col items-center justify-center active:scale-90 transition z-20"
+          style={{ borderColor: 'var(--theme-from)' }}>
+          <span className="text-[8px] font-black leading-none mt-1" style={{ color: 'var(--theme-from)' }}>{new Date().toLocaleDateString('en-AU', { month: 'short' }).toUpperCase()}</span>
+          <span className="text-xl font-black leading-none" style={{ color: 'var(--theme-from)' }}>{new Date().getDate()}</span>
+        </button>
+      )}
+
+      {/* Themed undo confirmation (replaces the browser popup) */}
+      {pendingUndo && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6" onClick={() => setPendingUndo(null)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
+              style={{ border: '2px solid var(--theme-from)' }}>{pendingUndo.emoji}</div>
+            <h3 className="text-xl font-black text-gray-800 leading-tight mb-1">Undo "{pendingUndo.title}"?</h3>
+            <p className="text-sm font-semibold text-gray-400 mb-5">You'll give back {pendingUndo.star_value} ⭐</p>
+            <div className="flex gap-2">
+              <button onClick={() => setPendingUndo(null)}
+                className="flex-1 py-3 rounded-2xl font-black text-sm text-white shadow active:scale-95 transition"
+                style={{ background: 'var(--theme-gradient)' }}>
+                Keep it! ✓
+              </button>
+              <button onClick={() => undoTask(pendingUndo)}
+                className="flex-1 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
+                Undo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showRewards && (
         <RewardsPanel rewards={rewards} starBalance={starBalance} pendingRewardIds={pendingRewardIds}
           requestingId={requestingId} justRequestedId={justRequestedId}
@@ -648,11 +711,14 @@ function RewardsPanel({ rewards, starBalance, pendingRewardIds, requestingId, ju
   )
 }
 
-function ClaimBurst({ stars, emoji, colour }: { stars: number; emoji: string; colour: string }) {
-  const colors = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', colour]
-  const pieces = Array.from({ length: 30 }, (_, i) => ({
+function ClaimBurst({ emoji, colour, title, sub }: { emoji: string; colour: string; title: string; sub: string }) {
+  const colors = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', '#F97316', '#22C55E', colour]
+  const pieces = Array.from({ length: 48 }, (_, i) => ({
     left: Math.random() * 100, bg: colors[i % colors.length],
-    dur: 1.0 + Math.random() * 1.0, delay: Math.random() * 0.2, rot: Math.random() * 360,
+    dur: 0.9 + Math.random() * 1.3, delay: Math.random() * 0.35, rot: Math.random() * 360,
+  }))
+  const emojiRain = ['🎉', '⭐', '🎆', '👏', '✨', '🎊', '🌟', '🥳', '🎈', '💫'].map((e, i) => ({
+    e, left: 5 + Math.random() * 90, dur: 1.2 + Math.random() * 1.2, delay: Math.random() * 0.4, size: 18 + Math.random() * 14, key: i,
   }))
   return (
     <div className="fixed inset-0 z-[55] pointer-events-none flex items-center justify-center overflow-hidden">
@@ -660,10 +726,15 @@ function ClaimBurst({ stars, emoji, colour }: { stars: number; emoji: string; co
         <span key={i} className="confetti-piece"
           style={{ left: `${p.left}%`, backgroundColor: p.bg, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s`, transform: `rotate(${p.rot}deg)` }}/>
       ))}
-      <div className="claim-pop bg-white rounded-3xl px-8 py-6 shadow-2xl text-center">
+      {emojiRain.map(p => (
+        <span key={`e${p.key}`} className="confetti-piece"
+          style={{ left: `${p.left}%`, backgroundColor: 'transparent', fontSize: p.size, width: 'auto', height: 'auto',
+            animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }}>{p.e}</span>
+      ))}
+      <div className="claim-pop bg-white rounded-3xl px-8 py-6 shadow-2xl text-center max-w-[85%]">
         <div className="text-6xl mb-1">{emoji}</div>
-        <p className="text-3xl font-black text-yellow-500">+{stars} ⭐</p>
-        <p className="text-sm font-bold text-gray-500 mt-1">Nice one! 🎉</p>
+        <p className="text-2xl font-black leading-tight" style={{ color: 'var(--theme-from)' }}>{title}</p>
+        <p className="text-xl font-black text-yellow-500 mt-1">{sub}</p>
       </div>
     </div>
   )

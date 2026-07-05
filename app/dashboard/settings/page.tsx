@@ -425,12 +425,16 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="mb-3 flex items-center gap-3">
-              <p className="text-xs text-gray-500">On which date?</p>
-              <input type="number" inputMode="numeric" min={1} max={31} value={bonusDay >= 1 && bonusDay <= 31 ? bonusDay : 1}
-                onChange={e => setBonusDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
-                className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-400"/>
-              <p className="text-[11px] text-gray-400">of each month</p>
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1.5">On which date of the month?</p>
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <button key={d} onClick={() => setBonusDay(d)}
+                    className={`h-9 rounded-lg text-xs font-bold transition ${bonusDay === d ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                    style={bonusDay === d ? { background: 'var(--theme-gradient)' } : {}}>{d}</button>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">On short months, the 29th–31st fall on the last day.</p>
             </div>
           )}
 

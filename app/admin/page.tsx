@@ -39,11 +39,18 @@ export default async function AdminPage() {
 
   const admin = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false } })
 
-  const [{ data: authData }, { data: guardians }, { data: families }, { data: children }] = await Promise.all([
+  const [
+    { data: authData }, { data: guardians }, { data: families }, { data: children },
+    { data: allTasks }, { data: allRewards }, { data: allRedemptions }, { data: allCompletions },
+  ] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
     admin.from('guardians').select('id, name, email, family_id, auth_user_id'),
     admin.from('families').select('id, name'),
     admin.from('children').select('id, name, avatar, avatar_url, family_id'),
+    admin.from('tasks').select('id, family_id, created_at'),
+    admin.from('rewards').select('id, family_id'),
+    admin.from('redemptions').select('id, child_id, status, created_at'),
+    admin.from('completions').select('child_id, created_at'),
   ])
 
   const authUsers = authData?.users || []
@@ -54,9 +61,30 @@ export default async function AdminPage() {
   const kidsByFamily: Record<string, any[]> = {}
   ;(children || []).forEach(c => { (kidsByFamily[c.family_id] ||= []).push(c) })
 
+  // Per-family usage stats
+  const familyOfChild: Record<string, string> = {}
+  ;(children || []).forEach(c => { familyOfChild[c.id] = c.family_id })
+  const tasksByFamily: Record<string, number> = {}
+  const lastActivityByFamily: Record<string, string> = {}
+  const bump = (fam: string | undefined, ts: string | null) => {
+    if (!fam || !ts) return
+    if (!lastActivityByFamily[fam] || ts > lastActivityByFamily[fam]) lastActivityByFamily[fam] = ts
+  }
+  ;(allTasks || []).forEach(t => { tasksByFamily[t.family_id] = (tasksByFamily[t.family_id] || 0) + 1; bump(t.family_id, t.created_at) })
+  const rewardsByFamily: Record<string, number> = {}
+  ;(allRewards || []).forEach(r => { rewardsByFamily[r.family_id] = (rewardsByFamily[r.family_id] || 0) + 1 })
+  const redeemedByFamily: Record<string, number> = {}
+  ;(allRedemptions || []).forEach(r => {
+    const fam = familyOfChild[r.child_id]
+    if (r.status === 'approved' && fam) redeemedByFamily[fam] = (redeemedByFamily[fam] || 0) + 1
+    bump(fam, r.created_at)
+  })
+  ;(allCompletions || []).forEach(c => bump(familyOfChild[c.child_id], c.created_at))
+
   const rows = authUsers.map(u => {
     const g = guardianByAuth[u.id]
     const famId = g?.family_id || null
+    const lastAct = famId ? lastActivityByFamily[famId] : null
     return {
       authUserId: u.id,
       email: u.email || '—',
@@ -67,6 +95,10 @@ export default async function AdminPage() {
       created: u.created_at ? new Date(u.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
       lastSignIn: u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
       isAdmin: (u.email || '').toLowerCase() === ADMIN_EMAIL,
+      tasksCount: famId ? (tasksByFamily[famId] || 0) : 0,
+      rewardsCount: famId ? (rewardsByFamily[famId] || 0) : 0,
+      redeemedCount: famId ? (redeemedByFamily[famId] || 0) : 0,
+      lastActivity: lastAct ? new Date(lastAct).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
     }
   })
 

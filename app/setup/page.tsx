@@ -49,7 +49,7 @@ interface RewardDraft { title: string; emoji: string; star_cost: number }
 const blankTask = (): TaskDraft => ({
   title: '', emoji: '⭐', type: 'chore', star_value: 3, frequency: 'daily',
   time_of_day: 'anytime', start_date: '', carry_over: false,
-  can_do_early: false, days_of_week: [],
+  can_do_early: false, days_of_week: [0, 1, 2, 3, 4, 5, 6], // daily, every day on by default
 })
 
 // Full-bleed white page with the logo centred at the top, consistent on every step.
@@ -120,6 +120,7 @@ export default function SetupPage() {
   const [bonusDay, setBonusDay] = useState(0)      // weekly: day of week (0=Sun)
   const [bonusDate, setBonusDate] = useState(1)    // monthly: date of month
   const [bonusTime, setBonusTime] = useState('16:00')
+  const [bonusAwardPct, setBonusAwardPct] = useState(50)
   const [task, setTask] = useState<TaskDraft>(blankTask())
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '🎁', star_cost: 10 })
@@ -253,11 +254,14 @@ export default function SetupPage() {
 
     // Optional Bonus Wheel from step 4
     if (bonusOn && !skipBonus) {
-      await supabase.from('families').update({
+      const bonusBase = {
         bonus_cadence: bonusCadence,
         bonus_day: bonusCadence === 'monthly' ? bonusDate : bonusDay,
         bonus_time: bonusTime,
-      }).eq('id', familyId)
+      }
+      const { error: bonusErr } = await supabase.from('families')
+        .update({ ...bonusBase, bonus_award_pct: bonusAwardPct }).eq('id', familyId)
+      if (bonusErr) await supabase.from('families').update(bonusBase).eq('id', familyId)
     }
 
     router.push('/dashboard'); router.refresh()
@@ -484,8 +488,11 @@ export default function SetupPage() {
       <GradientTitle>Bonus Wheel</GradientTitle>
       <p className="text-sm text-gray-400 text-center mb-4">A prize wheel kids can spin for bonus stars</p>
 
-      <div className="rounded-2xl p-3.5 mb-4 text-center border-2 border-dashed"
+      <div className="rounded-2xl p-3.5 mb-4 text-center border-2 border-dashed space-y-2"
         style={{ background: 'color-mix(in srgb, var(--theme-from) 8%, white)', borderColor: 'var(--theme-from)' }}>
+        <p className="text-sm font-bold text-gray-700">
+          Kids love the Bonus Wheel! It lets them earn bonus stars based on how many tasks they've completed, making chores fun while strongly encouraging consistent habits.
+        </p>
         <p className="text-sm font-black" style={{ color: 'var(--theme-from)' }}>
           ✨ On average, kids complete 30% more tasks when the Bonus Wheel is introduced!
         </p>
@@ -518,12 +525,15 @@ export default function SetupPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-gray-500">On which date?</p>
-              <input type="number" inputMode="numeric" min={1} max={31} value={bonusDate}
-                onChange={e => setBonusDate(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
-                className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pink-300"/>
-              <p className="text-[11px] text-gray-400">of each month</p>
+            <div>
+              <p className="text-xs text-gray-500 mb-1.5">On which date of the month?</p>
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <button key={d} onClick={() => setBonusDate(d)}
+                    className={`h-9 rounded-lg text-xs font-bold transition ${bonusDate === d ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                    style={bonusDate === d ? { background: RAINBOW } : {}}>{d}</button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -531,6 +541,20 @@ export default function SetupPage() {
             <p className="text-xs text-gray-500">Available from</p>
             <input type="time" value={bonusTime} onChange={e => setBonusTime(e.target.value)}
               className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+          </div>
+
+          {/* Award value — % of the period's available stars */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-gray-500">Award value</p>
+              <p className="text-xs font-bold" style={{ color: 'var(--theme-from)' }}>{bonusAwardPct}%</p>
+            </div>
+            <input type="range" min={10} max={100} step={5} value={bonusAwardPct}
+              onChange={e => setBonusAwardPct(Number(e.target.value))} className="w-full"/>
+            <div className="flex justify-between text-[11px] text-gray-400 mt-0.5">
+              <span>10% of {bonusCadence === 'monthly' ? 'month' : 'week'}'s stars</span>
+              <span>100%</span>
+            </div>
           </div>
         </>)}
       </div>
@@ -577,7 +601,7 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
             className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
             placeholder="🔍 Search icons"/>
         </div>
-        <div className="grid grid-cols-6 gap-1 max-h-36 overflow-y-auto p-1 bg-gray-50 rounded-2xl">
+        <div className="grid grid-cols-8 gap-1 p-1 bg-gray-50 rounded-2xl">
           {TASK_EMOJIS.map((e, i) => (
             <button key={`${e}-${i}`} onClick={() => setTask({ ...task, emoji: e })}
               className={`text-2xl p-1 rounded-xl ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'hover:bg-white'}`}>{e}</button>
@@ -589,7 +613,7 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
         <p className="text-xs text-gray-500 mb-1">How often?</p>
         <div className="flex gap-2">
           {FREQ.map(o => (
-            <button key={o.v} onClick={() => setTask({ ...task, frequency: o.v, days_of_week: [] })}
+            <button key={o.v} onClick={() => setTask({ ...task, frequency: o.v, days_of_week: o.v === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : [] })}
               className={`flex-1 py-2 rounded-2xl text-xs font-semibold transition ${task.frequency === o.v ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
               style={task.frequency === o.v ? { background: RAINBOW } : {}}>{o.l}</button>
           ))}
@@ -615,21 +639,20 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
         </div>
       )}
 
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Time of day</p>
-        <div className="grid grid-cols-2 gap-2">
-          {TIMES.map(o => (
-            <button key={o.v} onClick={() => setTask({ ...task, time_of_day: o.v })}
-              className={`py-2 rounded-2xl text-xs font-semibold transition ${task.time_of_day === o.v ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-              style={task.time_of_day === o.v ? { background: RAINBOW } : {}}>{o.l}</button>
-          ))}
+      {/* Time of day + start date on one row */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <p className="text-xs text-gray-500 mb-1">Time of day</p>
+          <select value={task.time_of_day} onChange={e => setTask({ ...task, time_of_day: e.target.value })}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
+            {TIMES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+          </select>
         </div>
-      </div>
-
-      <div>
-        <p className="text-xs text-gray-500 mb-1">Start date <span className="text-gray-300">(optional)</span></p>
-        <input type="date" value={task.start_date} onChange={e => setTask({ ...task, start_date: e.target.value })}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+        <div className="flex-1">
+          <p className="text-xs text-gray-500 mb-1">Start date</p>
+          <input type="date" value={task.start_date} onChange={e => setTask({ ...task, start_date: e.target.value })}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+        </div>
       </div>
 
       <Toggle label="Carry over if missed ↩️"
@@ -641,10 +664,15 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
         on={task.can_do_early} onToggle={() => setTask({ ...task, can_do_early: !task.can_do_early })}/>
 
       <div>
-        <p className="text-xs text-gray-500 mb-1">Stars to earn: <span className="font-bold text-yellow-500">⭐ {task.star_value}</span></p>
-        <input type="range" min={1} max={250} value={task.star_value}
-          onChange={e => setTask({ ...task, star_value: Number(e.target.value) })} className="w-full"/>
-        <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>50</span><span>100</span><span>250</span></div>
+        <p className="text-xs text-gray-500 mb-1">Stars to earn ⭐</p>
+        <div className="flex items-center gap-3">
+          <input type="range" min={1} max={50} value={Math.min(task.star_value, 50)}
+            onChange={e => setTask({ ...task, star_value: Number(e.target.value) })} className="flex-1"/>
+          <input type="number" inputMode="numeric" min={1} value={task.star_value}
+            onChange={e => setTask({ ...task, star_value: Math.max(1, Number(e.target.value) || 1) })}
+            className="w-20 border border-gray-200 rounded-xl px-2 py-2 text-center font-black text-yellow-500 focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>25</span><span>50 · or type any number →</span></div>
       </div>
 
       <p className="text-[11px] text-gray-400 text-center">Tasks are assigned to all your kids — adjust later in the Tasks tab.</p>

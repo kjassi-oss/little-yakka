@@ -14,6 +14,10 @@ interface UserRow {
   created: string
   lastSignIn: string
   isAdmin: boolean
+  tasksCount: number
+  rewardsCount: number
+  redeemedCount: number
+  lastActivity: string
 }
 
 export default function AdminUserList({ rows }: { rows: UserRow[] }) {
@@ -87,6 +91,12 @@ export default function AdminUserList({ rows }: { rows: UserRow[] }) {
                   </span>
                 ))}
               </div>
+            )}
+            {/* Usage stats */}
+            {r.familyId && (
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                📋 {r.tasksCount} task{r.tasksCount !== 1 ? 's' : ''} · 🎁 {r.rewardsCount} reward{r.rewardsCount !== 1 ? 's' : ''} · ✅ {r.redeemedCount} redeemed · ⏱ last active {r.lastActivity}
+              </p>
             )}
           </div>
         ))}
