@@ -115,6 +115,11 @@ export default function SetupPage() {
   const [rewards, setRewards] = useState<RewardDraft[]>([])
 
   const [child, setChild] = useState<ChildDraft>({ name: '', age: '', avatar: '🐨', colour: COLOURS[0] })
+  const [bonusOn, setBonusOn] = useState(false)
+  const [bonusCadence, setBonusCadence] = useState<'weekly' | 'monthly'>('weekly')
+  const [bonusDay, setBonusDay] = useState(0)      // weekly: day of week (0=Sun)
+  const [bonusDate, setBonusDate] = useState(1)    // monthly: date of month
+  const [bonusTime, setBonusTime] = useState('16:00')
   const [task, setTask] = useState<TaskDraft>(blankTask())
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '🎁', star_cost: 10 })
@@ -188,7 +193,7 @@ export default function SetupPage() {
     router.push('/login'); router.refresh()
   }
 
-  async function handleFinish() {
+  async function handleFinish(skipBonus = false) {
     if (children.length === 0) { setError('Please add at least one child.'); setStep(1); return }
     setLoading(true); setError('')
     const ctx = await createFamily()
@@ -244,6 +249,15 @@ export default function SetupPage() {
         family_id: familyId, title: r.title, emoji: r.emoji,
         star_cost: r.star_cost, scope: 'family', child_id: null,
       })
+    }
+
+    // Optional Bonus Wheel from step 4
+    if (bonusOn && !skipBonus) {
+      await supabase.from('families').update({
+        bonus_cadence: bonusCadence,
+        bonus_day: bonusCadence === 'monthly' ? bonusDate : bonusDay,
+        bonus_time: bonusTime,
+      }).eq('id', familyId)
     }
 
     router.push('/dashboard'); router.refresh()
@@ -400,7 +414,7 @@ export default function SetupPage() {
             className="w-full text-white font-black py-3.5 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>
             Next Step →
           </button>
-          <button onClick={handleFinish} disabled={loading}
+          <button onClick={() => handleFinish(true)} disabled={loading}
             className="w-full text-center text-xs font-bold text-gray-400 mt-3 active:scale-95 transition disabled:opacity-50">
             Set Up Later
           </button>
@@ -412,7 +426,7 @@ export default function SetupPage() {
   )
 
   // ── STEP 3 — rewards ────────────────────────────────────────────────────────
-  return (
+  if (step === 3) return (
     <Page>
       <BackBtn onClick={() => { setError(''); setStep(2) }}/>
       <GradientTitle>Create Rewards</GradientTitle>
@@ -448,17 +462,91 @@ export default function SetupPage() {
           </button>
 
           {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
-          <button onClick={handleFinish} disabled={loading}
-            className="w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight font-black text-xl"
-            style={{ border: '2px solid var(--theme-from)' }}>
-            <span style={{ fontFamily: DISPLAY, background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-              {loading ? 'Setting up…' : 'ALL DONE'}
-            </span>
+          <button onClick={() => { setError(''); setStep(4) }}
+            className="w-full text-white font-black py-3.5 rounded-2xl shadow active:scale-95 transition" style={{ background: RAINBOW }}>
+            Next Step →
+          </button>
+          <button onClick={() => handleFinish(true)} disabled={loading}
+            className="w-full text-center text-xs font-bold text-gray-400 mt-3 active:scale-95 transition disabled:opacity-50">
+            Set Up Later
           </button>
         </>
       ) : (
         <RewardForm reward={reward} setReward={setReward} onSave={saveReward} onCancel={() => { setRewardFormOpen(false); setError('') }} error={error}/>
       )}
+    </Page>
+  )
+
+  // ── STEP 4 — bonus wheel (optional) ─────────────────────────────────────────
+  return (
+    <Page>
+      <BackBtn onClick={() => { setError(''); setStep(3) }}/>
+      <GradientTitle>Bonus Wheel</GradientTitle>
+      <p className="text-sm text-gray-400 text-center mb-4">A prize wheel kids can spin for bonus stars</p>
+
+      <div className="rounded-2xl p-3.5 mb-4 text-center border-2 border-dashed"
+        style={{ background: 'color-mix(in srgb, var(--theme-from) 8%, white)', borderColor: 'var(--theme-from)' }}>
+        <p className="text-sm font-black" style={{ color: 'var(--theme-from)' }}>
+          ✨ On average, kids complete 30% more tasks when the Bonus Wheel is introduced!
+        </p>
+      </div>
+
+      <div className="border border-gray-100 rounded-2xl p-4 space-y-3 mb-5">
+        <Toggle
+          label="Turn on the Bonus Wheel 🎡"
+          sub={bonusOn ? 'Kids get a spin at the time you choose' : 'Optional — you can turn it on later in Settings'}
+          on={bonusOn} onToggle={() => setBonusOn(!bonusOn)}/>
+
+        {bonusOn && (<>
+          <div className="flex bg-gray-100 rounded-2xl p-1">
+            {(['weekly', 'monthly'] as const).map(c => (
+              <button key={c} onClick={() => setBonusCadence(c)}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold capitalize transition ${bonusCadence === c ? 'text-white shadow' : 'text-gray-400'}`}
+                style={bonusCadence === c ? { background: RAINBOW } : {}}>{c}</button>
+            ))}
+          </div>
+
+          {bonusCadence === 'weekly' ? (
+            <div>
+              <p className="text-xs text-gray-500 mb-1.5">On which day?</p>
+              <div className="flex gap-1.5">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((lbl, dow) => (
+                  <button key={dow} onClick={() => setBonusDay(dow)}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${bonusDay === dow ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                    style={bonusDay === dow ? { background: RAINBOW } : {}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-gray-500">On which date?</p>
+              <input type="number" inputMode="numeric" min={1} max={31} value={bonusDate}
+                onChange={e => setBonusDate(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
+                className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+              <p className="text-[11px] text-gray-400">of each month</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-gray-500">Available from</p>
+            <input type="time" value={bonusTime} onChange={e => setBonusTime(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+          </div>
+        </>)}
+      </div>
+
+      {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
+      <button onClick={() => handleFinish()} disabled={loading}
+        className="w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight font-black text-xl"
+        style={{ border: '2px solid var(--theme-from)' }}>
+        <span style={{ fontFamily: DISPLAY, background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          {loading ? 'Setting up…' : 'ALL DONE'}
+        </span>
+      </button>
+      <button onClick={() => handleFinish(true)} disabled={loading}
+        className="w-full text-center text-xs font-bold text-gray-400 mt-3 active:scale-95 transition disabled:opacity-50">
+        Set Up Later
+      </button>
     </Page>
   )
 }

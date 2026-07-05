@@ -39,6 +39,7 @@ export default async function ChildPage({ params, searchParams }: {
     { data: family }, { data: assignments }, { data: completions }, { data: completedHistory },
     { data: starData }, { data: rewards }, { data: pendingRedemptions }, { data: ufgData },
     { count: totalCompletions }, { data: unlockRows }, { data: spinToday }, { data: unseenPraises },
+    { data: redeemedRows },
   ] = await Promise.all([
     supabase.from('families').select('*').eq('id', guardian?.family_id).maybeSingle(),
     supabase.from('task_assignments').select('task_id, tasks(*)').eq('child_id', childId),
@@ -49,7 +50,7 @@ export default async function ChildPage({ params, searchParams }: {
       .eq('child_id', childId).eq('status', 'approved')
       .gte('date', ymd(thirtyAgo))
       .order('created_at', { ascending: false }).limit(60),
-    supabase.from('star_ledger').select('delta').eq('child_id', childId),
+    supabase.from('star_ledger').select('delta, created_at, source_type, source_id').eq('child_id', childId),
     supabase.from('rewards').select('id, title, emoji, star_cost').eq('family_id', guardian?.family_id)
       .or(`scope.eq.family,and(scope.eq.child,child_id.eq.${childId})`).order('star_cost'),
     supabase.from('redemptions').select('reward_id').eq('child_id', childId).eq('status', 'requested'),
@@ -59,6 +60,9 @@ export default async function ChildPage({ params, searchParams }: {
     supabase.from('child_unlocks').select('item_id').eq('child_id', childId),
     supabase.from('spin_results').select('id').eq('child_id', childId).eq('date', todayStr).maybeSingle(),
     supabase.from('praises').select('id, message').eq('child_id', childId).eq('seen', false).order('created_at'),
+    supabase.from('redemptions').select('id, created_at, rewards(title, emoji, star_cost)')
+      .eq('child_id', childId).eq('status', 'approved')
+      .order('created_at', { ascending: false }).limit(50),
   ])
   const allTasks = (assignments?.map(a => a.tasks).flat().filter(Boolean) || []) as any[]
 
@@ -115,6 +119,25 @@ export default async function ChildPage({ params, searchParams }: {
   const pendingRewardIds = pendingRedemptions?.map(r => r.reward_id) || []
   const unlockedIds = (unlockRows || []).map(r => r.item_id as string)
 
+  // My Rewards — redeemed history with before/after balances from the ledger
+  const ledger = [...(starData || [])].sort((a: any, b: any) => (a.created_at < b.created_at ? -1 : 1))
+  let running = 0
+  const balBySource: Record<string, { before: number; after: number }> = {}
+  for (const row of ledger as any[]) {
+    const before = running
+    running += row.delta
+    if (row.source_type === 'redemption' && row.source_id) balBySource[row.source_id] = { before, after: running }
+  }
+  const myRewards = (redeemedRows || []).map((r: any) => ({
+    id: r.id as string,
+    title: r.rewards?.title || 'Reward',
+    emoji: r.rewards?.emoji || '🎁',
+    cost: r.rewards?.star_cost || 0,
+    date: r.created_at as string,
+    before: balBySource[r.id]?.before ?? null,
+    after: balBySource[r.id]?.after ?? null,
+  }))
+
   // Streak — uses the 30-day history, with a 🧊 freeze: one missed day per
   // rolling 7 days is forgiven so a single slip doesn't wipe a long streak.
   let streakDays = 0
@@ -131,15 +154,14 @@ export default async function ChildPage({ params, searchParams }: {
     else break
   }
 
-  // Bonus wheel cadence + award value
-  const cadence = family?.bonus_cadence || 'weekly'
-  const isDaily = cadence === 'daily'
+  // Bonus wheel cadence + award value (weekly = Mon–Sun; monthly = calendar month)
+  const cadence = family?.bonus_cadence === 'monthly' ? 'monthly' : 'weekly'
+  const isMonthly = cadence === 'monthly'
   // Award ceiling = this % of the period's available stars (slider in Settings, default 50%)
   const awardPct = ((family as any)?.bonus_award_pct ?? 50) / 100
 
-  // Prize period: the day (daily cadence) or the Mon–Sun week (weekly cadence)
-  const prizeStart = isDaily ? new Date(now) : new Date(monday)
-  const prizeEnd = isDaily ? new Date(now) : new Date(sunday)
+  const prizeStart = isMonthly ? new Date(now.getFullYear(), now.getMonth(), 1, 12) : new Date(monday)
+  const prizeEnd = isMonthly ? new Date(now.getFullYear(), now.getMonth() + 1, 0, 12) : new Date(sunday)
   const prizeStartStr = ymd(prizeStart)
 
   let periodTotalStars = 0
@@ -189,7 +211,7 @@ export default async function ChildPage({ params, searchParams }: {
       rewards={rewards || []}
       pendingRewardIds={pendingRewardIds}
       hasSpunToday={hasSpunToday}
-      bonusCadence={cadence as 'daily' | 'weekly'}
+      bonusCadence={cadence as 'weekly' | 'monthly'}
       bonusDay={bonusDay}
       bonusTime={bonusTime}
       maxPrize={maxPrize}
@@ -200,6 +222,7 @@ export default async function ChildPage({ params, searchParams }: {
       autoSpin={autoSpin === '1'}
       totalCompletions={totalCompletions ?? 0}
       unlockedIds={unlockedIds}
+      myRewards={myRewards}
     />
   )
 }

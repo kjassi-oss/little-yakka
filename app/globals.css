@@ -33,6 +33,8 @@ body {
   color: var(--foreground);
   /* App-wide playful display font, consistent with headings/wordmark */
   font-family: var(--font-display), var(--font-body), system-ui, -apple-system, sans-serif;
+  /* Stop elastic overscroll dragging fixed bars (bottom nav/FABs) around */
+  overscroll-behavior-y: none;
 }
 
 /* Theme presets — drive solid accents (from/to) and header/button gradient */

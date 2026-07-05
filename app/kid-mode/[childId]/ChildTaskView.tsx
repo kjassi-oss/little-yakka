@@ -7,9 +7,7 @@ import SpinWheel from '@/components/SpinWheel'
 import { completionFeedback, redeemFeedback } from '@/lib/feedback'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import StarJar from '@/components/StarJar'
-import BuddyGreeting from '@/components/BuddyGreeting'
 import TrophyShelf from '@/components/TrophyShelf'
-import StyleShop from '@/components/StyleShop'
 
 interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean; upForGrabs?: boolean }
 
@@ -27,6 +25,7 @@ interface Child {
 interface Reward { id: string; title: string; emoji: string; star_cost: number }
 interface Praise { id: string; message: string }
 interface DoneItem { key: string; date: string; createdAt: string; title: string; emoji: string; starValue: number }
+interface MyReward { id: string; title: string; emoji: string; cost: number; date: string; before: number | null; after: number | null }
 
 interface Props {
   child: Child
@@ -39,7 +38,7 @@ interface Props {
   rewards: Reward[]
   pendingRewardIds: string[]
   hasSpunToday: boolean
-  bonusCadence: 'daily' | 'weekly'
+  bonusCadence: 'weekly' | 'monthly'
   bonusDay: number
   bonusTime: string
   maxPrize: number
@@ -50,6 +49,7 @@ interface Props {
   autoSpin?: boolean
   totalCompletions: number
   unlockedIds: string[]
+  myRewards: MyReward[]
 }
 
 const RAINBOW = 'var(--theme-gradient)'
@@ -76,10 +76,13 @@ export default function ChildTaskView({
   starBalance: initialBalance, rewards, pendingRewardIds: initialPending,
   hasSpunToday, bonusCadence, bonusDay, bonusTime, maxPrize,
   streakDays, doneHistory, unseenPraises, highlightTaskId, autoSpin,
-  totalCompletions, unlockedIds,
+  totalCompletions, unlockedIds, myRewards,
 }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<'tasks' | 'done'>('tasks')
+  const [tab, setTab] = useState<'tasks' | 'done' | 'rewards'>('tasks')
+  // Local copies so the Done tab and My Rewards update live as the kid taps
+  const [doneList, setDoneList] = useState<DoneItem[]>(doneHistory)
+  const [myRewardsList, setMyRewardsList] = useState<MyReward[]>(myRewards)
   const [showPast, setShowPast] = useState(false)
   const [pulseId, setPulseId] = useState<string | null>(highlightTaskId ? `${highlightTaskId}|${todayStr}` : null)
   const [completed, setCompleted] = useState(new Set(completedKeys))
@@ -95,16 +98,13 @@ export default function ChildTaskView({
   const [claimBurst, setClaimBurst] = useState<{ stars: number; emoji: string } | null>(null)
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
-  const [showShop, setShowShop] = useState(false)
-  const [equippedHat, setEquippedHat] = useState<string | null>(child.equipped_hat ?? null)
-  const [equippedFrame, setEquippedFrame] = useState<string | null>(child.equipped_frame ?? null)
 
   // canSpin uses LOCAL device time (avoids UTC mismatch on server)
   useEffect(() => {
     const now = new Date()
     const h = now.getHours(), m = now.getMinutes()
     const nowHHMM = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-    const dueToday = bonusCadence === 'daily' || now.getDay() === bonusDay
+    const dueToday = bonusCadence === 'monthly' ? now.getDate() === bonusDay : now.getDay() === bonusDay
     const eligible = dueToday && nowHHMM >= bonusTime && !hasSpunToday
     setCanSpin(eligible)
     // Deep-link from the home "SPIN READY" badge opens the wheel straight away
@@ -162,9 +162,34 @@ export default function ChildTaskView({
     setClaimBurst({ stars: occ.star_value, emoji: occ.emoji })
     setTimeout(() => setClaimBurst(null), 1900)
     setStarBalance(prev => prev + occ.star_value)
+    // Done tab updates live
+    setDoneList(prev => [{
+      key: `${occ.taskId}|${occ.date}`, date: occ.date, createdAt: new Date().toISOString(),
+      title: occ.title, emoji: occ.emoji, starValue: occ.star_value,
+    }, ...prev])
     const remaining = claimable.filter(o => !completed.has(o.id) && o.id !== occ.id).length
     setCompleted(prev => new Set([...prev, occ.id]))
     if (remaining === 0) setTimeout(() => setShowCelebration(true), 700)
+  }
+
+  // Kids can undo their own tick (removes the completion + the stars)
+  async function undoTask(occ: Occurrence) {
+    if (!completed.has(occ.id)) return
+    if (!confirm(`Undo "${occ.title}"? You'll give back ${occ.star_value} ⭐`)) return
+    const supabase = createClient()
+    await supabase.from('completions').delete()
+      .eq('task_id', occ.taskId).eq('child_id', child.id).eq('date', occ.date)
+    await supabase.from('star_ledger').insert({
+      child_id: child.id, delta: -occ.star_value,
+      reason: `Undo: ${occ.title}`, source_type: 'undo',
+    })
+    setCompleted(prev => { const next = new Set(prev); next.delete(occ.id); return next })
+    setStarBalance(prev => prev - occ.star_value)
+    setDoneList(prev => {
+      const idx = prev.findIndex(d => d.key === `${occ.taskId}|${occ.date}`)
+      if (idx === -1) return prev
+      return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+    })
   }
 
   async function handleSpinWin(stars: number) {
@@ -178,12 +203,30 @@ export default function ChildTaskView({
     setCanSpin(false)
   }
 
+  // Redeem immediately: stars come off now, and it lands in My Rewards + the
+  // parents' Redeemed tab straight away (the old "waiting for approval" state
+  // was invisible to parents since approvals were removed).
   async function requestReward(reward: Reward) {
-    if (pendingRewardIds.has(reward.id) || starBalance < reward.star_cost) return
+    if (requestingId || starBalance < reward.star_cost) return
     redeemFeedback()
     setRequestingId(reward.id)
-    await createClient().from('redemptions').insert({ reward_id: reward.id, child_id: child.id, status: 'requested' })
-    setPendingRewardIds(prev => new Set([...prev, reward.id]))
+    const supabase = createClient()
+    const { data: redemption } = await supabase.from('redemptions')
+      .insert({ reward_id: reward.id, child_id: child.id, status: 'approved' }).select('id').single()
+    await supabase.from('star_ledger').insert({
+      child_id: child.id, delta: -reward.star_cost,
+      reason: `Redeemed: ${reward.title}`, source_type: 'redemption', source_id: redemption?.id,
+    })
+    fetch('/api/push/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '🎁 Reward redeemed!', body: `${child.name.split(' ')[0]} redeemed "${reward.title}" (−${reward.star_cost} ⭐)` }),
+    }).catch(() => {})
+    setMyRewardsList(prev => [{
+      id: redemption?.id || String(Date.now()), title: reward.title, emoji: reward.emoji,
+      cost: reward.star_cost, date: new Date().toISOString(),
+      before: starBalance, after: starBalance - reward.star_cost,
+    }, ...prev])
+    setStarBalance(prev => prev - reward.star_cost)
     setJustRequestedId(reward.id)
     setTimeout(() => setJustRequestedId(null), 2000)
     setRequestingId(null)
@@ -287,7 +330,7 @@ export default function ChildTaskView({
           {occ.upForGrabs && !done && (
             <span className="inline-block text-[9px] font-black bg-amber-100 text-amber-600 rounded-full px-1.5 py-0.5 mb-0.5">🙌 UP FOR GRABS</span>
           )}
-          <p className={`font-bold text-sm ${done ? 'line-through text-gray-400' : overdueCatchup ? 'text-red-500' : muted ? 'text-gray-400' : 'text-gray-800'}`}>
+          <p className={`font-bold text-base ${done ? 'line-through text-gray-400' : overdueCatchup ? 'text-red-500' : muted ? 'text-gray-400' : 'text-gray-800'}`}>
             {occ.title}
           </p>
           <p className={`text-xs ${occ.upForGrabs && !done ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
@@ -295,7 +338,11 @@ export default function ChildTaskView({
           </p>
         </div>
         {done ? (
-          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg">✓</div>
+          <button onClick={() => undoTask(occ)} title="Undo"
+            className="flex-shrink-0 flex flex-col items-center active:scale-90 transition">
+            <span className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold text-lg">✓</span>
+            <span className="text-[9px] font-bold text-gray-300 mt-0.5">undo</span>
+          </button>
         ) : locked ? (
           <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
         ) : notYetAvailable ? (
@@ -312,10 +359,6 @@ export default function ChildTaskView({
       </div>
     )
   }
-
-  const todayOccs = occurrences.filter(o => o.date === todayStr)
-  const tasksLeftToday = todayOccs.filter(o => !completed.has(o.id)).length
-  const allDoneToday = todayOccs.length > 0 && tasksLeftToday === 0
 
   return (
     <div className="min-h-screen pb-32 relative"
@@ -343,32 +386,29 @@ export default function ChildTaskView({
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 pt-4 space-y-3 relative z-10">
+      <div className="max-w-sm mx-auto px-4 pt-2 space-y-3 relative z-10">
 
-        {/* Yakka buddy greeting */}
-        <BuddyGreeting name={child.name.split(' ')[0]} tasksLeft={tasksLeftToday} allDone={allDoneToday}/>
-
-        {/* Stats row — decorated avatar (tap for Style Shop) + week star jar */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
-          <button onClick={() => setShowShop(true)} className="relative flex-shrink-0 active:scale-95 transition mt-2" aria-label="Style shop">
-            <DecoratedAvatar child={{ ...child, equipped_hat: equippedHat, equipped_frame: equippedFrame }} size={56}/>
-            <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm">✨</span>
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap text-sm font-bold text-gray-700">
-              <span>📋 {claimableDone}/{claimable.length} this week</span>
-              <span>⭐ {starBalance}</span>
-              {streakDays > 0 && <span className="text-orange-500">🔥 {streakDays}d streak</span>}
+        {/* Sticky stats — avatar + lolly jar stay pinned while scrolling.
+            The jar fills live as tasks are marked DONE. */}
+        <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-1"
+          style={{ background: 'color-mix(in srgb, var(--theme-from) 8%, white)' }}>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+            <div className="flex-shrink-0 mt-2">
+              <DecoratedAvatar child={child} size={56}/>
             </div>
-            <p className="text-[11px] text-gray-400 font-semibold mt-1">Tap your picture to visit the ✨ Style Shop</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
+              <p className="text-sm font-bold text-gray-600 mt-1.5">📋 {claimableDone}/{claimable.length} done this week</p>
+              {streakDays > 0 && <p className="text-sm font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
+            </div>
+            {claimable.length > 0 && <StarJar done={claimableDone} total={claimable.length} label="this week"/>}
           </div>
-          {claimable.length > 0 && <StarJar done={claimableDone} total={claimable.length} label="this week"/>}
         </div>
 
         {/* Savings goal jar */}
         {!!child.goal_target && child.goal_target > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
-            <StarJar done={starBalance} total={child.goal_target} width={46} height={60}/>
+            <StarJar done={starBalance} total={child.goal_target} width={46} height={60} emojis={['⭐', '⭐', '⭐']}/>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-wide">Saving up for</p>
               <p className="font-black text-gray-800 truncate">{child.goal_emoji || '🎁'} {child.goal_title || 'My goal'}</p>
@@ -385,11 +425,11 @@ export default function ChildTaskView({
 
         {/* Tabs */}
         <div className="flex bg-gray-100 rounded-2xl p-1">
-          {(['tasks', 'done'] as const).map(t => (
+          {(['tasks', 'done', 'rewards'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-xl text-sm font-bold capitalize transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
               style={tab === t ? { background: 'var(--theme-gradient)' } : {}}>
-              {t === 'tasks' ? '📋 Tasks' : `✅ Done (${doneHistory.length})`}
+              {t === 'tasks' ? '📋 Tasks' : t === 'done' ? `✅ Done (${doneList.length})` : `🎁 My Rewards`}
             </button>
           ))}
         </div>
@@ -466,14 +506,14 @@ export default function ChildTaskView({
         {/* ── DONE TAB ── */}
         {tab === 'done' && (
           <div className="space-y-2">
-            {doneHistory.length === 0 ? (
+            {doneList.length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-5xl mb-3">📭</div>
                 <p className="text-gray-500 font-semibold">No completed tasks yet</p>
                 <p className="text-gray-400 text-sm mt-1">Complete some tasks to see them here!</p>
               </div>
             ) : (
-              doneHistory.map(item => (
+              doneList.map(item => (
                 <div key={item.key + item.createdAt}
                   className="bg-white border border-gray-100 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
@@ -481,7 +521,7 @@ export default function ChildTaskView({
                     {item.emoji}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm text-gray-800 truncate">{item.title}</p>
+                    <p className="font-bold text-base text-gray-800 truncate">{item.title}</p>
                     <p className="text-xs text-gray-400">{fmtTimestamp(item.createdAt)}</p>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -492,16 +532,45 @@ export default function ChildTaskView({
             )}
           </div>
         )}
+
+        {/* ── MY REWARDS TAB ── */}
+        {tab === 'rewards' && (
+          <div className="space-y-2">
+            {myRewardsList.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-5xl mb-3">🎁</div>
+                <p className="text-gray-500 font-semibold">No rewards redeemed yet</p>
+                <p className="text-gray-400 text-sm mt-1">Save up your stars and treat yourself!</p>
+              </div>
+            ) : (
+              myRewardsList.map(r => (
+                <div key={r.id + r.date}
+                  className="bg-white border border-gray-100 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
+                    style={{ border: '1.5px solid var(--theme-from)' }}>
+                    {r.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-base text-gray-800 truncate">{r.title}</p>
+                    <p className="text-xs text-gray-400">{fmtTimestamp(r.date)}</p>
+                    {r.before !== null && r.after !== null && (
+                      <p className="text-xs font-semibold text-gray-500 mt-0.5">⭐ {r.before} → {r.after}</p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-sm font-black text-red-400">−{r.cost} ⭐</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 px-4 pb-6 pt-3 z-10">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 px-4 pb-6 pt-3 z-10"
+        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
         <div className="max-w-sm mx-auto flex items-center gap-3">
-          <button onClick={() => setShowShop(true)}
-            className="flex-shrink-0 flex items-center justify-center gap-1 font-bold py-3 px-4 rounded-2xl border-2 bg-white shadow-sm active:scale-95 transition"
-            style={{ borderColor: 'var(--theme-from)', color: 'var(--theme-from)' }}>
-            ✨
-          </button>
           {rewards.length > 0 && (
             <button onClick={() => setShowRewards(true)}
               className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-2xl shadow-sm active:scale-95 transition"
@@ -527,13 +596,6 @@ export default function ChildTaskView({
       {showSpin && (
         <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} maxPrize={maxPrize}
           onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
-      )}
-      {showShop && (
-        <StyleShop child={child} starBalance={starBalance} unlocked={new Set(unlockedIds)}
-          equippedHat={equippedHat} equippedFrame={equippedFrame}
-          onSpend={cost => setStarBalance(b => b - cost)}
-          onEquip={(kind, id) => kind === 'hat' ? setEquippedHat(id) : setEquippedFrame(id)}
-          onClose={() => setShowShop(false)}/>
       )}
     </div>
   )

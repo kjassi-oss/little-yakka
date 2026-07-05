@@ -87,11 +87,12 @@ export default async function DashboardPage() {
     supabase.from('families').select('bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).maybeSingle(),
     supabase.from('spin_results').select('child_id').eq('date', today),
   ])
-  const bonusCadence = family?.bonus_cadence || 'weekly'
+  const bonusCadence = family?.bonus_cadence === 'monthly' ? 'monthly' : 'weekly'
   const bonusDay = family?.bonus_day ?? 0
   const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
-  // Use real wall-clock time in the user's tz — localNow() is pinned to noon.
-  const bonusDueNow = (bonusCadence === 'daily' || now.getDay() === bonusDay) && localTimeHHMM(tz) >= bonusTime
+  // Weekly = day of week; monthly = date of month. Real wall-clock time in tz.
+  const bonusDueNow = (bonusCadence === 'monthly' ? now.getDate() === bonusDay : now.getDay() === bonusDay)
+    && localTimeHHMM(tz) >= bonusTime
   const spunSet = new Set((todaySpins || []).map(s => s.child_id))
 
   const completedSet = new Set(
@@ -145,12 +146,24 @@ export default async function DashboardPage() {
     const myTasks = todayTasks.filter(t => (assignmentMap[t.id] || []).includes(child.id))
     const myDone = myTasks.filter(t => completedSet.has(`${t.id}-${child.id}`)).length
     const canSpin = bonusDueNow && !spunSet.has(child.id)
-    return { child, balance, weekStars, streak, badges, level, myTasks, myDone, canSpin }
+
+    // Week progress (Mon–Sun): all due occurrences this week vs completed so far
+    const myAllTasks = (tasks || []).filter(t => (assignmentMap[t.id] || []).includes(child.id))
+    let weekDue = 0
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now); d.setDate(now.getDate() + mondayOffset + i)
+      weekDue += myAllTasks.filter(t => occursOn(t, d)).length
+    }
+    const mondayNoon = new Date(now); mondayNoon.setDate(now.getDate() + mondayOffset)
+    const weekStartStr = mondayNoon.toISOString().split('T')[0]
+    const weekDone = recentCompletions?.filter(c => c.child_id === child.id && c.date >= weekStartStr).length || 0
+    const weekPct = weekDue > 0 ? Math.min(100, Math.round((weekDone / weekDue) * 100)) : 0
+
+    return { child, balance, weekStars, streak, badges, level, myTasks, myDone, canSpin, weekPct }
   })
 
   const leaderboard = [...childData].sort((a, b) => b.weekStars - a.weekStars)
   const tileScroll = childData.length > 3 // ≤3 fill the frame; 4+ scroll horizontally
-  const maxWeek = Math.max(...childData.map(c => c.weekStars), 1)
   const rankMap: Record<string, number> = {}
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
@@ -188,7 +201,7 @@ export default async function DashboardPage() {
         {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
         {childData.length > 0 ? (
           <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'}>
-            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, canSpin }) => {
+            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, canSpin, weekPct }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
@@ -221,23 +234,22 @@ export default async function DashboardPage() {
                     <p className="font-black text-gray-800 text-sm leading-tight truncate">{firstName}</p>
                     <p className="text-base font-black text-yellow-500 leading-none my-1">⭐ {balance}</p>
 
-                    {/* This week's tracking (consolidated leaderboard) */}
+                    {/* Week progress (Mon–Sun task completion) */}
                     <div className="mb-1.5">
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${Math.max(8, (weekStars / maxWeek) * 100)}%`, background: 'var(--theme-gradient)' }}/>
+                        <div className="h-full rounded-full" style={{ width: `${weekPct}%`, background: 'var(--theme-gradient)' }}/>
                       </div>
-                      <p className="text-[9px] font-semibold text-gray-400 mt-0.5">+{weekStars} ⭐ this week</p>
                     </div>
 
                     {/* Streak — fixed-height slot so progress bars stay aligned across children */}
-                    <div className="h-4 mb-1 flex items-center justify-center">
+                    <div className="h-5 mb-1 flex items-center justify-center">
                       {streak > 0 && (
-                        <p className="text-[10px] font-bold text-orange-500">🔥 {streak}d streak</p>
+                        <p className="text-xs font-bold text-orange-500">🔥 {streak}d streak</p>
                       )}
                     </div>
 
                     {total > 0 && (
-                      <p className="text-[9px] text-gray-400 mb-1.5">{allDone ? '✅ All tasks done!' : `${myDone}/${total} tasks today`}</p>
+                      <p className="text-xs font-semibold text-gray-500 mb-1.5">{allDone ? '✅ All done!' : `${myDone}/${total} tasks today`}</p>
                     )}
 
                     {/* Progress bar */}
@@ -285,22 +297,22 @@ export default async function DashboardPage() {
                 {todayItems.map(({ task, kids, pending, allDone }) => (
                   <TaskLauncher key={task.id} taskId={task.id} kids={pending.length ? pending : kids}>
                     <div className={`flex items-center gap-3 rounded-2xl p-2.5 active:scale-[0.98] transition ${allDone ? 'bg-gray-50 opacity-70' : 'bg-gray-50'}`}>
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white" style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white" style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                       <div className="flex-1 min-w-0">
-                        <p className={`font-semibold text-sm truncate ${allDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                        <p className="text-[11px] text-gray-400">
+                        <p className={`font-bold text-base truncate ${allDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                        <p className="text-xs text-gray-400">
                           {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
                         </p>
                       </div>
-                      <div className="flex -space-x-2 flex-shrink-0">
+                      <div className="flex -space-x-2.5 flex-shrink-0">
                         {kids.slice(0, 3).map((k: any) => {
                           const done = completedSet.has(`${task.id}-${k.id}`)
                           return k.avatar_url
-                            ? <img key={k.id} src={k.avatar_url} className={`w-7 h-7 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
-                            : <div key={k.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white ${done ? 'opacity-50' : ''}`}
+                            ? <img key={k.id} src={k.avatar_url} className={`w-10 h-10 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
+                            : <div key={k.id} className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 border-white ${done ? 'opacity-50' : ''}`}
                                 style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
                         })}
-                        {kids.length > 3 && <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white">+{kids.length - 3}</div>}
+                        {kids.length > 3 && <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 border-2 border-white">+{kids.length - 3}</div>}
                       </div>
                     </div>
                   </TaskLauncher>

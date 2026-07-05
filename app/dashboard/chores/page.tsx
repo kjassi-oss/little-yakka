@@ -837,13 +837,13 @@ export default function ChoresPage() {
           }
 
           return (
-            <div className="space-y-4">
-              {/* Child filter — All + up to 3 fit the width, scroll for more */}
+            <div className="space-y-2">
+              {/* Child filter — All + 3 kids fit the width exactly; scroll for more */}
               {children.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+                <div className="flex gap-2 overflow-x-auto -mx-1 px-1">
                   <button onClick={() => setUpcomingFilter(new Set())}
                     className="flex flex-col items-center gap-1 active:scale-95 transition flex-shrink-0"
-                    style={{ width: 'calc((100% - 1rem) / 3)' }}>
+                    style={{ width: 'calc((100% - 1.5rem) / 4)' }}>
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-black ${upcomingFilter.size === 0 ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
                       style={upcomingFilter.size === 0 ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
                     <span className="text-[11px] font-bold" style={{ color: upcomingFilter.size === 0 ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
@@ -854,7 +854,7 @@ export default function ChoresPage() {
                     return (
                       <button key={child.id} onClick={() => toggleUpcomingChild(child.id)}
                         className="flex flex-col items-center gap-1 active:scale-95 transition flex-shrink-0"
-                        style={{ width: 'calc((100% - 1rem) / 3)' }}>
+                        style={{ width: 'calc((100% - 1.5rem) / 4)' }}>
                         {child.avatar_url
                           ? <img src={child.avatar_url} className={`w-12 h-12 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
                               style={{ boxShadow: sel && !isAll ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }} alt=""/>
@@ -868,13 +868,13 @@ export default function ChoresPage() {
               )}
 
               {singleChildId && (
-                <p className="text-[11px] text-center text-gray-400">Tap COMPLETE to tick a task off</p>
+                <p className="text-[11px] text-center text-gray-400">Tap DONE to tick a task off</p>
               )}
 
-              {/* Load earlier days (up to a week back) */}
+              {/* Load earlier days (up to a week back) — compact text link */}
               {pastWindow < 7 && (
                 <button onClick={() => setPastWindow(w => Math.min(7, w + 3))}
-                  className="w-full text-xs font-bold text-gray-400 py-2 rounded-xl bg-gray-50 active:scale-95 transition">
+                  className="w-full text-[11px] font-bold text-gray-400 py-0.5 active:scale-95 transition">
                   ↑ Load earlier days
                 </button>
               )}

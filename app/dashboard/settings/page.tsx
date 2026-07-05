@@ -59,7 +59,7 @@ export default function SettingsPage() {
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
   const [parentPin, setParentPin] = useState('')
-  const [bonusCadence, setBonusCadence] = useState<'daily' | 'weekly'>('weekly')
+  const [bonusCadence, setBonusCadence] = useState<'weekly' | 'monthly'>('weekly')
   const [bonusDay, setBonusDay] = useState(0)
   const [bonusTime, setBonusTime] = useState('16:00')
   const [bonusAwardPct, setBonusAwardPct] = useState(50)
@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState('')
   const [pwMsg, setPwMsg] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
   const [timezone, setTimezoneState] = useState('Australia/Sydney')
   const [tzSaved, setTzSaved] = useState(false)
   const [adjustChild, setAdjustChild] = useState<Child | null>(null)
@@ -118,7 +119,7 @@ export default function SettingsPage() {
     ])
     setChildren(childrenData || [])
     setFamilyName(familyData?.name || '')
-    if (familyData?.bonus_cadence) setBonusCadence(familyData.bonus_cadence === 'daily' ? 'daily' : 'weekly')
+    if (familyData?.bonus_cadence) setBonusCadence(familyData.bonus_cadence === 'monthly' ? 'monthly' : 'weekly')
     if (familyData?.bonus_day != null) setBonusDay(familyData.bonus_day)
     if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
     if ((familyData as any)?.bonus_award_pct != null) setBonusAwardPct((familyData as any).bonus_award_pct)
@@ -376,12 +377,14 @@ export default function SettingsPage() {
               {[
                 { e: '👶', t: 'Add your kids', d: 'Create a profile and photo for each child below.' },
                 { e: '📋', t: 'Create tasks', d: 'Add chores & routines, set stars and how often. Tap + on the Tasks page.' },
-                { e: '⭐', t: 'Kids earn stars', d: 'Tap a task on Home or Tasks to open that child\'s Kid Zone, where they tick tasks off and collect stars.' },
-                { e: '🎁', t: 'Spend on rewards', d: 'Set up rewards on the Rewards tab; kids swap their stars for them.' },
-                { e: '🎰', t: 'Bonus Wheel', d: 'Kids spin for bonus stars at a time you choose — the prize scales with how much they\'ve done.' },
-                { e: '📅', t: 'See what\'s coming', d: 'The Tasks tab has Upcoming, Done and All views of every task.' },
+                { e: '🙌', t: 'Up For Grabs', d: 'Make a task a bounty anyone can claim — first one done wins the stars!' },
+                { e: '⭐', t: 'Kids earn stars', d: 'Tap a child on Home to open their Kid Zone — they tick tasks off, watch their lolly jar fill, and collect trophies.' },
+                { e: '🎁', t: 'Spend on rewards', d: 'Set up rewards on the Rewards tab; kids redeem them with stars and see their history in My Rewards.' },
+                { e: '🏦', t: 'Savings goals', d: 'Give each child something to save for (edit a child below) — they\'ll see a jar filling toward it.' },
+                { e: '🎰', t: 'Bonus Wheel', d: 'A weekly or monthly prize spin — the prize scales with how much of their work is done.' },
+                { e: '🔥', t: 'Streaks & freezes', d: 'Daily streaks build motivation — and one missed day a week is forgiven automatically.' },
+                { e: '🔔', t: 'Notifications', d: 'Turn on notifications below to get nudges when tasks are done or still waiting.' },
                 { e: '📊', t: 'Track progress', d: 'The Summary tab shows completion %, streaks and stars — weekly or monthly, per kid.' },
-                { e: '⚙️', t: 'Settings & more', d: 'The cog (top-right) is where you manage kids, themes, the bonus wheel and your account.' },
                 { e: '🎨', t: 'Make it yours', d: 'Pick a colour theme below to restyle the whole app.' },
               ].map(s => (
                 <div key={s.t} className="flex gap-3">
@@ -395,6 +398,68 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Bonus wheel */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="font-bold text-gray-800 mb-1">🎰 Bonus Wheel</h2>
+          <p className="text-xs text-gray-400 mb-3">Awards bonus stars based on the {bonusCadence === 'monthly' ? 'month' : 'week'}'s performance. The prize scales with how much of their work is done by spin time.</p>
+
+          <div className="flex bg-gray-100 rounded-2xl p-1 mb-3">
+            {(['weekly', 'monthly'] as const).map(c => (
+              <button key={c} onClick={() => setBonusCadence(c)}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold capitalize transition ${bonusCadence === c ? 'text-white shadow' : 'text-gray-400'}`}
+                style={bonusCadence === c ? { background: 'var(--theme-gradient)' } : {}}>{c}</button>
+            ))}
+          </div>
+
+          {bonusCadence === 'weekly' ? (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1.5">On which day?</p>
+              <div className="flex gap-1.5">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((lbl, dow) => (
+                  <button key={dow} onClick={() => setBonusDay(dow)}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${bonusDay === dow ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                    style={bonusDay === dow ? { background: 'var(--theme-gradient)' } : {}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-3 flex items-center gap-3">
+              <p className="text-xs text-gray-500">On which date?</p>
+              <input type="number" inputMode="numeric" min={1} max={31} value={bonusDay >= 1 && bonusDay <= 31 ? bonusDay : 1}
+                onChange={e => setBonusDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
+                className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+              <p className="text-[11px] text-gray-400">of each month</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 mb-3">
+            <p className="text-xs text-gray-500">Available from</p>
+            <input type="time" value={bonusTime} onChange={e => setBonusTime(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+          </div>
+
+          {/* Award value — % of the period's available stars */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-gray-500">Award value</p>
+              <p className="text-xs font-bold" style={{ color: 'var(--theme-from)' }}>{bonusAwardPct}%</p>
+            </div>
+            <input type="range" min={10} max={100} step={5} value={bonusAwardPct}
+              onChange={e => setBonusAwardPct(Number(e.target.value))} className="w-full"/>
+            <div className="flex justify-between text-[11px] text-gray-400 mt-0.5">
+              <span>10% of {bonusCadence === 'monthly' ? 'month' : 'week'}'s stars</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <button onClick={saveBonus} disabled={savingBonus}
+            className="w-full text-white font-bold py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
+            style={{ background: 'var(--theme-gradient)' }}>
+            {savingBonus ? 'Saving...' : bonusSaved ? 'Saved ✓' : 'Save bonus settings'}
+          </button>
+          <p className="text-[11px] text-gray-400 mt-2">Each child gets their own spin, redeemable that day only. They'll see a "Bonus spin ready!" banner in their zone.</p>
         </div>
 
         {/* Colour theme — collapsible */}
@@ -472,11 +537,20 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Change password */}
+        {/* Change password — collapsible */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
-          <h2 className="font-bold text-gray-800 mb-1">Change Password</h2>
-          <p className="text-xs text-gray-400 mb-3">Enter your current password first to confirm it's you.</p>
-          <div className="space-y-2.5">
+          <button onClick={() => setPwOpen(o => !o)} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔑</span>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-800 leading-tight">Change Password</h2>
+                <p className="text-xs text-gray-400">Update your sign-in password</p>
+              </div>
+            </div>
+            <span className={`text-gray-300 text-xl transition-transform ${pwOpen ? 'rotate-90' : ''}`}>›</span>
+          </button>
+          {pwOpen && (
+          <div className="space-y-2.5 mt-4">
             <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)}
               className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Current password"/>
             <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
@@ -491,60 +565,7 @@ export default function SettingsPage() {
               {pwSaving ? 'Updating...' : 'Update password'}
             </button>
           </div>
-        </div>
-
-        {/* Bonus wheel */}
-        <div className="bg-white rounded-3xl shadow-sm p-5">
-          <h2 className="font-bold text-gray-800 mb-1">🎰 Bonus Wheel</h2>
-          <p className="text-xs text-gray-400 mb-3">Awards bonus stars based on the {bonusCadence === 'daily' ? 'day' : 'week'}'s performance. The prize scales with how much of their work is done by spin time.</p>
-
-          <div className="flex bg-gray-100 rounded-2xl p-1 mb-3">
-            {(['weekly', 'daily'] as const).map(c => (
-              <button key={c} onClick={() => setBonusCadence(c)}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold capitalize transition ${bonusCadence === c ? 'text-white shadow' : 'text-gray-400'}`}
-                style={bonusCadence === c ? { background: 'var(--theme-gradient)' } : {}}>{c}</button>
-            ))}
-          </div>
-
-          {bonusCadence === 'weekly' && (
-            <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-1.5">On which day?</p>
-              <div className="flex gap-1.5">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((lbl, dow) => (
-                  <button key={dow} onClick={() => setBonusDay(dow)}
-                    className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${bonusDay === dow ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                    style={bonusDay === dow ? { background: 'var(--theme-gradient)' } : {}}>{lbl}</button>
-                ))}
-              </div>
-            </div>
           )}
-
-          <div className="flex items-center gap-3 mb-3">
-            <p className="text-xs text-gray-500">Available from</p>
-            <input type="time" value={bonusTime} onChange={e => setBonusTime(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
-          </div>
-
-          {/* Award value — % of the period's available stars */}
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-gray-500">Award value</p>
-              <p className="text-xs font-bold" style={{ color: 'var(--theme-from)' }}>{bonusAwardPct}%</p>
-            </div>
-            <input type="range" min={10} max={100} step={5} value={bonusAwardPct}
-              onChange={e => setBonusAwardPct(Number(e.target.value))} className="w-full"/>
-            <div className="flex justify-between text-[11px] text-gray-400 mt-0.5">
-              <span>10% of {bonusCadence === 'daily' ? 'day' : 'week'}'s stars</span>
-              <span>100%</span>
-            </div>
-          </div>
-
-          <button onClick={saveBonus} disabled={savingBonus}
-            className="w-full text-white font-bold py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
-            style={{ background: 'var(--theme-gradient)' }}>
-            {savingBonus ? 'Saving...' : bonusSaved ? 'Saved ✓' : 'Save bonus settings'}
-          </button>
-          <p className="text-[11px] text-gray-400 mt-2">Each child gets their own spin, redeemable that day only. They'll see a "Bonus spin ready!" banner in their zone.</p>
         </div>
 
         {/* Timezone */}
@@ -648,9 +669,9 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
             {children.map(child => (
-              <div key={child.id}>
+              <div key={child.id} className={editingChild?.id === child.id ? 'col-span-3' : ''}>
                 {editingChild?.id === child.id ? (
                   <div className="border border-purple-200 rounded-2xl p-4 space-y-3">
                     <input type="text" value={editingChild.name} onChange={e => setEditingChild({ ...editingChild, name: e.target.value })}
@@ -701,30 +722,31 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3">
-                    {/* Avatar with photo upload */}
-                    <div className="relative flex-shrink-0">
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* Thumbnail with photo upload */}
+                    <div className="relative">
                       {child.avatar_url ? (
-                        <img src={child.avatar_url} alt={child.name} className="w-14 h-14 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
+                        <img src={child.avatar_url} alt={child.name} className="w-20 h-20 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
                       ) : (
-                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: child.colour + '22', border: '3px solid var(--theme-from)' }}>{child.avatar}</div>
+                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl" style={{ backgroundColor: child.colour + '22', border: '3px solid var(--theme-from)' }}>{child.avatar}</div>
                       )}
                       <button onClick={() => photoInputRefs.current[child.id]?.click()}
-                        className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
+                        className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
                         {uploadingPhotoId === child.id ? '⏳' : '📷'}
                       </button>
                       <input type="file" accept="image/*" className="hidden"
                         ref={el => { photoInputRefs.current[child.id] = el }}
                         onChange={e => e.target.files?.[0] && uploadChildPhoto(child.id, e.target.files[0])}/>
                     </div>
-                    <p className="font-semibold text-gray-800 flex-1">{child.name}</p>
-                    <button onClick={() => { setAdjustChild(child); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustError('') }}
-                      aria-label="Adjust stars" className="text-sm font-bold px-2.5 py-1.5 rounded-xl bg-yellow-50 text-yellow-600">⭐ ±</button>
-                    <button onClick={() => { setEditingChild(child); setShowAddForm(false) }}
-                      className="text-sm font-semibold px-3 py-1.5 rounded-xl" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteChild(child.id)} className="text-red-400 text-sm font-semibold px-2.5 py-1.5 bg-red-50 rounded-xl">✕</button>
+                    <p className="font-bold text-gray-800 text-sm truncate max-w-full">{child.name.split(' ')[0]}</p>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setAdjustChild(child); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustError('') }}
+                        aria-label="Adjust stars" className="text-xs font-bold w-8 h-8 rounded-xl bg-yellow-50 text-yellow-600 active:scale-90 transition">⭐</button>
+                      <button onClick={() => { setEditingChild(child); setShowAddForm(false) }} aria-label="Edit"
+                        className="text-xs w-8 h-8 rounded-xl active:scale-90 transition" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>✏️</button>
+                      <button onClick={() => deleteChild(child.id)} aria-label="Remove"
+                        className="text-red-400 text-xs font-semibold w-8 h-8 bg-red-50 rounded-xl active:scale-90 transition">✕</button>
+                    </div>
                   </div>
                 )}
               </div>
