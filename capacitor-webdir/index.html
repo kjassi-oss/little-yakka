@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Little Yakka</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex; align-items: center; justify-content: center;
+        background: #334487; color: #fff; text-align: center;
+        font-family: -apple-system, system-ui, sans-serif; padding: 24px;
+      }
+      .box { max-width: 320px; }
+      h1 { font-size: 1.4rem; margin: 0 0 8px; }
+      p { opacity: .9; line-height: 1.5; margin: 0 0 20px; }
+      button {
+        background: #fff; color: #334487; border: 0; border-radius: 999px;
+        padding: 12px 28px; font-size: 1rem; font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>You're offline</h1>
+      <p>Little Yakka needs an internet connection. Check your connection and try again.</p>
+      <button onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>

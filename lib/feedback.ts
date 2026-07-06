@@ -1,5 +1,7 @@
 // Lightweight, asset-free completion feedback: a short happy chime + a haptic buzz.
 // Safe to call from any click handler (audio needs a user gesture, which a tap is).
+import { Capacitor } from '@capacitor/core'
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
 
 function chime(notes: number[]) {
   try {
@@ -25,18 +27,26 @@ function chime(notes: number[]) {
   } catch {}
 }
 
-function buzz(pattern: number | number[]) {
-  try { navigator.vibrate?.(pattern) } catch {}
+// Inside the Capacitor app, use real native haptics (iOS ignores navigator.vibrate).
+// In the browser PWA, fall back to the Web Vibration API (works on Android).
+function buzzImpact(style: ImpactStyle, webPattern: number | number[]) {
+  if (Capacitor.isNativePlatform()) { Haptics.impact({ style }).catch(() => {}); return }
+  try { navigator.vibrate?.(webPattern) } catch {}
 }
 
-// Task completed — bright ascending arpeggio + light double-tap buzz
+function buzzSuccess(webPattern: number | number[]) {
+  if (Capacitor.isNativePlatform()) { Haptics.notification({ type: NotificationType.Success }).catch(() => {}); return }
+  try { navigator.vibrate?.(webPattern) } catch {}
+}
+
+// Task completed — bright ascending arpeggio + light impact
 export function completionFeedback() {
   chime([523.25, 659.25, 783.99]) // C5 · E5 · G5
-  buzz([12, 24, 12])
+  buzzImpact(ImpactStyle.Light, [12, 24, 12])
 }
 
-// Reward redeemed — bigger, celebratory
+// Reward redeemed — bigger, celebratory + success notification haptic
 export function redeemFeedback() {
   chime([523.25, 659.25, 783.99, 1046.5]) // C5 · E5 · G5 · C6
-  buzz([15, 30, 15, 30, 40])
+  buzzSuccess([15, 30, 15, 30, 40])
 }
