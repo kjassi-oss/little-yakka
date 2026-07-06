@@ -34,7 +34,11 @@ workflows:
       - name: Write App Store Connect API key to file
         script: |
           mkdir -p "$HOME/private_keys"
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > "$HOME/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          KEY_FILE="$HOME/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          # Codemagic may store the key with escaped \n — printf '%b' restores real newlines.
+          printf '%b' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$KEY_FILE"
+          echo "Wrote $(wc -c < "$KEY_FILE") bytes to key file; first line:"
+          head -n 1 "$KEY_FILE"
       - name: Initialize keychain
         script: keychain initialize
       - name: Archive (Xcode-managed automatic signing)
