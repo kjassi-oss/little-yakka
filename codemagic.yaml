@@ -31,8 +31,11 @@ workflows:
         script: npx cap sync ios
       - name: Set build number (unique per TestFlight upload)
         script: /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/App/App/Info.plist
-      - name: Initialize keychain
-        script: keychain initialize
+      - name: Put distribution certificate in the keychain
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "com.littleyakka.app" --type IOS_APP_STORE --create
+          keychain add-certificates
       - name: Archive (Xcode-managed automatic signing)
         script: |
           # Codemagic exposes the API key as "@file:<path>" — strip the prefix to get the path.
@@ -47,7 +50,6 @@ workflows:
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
       - name: Export IPA
         script: |
