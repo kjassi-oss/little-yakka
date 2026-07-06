@@ -3,6 +3,7 @@
 import webpush from 'web-push'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { VAPID_PUBLIC_KEY } from './pushKeys'
+import { sendApns } from './apnsServer'
 
 let configured = false
 function configure(): boolean {
@@ -24,30 +25,49 @@ export function getServiceClient() {
   return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false } })
 }
 
-export interface PushSub { endpoint: string; p256dh: string; auth: string }
+export interface PushSub { endpoint: string; p256dh?: string | null; auth?: string | null; platform?: string | null }
 
-// Send to a list of subscriptions; prune ones the browser has revoked (410/404).
+// Send to a list of subscriptions. Web (browser PWA) goes via web-push; iOS native
+// devices go via APNs. Prune tokens the platform has revoked.
 export async function sendToSubs(subs: PushSub[], payload: { title: string; body: string; url?: string }) {
-  if (!configure() || !subs.length) return
+  if (!subs.length) return
   const admin = getServiceClient()
-  const body = JSON.stringify(payload)
-  await Promise.all(subs.map(async s => {
-    try {
-      await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-        body
-      )
-    } catch (e: any) {
-      if (e?.statusCode === 404 || e?.statusCode === 410) {
-        await admin.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
+  const web = subs.filter(s => s.platform !== 'ios' && s.p256dh && s.auth)
+  const ios = subs.filter(s => s.platform === 'ios')
+  const jobs: Promise<unknown>[] = []
+
+  if (configure() && web.length) {
+    const body = JSON.stringify(payload)
+    jobs.push(...web.map(async s => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh!, auth: s.auth! } },
+          body
+        )
+      } catch (e: any) {
+        if (e?.statusCode === 404 || e?.statusCode === 410) {
+          await admin.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
+        }
       }
-    }
-  }))
+    }))
+  }
+
+  if (ios.length) {
+    jobs.push((async () => {
+      const results = await sendApns(ios.map(s => s.endpoint), payload)
+      const dead = results
+        .filter(r => r.status === 410 || r.reason === 'Unregistered' || r.reason === 'BadDeviceToken')
+        .map(r => r.token)
+      if (dead.length) await admin.from('push_subscriptions').delete().in('endpoint', dead)
+    })())
+  }
+
+  await Promise.all(jobs)
 }
 
 export async function sendToFamily(familyId: string, payload: { title: string; body: string; url?: string }) {
   const admin = getServiceClient()
   const { data: subs } = await admin
-    .from('push_subscriptions').select('endpoint, p256dh, auth').eq('family_id', familyId)
+    .from('push_subscriptions').select('endpoint, p256dh, auth, platform').eq('family_id', familyId)
   await sendToSubs((subs || []) as PushSub[], payload)
 }

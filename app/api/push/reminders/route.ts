@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   try { admin = getServiceClient() } catch { return NextResponse.json({ ok: false, reason: 'no service key' }) }
 
   const { data: subs } = await admin
-    .from('push_subscriptions').select('family_id, endpoint, p256dh, auth')
+    .from('push_subscriptions').select('family_id, endpoint, p256dh, auth, platform')
   if (!subs?.length) return NextResponse.json({ ok: true, sent: 0 })
 
   const familyIds = [...new Set(subs.map(s => s.family_id))]

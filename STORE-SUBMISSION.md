@@ -36,7 +36,14 @@
 - **Compliance to track (Phase 4):** Guideline 4.8 — offering Google login may require
   **Sign in with Apple** (email login *may* satisfy it; budget for adding it).
 - **Bundle ID LOCKED:** `com.littleyakka.app`. Apple Developer Program **enrolled + paid** as
-  **Individual** (2026-07-06); awaiting activation. Push backend = **direct APNs `.p8`** (waits on activation).
+  **Individual** (2026-07-06); **ACTIVE**. Team ID `9D5QNNA5ZT`, Key ID `2T2MT7JX3L`; App ID registered with
+  Push capability + APNs `.p8` key created (`.p8` saved locally, NOT in repo). Push backend = **direct APNs `.p8`**.
+- **Native push code DONE** (branch `capacitor-ios`): server sender `lib/apnsServer.ts` (ES256 JWT via `.p8` + HTTP/2),
+  client `lib/nativePush.ts`, settings-page native branch, `push_subscriptions.platform` column (endpoint holds APNs
+  token; p256dh/auth now nullable), `AppDelegate` forwards token, `App.entitlements` (aps-environment=production).
+  **PENDING MANUAL:** (1) run the new `push_subscriptions` ALTERs from `supabase_migration.sql` in Supabase SQL editor;
+  (2) add Vercel env `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` / `APNS_PRIVATE_KEY` (the `.p8` contents).
+  Untestable until the first Codemagic/TestFlight build.
 - **Branding:** app **icon** = "Little Yakka" wordmark on white (opaque, no alpha), source `assets/icon-only.png`.
   **Splash** = full logo on **indigo `#334487`** (sampled from the logo's "Yakka" navy). Pink dropped as a
   base colour (too gender-leaning); `#334487` is the new neutral base for native surfaces (splash, offline).
@@ -84,7 +91,7 @@
 ### Phase 1 — Wrap with Capacitor (coding)
 - [x] Audit current push setup, `next.config`, service worker, `package.json`. *(done 2026-07-06)*
 - [x] Add Capacitor 8 + iOS platform (SPM, no CocoaPods → Windows-friendly). Remote-URL model. *(done 2026-07-06)*
-- [ ] Migrate iOS push to Capacitor native push (APNs); keep web push for browser PWA. *(waits on Apple .p8)*
+- [x] Migrate iOS push to Capacitor native push (APNs); keep web push for browser PWA. *(code done 2026-07-06; needs Supabase SQL + Vercel env + on-device test)*
 - [x] Wire haptics to Capacitor Haptics. *(done 2026-07-06)*
 - [x] App icons + splash screens generated. *(done 2026-07-06)*
 

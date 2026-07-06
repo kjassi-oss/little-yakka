@@ -104,6 +104,12 @@ create policy push_subs_family on push_subscriptions for all
   using (family_id in (select family_id from guardians where auth_user_id = auth.uid()))
   with check (family_id in (select family_id from guardians where auth_user_id = auth.uid()));
 
+-- iOS native push (APNs): store the APNs device token in `endpoint`, tag the row via
+-- `platform`, and relax p256dh/auth (web-push-only) to nullable for native rows.
+alter table push_subscriptions add column if not exists platform text not null default 'web';
+alter table push_subscriptions alter column p256dh drop not null;
+alter table push_subscriptions alter column auth drop not null;
+
 -- Savings goal per child ("Save 200 stars for a scooter")
 alter table children add column if not exists goal_title text;
 alter table children add column if not exists goal_emoji text;

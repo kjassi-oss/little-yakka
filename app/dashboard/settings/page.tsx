@@ -8,6 +8,7 @@ import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
+import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
 
 const COMMON_TIMEZONES = [
@@ -139,6 +140,10 @@ export default function SettingsPage() {
   // ── Push notifications ─────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
+      if (isNativePush()) {
+        try { setNotifStatus(await nativePermissionState()) } catch { setNotifStatus('off') }
+        return
+      }
       if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
         setNotifStatus('unsupported'); return
       }
@@ -154,6 +159,13 @@ export default function SettingsPage() {
   async function enableNotifications() {
     setNotifBusy(true)
     try {
+      if (isNativePush()) {
+        const r = await registerNativePush()
+        if ('error' in r) { setNotifStatus(r.error === 'denied' ? 'denied' : 'off'); return }
+        await createClient().from('push_subscriptions').upsert(
+          { family_id: familyId, endpoint: r.token, platform: 'ios' }, { onConflict: 'endpoint' })
+        setNotifStatus('on'); return
+      }
       const reg = await navigator.serviceWorker.register('/sw.js')
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') { setNotifStatus('denied'); return }
@@ -174,6 +186,11 @@ export default function SettingsPage() {
   async function disableNotifications() {
     setNotifBusy(true)
     try {
+      if (isNativePush()) {
+        const token = cachedNativeToken()
+        if (token) { await createClient().from('push_subscriptions').delete().eq('endpoint', token); clearNativeToken() }
+        setNotifStatus('off'); return
+      }
       const reg = await navigator.serviceWorker.getRegistration()
       const sub = await reg?.pushManager.getSubscription()
       if (sub) {
