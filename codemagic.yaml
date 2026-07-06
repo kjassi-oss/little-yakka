@@ -1,15 +1,11 @@
 # Codemagic CI — cloud iOS build for Little Yakka (built on Windows, no Mac).
-# Produces a signed .ipa and uploads it to TestFlight.
-#
-# Uses Xcode-managed AUTOMATIC signing (-allowProvisioningUpdates) with the App Store
-# Connect API key, so the generated provisioning profile always includes the app's
-# capabilities (e.g. Push Notifications). The codemagic-cli manual-profile path could
-# not produce a profile with Push, which broke the archive.
-#
-# Prereqs (one-time, in the Codemagic UI / Apple portals):
-#  - App Store Connect API key added to Codemagic, named exactly: LittleYakka_ASC
-#  - App record exists in App Store Connect with bundle id com.littleyakka.app
-#  - Push Notifications enabled on the com.littleyakka.app App ID
+# Manual code signing with a distribution certificate + App Store provisioning profile
+# we created ourselves in the Apple portal (the profile includes Push Notifications).
+# Provided as base64 env vars in the Codemagic variable group "ios_signing":
+#   CERT_P12_B64   – base64 of the distribution .p12
+#   CERT_PASSWORD  – the .p12 password
+#   PROFILE_B64    – base64 of the App Store .mobileprovision
+# TestFlight upload uses the App Store Connect API key integration "LittleYakka_ASC".
 workflows:
   ios-testflight:
     name: Little Yakka iOS — TestFlight
@@ -18,10 +14,11 @@ workflows:
     integrations:
       app_store_connect: LittleYakka_ASC
     environment:
+      groups:
+        - ios_signing
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
-        TEAM_ID: "9D5QNNA5ZT"
       node: 22.17.0
       xcode: latest
     scripts:
@@ -31,39 +28,20 @@ workflows:
         script: npx cap sync ios
       - name: Set build number (unique per TestFlight upload)
         script: /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/App/App/Info.plist
-      - name: Put distribution certificate in the keychain
+      - name: Set up manual code signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "com.littleyakka.app" --type IOS_APP_STORE --create
-          keychain add-certificates
-      - name: Archive (Xcode-managed automatic signing)
+          echo "$CERT_P12_B64" | base64 --decode > /tmp/dist.p12
+          keychain add-certificates --certificate /tmp/dist.p12 --certificate-password "$CERT_PASSWORD"
+          PROFILES_HOME="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_HOME"
+          echo "$PROFILE_B64" | base64 --decode > "$PROFILES_HOME/littleyakka_appstore.mobileprovision"
+          xcode-project use-profiles
+      - name: Build IPA
         script: |
-          # Codemagic exposes the API key as "@file:<path>" — strip the prefix to get the path.
-          KEY_PATH="${APP_STORE_CONNECT_PRIVATE_KEY#@file:}"
-          xcodebuild -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -archivePath "build/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            archive
-      - name: Export IPA
-        script: |
-          KEY_PATH="${APP_STORE_CONNECT_PRIVATE_KEY#@file:}"
-          xcodebuild -exportArchive \
-            -archivePath "build/App.xcarchive" \
-            -exportPath "build/ipa" \
-            -exportOptionsPlist "ios/ExportOptions.plist" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
     artifacts:
-      - build/ipa/*.ipa
+      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
