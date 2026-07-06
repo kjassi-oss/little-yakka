@@ -31,24 +31,18 @@ workflows:
         script: npx cap sync ios
       - name: Set build number (unique per TestFlight upload)
         script: /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/App/App/Info.plist
-      - name: Write App Store Connect API key to file
-        script: |
-          mkdir -p "$HOME/private_keys"
-          KEY_FILE="$HOME/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
-          # Codemagic may store the key with escaped \n — printf '%b' restores real newlines.
-          printf '%b' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$KEY_FILE"
-          echo "Wrote $(wc -c < "$KEY_FILE") bytes to key file; first line:"
-          head -n 1 "$KEY_FILE"
       - name: Initialize keychain
         script: keychain initialize
       - name: Archive (Xcode-managed automatic signing)
         script: |
+          # Codemagic exposes the API key as "@file:<path>" — strip the prefix to get the path.
+          KEY_PATH="${APP_STORE_CONNECT_PRIVATE_KEY#@file:}"
           xcodebuild -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath "build/App.xcarchive" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
@@ -56,12 +50,13 @@ workflows:
             archive
       - name: Export IPA
         script: |
+          KEY_PATH="${APP_STORE_CONNECT_PRIVATE_KEY#@file:}"
           xcodebuild -exportArchive \
             -archivePath "build/App.xcarchive" \
             -exportPath "build/ipa" \
             -exportOptionsPlist "ios/ExportOptions.plist" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
     artifacts:
