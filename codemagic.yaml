@@ -1,0 +1,44 @@
+# Codemagic CI — cloud iOS build for Little Yakka (built on Windows, no Mac).
+# Produces a signed .ipa and uploads it to TestFlight.
+#
+# Prerequisites (one-time, set up in the Codemagic UI / Apple portals):
+#  - App Store Connect API key added to Codemagic and named exactly: LittleYakka_ASC
+#    (Codemagic → Teams/User settings → Integrations → App Store Connect)
+#  - The app record exists in App Store Connect with bundle id com.littleyakka.app
+workflows:
+  ios-testflight:
+    name: Little Yakka iOS — TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: LittleYakka_ASC
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.littleyakka.app
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+      node: 22.17.0
+      xcode: latest
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+      - name: Sync Capacitor iOS (copies web assets, resolves SPM plugins)
+        script: npx cap sync ios
+      - name: Apply code-signing profiles
+        script: xcode-project use-profiles
+      - name: Set build number (unique per TestFlight upload)
+        script: /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/App/App/Info.plist
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
