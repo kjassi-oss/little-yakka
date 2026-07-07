@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Baloo_2, Nunito } from "next/font/google"
 import ThemeProvider from "@/components/ThemeProvider"
+import NativeAuth from "@/components/NativeAuth"
 import "./globals.css"
 
 // Playful, friendly type: Nunito for body, Baloo 2 for the chunky display wordmark
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${nunito.variable} ${baloo.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
+        <NativeAuth />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

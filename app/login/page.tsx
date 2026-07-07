@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { isNative, nativeGoogleSignIn } from '@/lib/nativeAuth'
 import BrandLogo from '@/components/BrandLogo'
 
 export default function LoginPage() {
@@ -26,6 +27,11 @@ export default function LoginPage() {
   async function handleGoogle() {
     setGoogleLoading(true); setError('')
     const supabase = createClient()
+    if (isNative()) {
+      const r = await nativeGoogleSignIn(supabase)
+      if (r.error) { setError(r.error); setGoogleLoading(false) }
+      return // the deep-link listener (NativeAuth) finishes sign-in
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
