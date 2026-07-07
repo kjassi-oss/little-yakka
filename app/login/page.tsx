@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { isNative, nativeGoogleSignIn } from '@/lib/nativeAuth'
+import { isNative, nativeOAuthSignIn } from '@/lib/nativeAuth'
 import BrandLogo from '@/components/BrandLogo'
 
 export default function LoginPage() {
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [appleLoading, setAppleLoading] = useState(false)
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -28,7 +29,7 @@ export default function LoginPage() {
     setGoogleLoading(true); setError('')
     const supabase = createClient()
     if (isNative()) {
-      const r = await nativeGoogleSignIn(supabase)
+      const r = await nativeOAuthSignIn(supabase, 'google')
       if (r.error) { setError(r.error); setGoogleLoading(false) }
       return // the deep-link listener (NativeAuth) finishes sign-in
     }
@@ -37,6 +38,21 @@ export default function LoginPage() {
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) { setError(error.message); setGoogleLoading(false) }
+  }
+
+  async function handleApple() {
+    setAppleLoading(true); setError('')
+    const supabase = createClient()
+    if (isNative()) {
+      const r = await nativeOAuthSignIn(supabase, 'apple')
+      if (r.error) { setError(r.error); setAppleLoading(false) }
+      return // the deep-link listener (NativeAuth) finishes sign-in
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+    if (error) { setError(error.message); setAppleLoading(false) }
   }
 
   const RAINBOW = 'var(--theme-gradient)'
@@ -49,6 +65,19 @@ export default function LoginPage() {
 
         {/* Compact sign-in card */}
         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 space-y-2.5">
+          <button onClick={handleApple} disabled={appleLoading}
+            className="w-full flex items-center justify-center gap-2.5 rounded-2xl py-2.5 font-semibold text-white text-sm bg-black hover:bg-gray-900 active:scale-95 transition disabled:opacity-60">
+            {appleLoading ? (
+              <span className="text-sm">Redirecting...</span>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                  <path d="M17.05 12.04c-.03-2.85 2.33-4.22 2.44-4.29-1.33-1.95-3.4-2.21-4.13-2.24-1.76-.18-3.43 1.03-4.32 1.03-.89 0-2.26-1.01-3.72-.98-1.91.03-3.68 1.11-4.66 2.82-1.99 3.45-.51 8.55 1.42 11.35.94 1.37 2.06 2.9 3.53 2.85 1.42-.06 1.95-.91 3.66-.91 1.71 0 2.19.91 3.69.88 1.53-.03 2.49-1.39 3.42-2.77 1.08-1.59 1.52-3.13 1.55-3.21-.03-.01-2.97-1.14-3-4.53zM14.28 3.78c.78-.95 1.31-2.27 1.16-3.58-1.13.05-2.49.75-3.3 1.7-.72.84-1.36 2.18-1.19 3.47 1.26.1 2.55-.64 3.33-1.59z"/>
+                </svg>
+                Continue with Apple
+              </>
+            )}
+          </button>
           <button onClick={handleGoogle} disabled={googleLoading}
             className="w-full flex items-center justify-center gap-2.5 border-2 border-gray-200 rounded-2xl py-2.5 font-semibold text-gray-700 text-sm hover:bg-gray-50 active:scale-95 transition disabled:opacity-60">
             {googleLoading ? (
