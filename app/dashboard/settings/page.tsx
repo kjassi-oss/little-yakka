@@ -434,7 +434,7 @@ export default function SettingsPage() {
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1.5">On which day?</p>
               <div className="flex gap-1.5">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((lbl, dow) => (
+                {([['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6], ['S', 0]] as const).map(([lbl, dow]) => (
                   <button key={dow} onClick={() => setBonusDay(dow)}
                     className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${bonusDay === dow ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
                     style={bonusDay === dow ? { background: 'var(--theme-gradient)' } : {}}>{lbl}</button>
