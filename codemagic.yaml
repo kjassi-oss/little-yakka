@@ -46,4 +46,7 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Upload to App Store Connect only. The build then appears in TestFlight for
+        # internal testers automatically; we don't auto-submit to external beta (that
+        # needs Apple beta review and was causing the red post-processing step).
+        submit_to_testflight: false
