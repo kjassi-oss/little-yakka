@@ -226,12 +226,13 @@ export default function RewardsPage() {
       </div>
 
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
-        {/* Create form */}
+        {/* Create form — full-screen (nothing behind it) */}
         {showForm && (
-          <div className="bg-white rounded-3xl shadow-sm p-5 space-y-4">
+          <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-6 pb-28 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-800">{editingRewardId ? 'Edit Reward' : 'New Reward'}</h2>
-              <button onClick={() => { setShowForm(false); resetForm() }} className="text-sm font-semibold text-gray-400">Cancel</button>
+              <h2 className="text-2xl font-black text-gray-800">{editingRewardId ? 'Edit Reward' : 'Create Reward'}</h2>
+              <button onClick={() => { setShowForm(false); resetForm() }} aria-label="Close" className="w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
             </div>
 
             {/* Templates — hidden until requested */}
@@ -288,47 +289,49 @@ export default function RewardsPage() {
 
             <div>
               <p className="text-xs text-gray-500 mb-2">Who can redeem this?</p>
-              <div className="flex bg-gray-100 rounded-2xl p-1 mb-2">
-                <button onClick={() => setScope('family')}
-                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${scope === 'family' ? 'bg-white text-pink-600 shadow' : 'text-gray-400'}`}>
-                  👨‍👩‍👧 All kids
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(children.length + 1, 1), 4)}, minmax(0, 1fr))` }}>
+                {/* All kids */}
+                <button onClick={() => { setScope('family'); setSelectedChildId(null) }}
+                  className="flex flex-col items-center gap-1 active:scale-95 transition">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black ${scope === 'family' ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                    style={scope === 'family' ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
+                  <span className="text-[11px] font-bold" style={{ color: scope === 'family' ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
                 </button>
-                <button onClick={() => setScope('child')}
-                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${scope === 'child' ? 'bg-white text-pink-600 shadow' : 'text-gray-400'}`}>
-                  One child
-                </button>
+                {children.map(c => {
+                  const sel = scope === 'child' && selectedChildId === c.id
+                  return (
+                    <button key={c.id} onClick={() => { setScope('child'); setSelectedChildId(c.id) }}
+                      className="flex flex-col items-center gap-1 active:scale-95 transition">
+                      {c.avatar_url
+                        ? <img src={c.avatar_url} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                            style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${c.colour}` : 'none' }} alt=""/>
+                        : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                            style={{ backgroundColor: c.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${c.colour}` : 'none' }}>{c.avatar}</div>}
+                      <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? c.colour : '#9ca3af' }}>{c.name.split(' ')[0]}</span>
+                    </button>
+                  )
+                })}
               </div>
-              {scope === 'child' && (
-                <div className="flex gap-3 flex-wrap">
-                  {children.map(c => {
-                    const sel = selectedChildId === c.id
-                    return (
-                      <button key={c.id} onClick={() => setSelectedChildId(c.id)}
-                        className={`flex flex-col items-center gap-1 active:scale-95 transition ${sel ? '' : 'opacity-50'}`}>
-                        {c.avatar_url
-                          ? <img src={c.avatar_url} className="w-12 h-12 rounded-full object-cover"
-                              style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${c.colour}` : 'none' }} alt=""/>
-                          : <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                              style={{ backgroundColor: c.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${c.colour}` : 'none' }}>{c.avatar}</div>}
-                        <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? c.colour : '#9ca3af' }}>{c.name.split(' ')[0]}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
             </div>
 
-            <button onClick={saveReward} disabled={saving || !title.trim()}
-              className="w-full text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
-              style={{ background: 'var(--theme-gradient)' }}>
-              {saving ? 'Saving...' : editingRewardId ? 'Update Reward ✓' : 'Save Reward ✓'}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => { setShowForm(false); resetForm() }}
+                className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold active:scale-95 transition">
+                Cancel
+              </button>
+              <button onClick={saveReward} disabled={saving || !title.trim()}
+                className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
+                style={{ background: 'var(--theme-gradient)' }}>
+                {saving ? 'Saving...' : editingRewardId ? 'Update Reward ✓' : 'Save Reward ✓'}
+              </button>
+            </div>
             {editingRewardId && (
               <button onClick={() => { if (confirm('Delete this reward?')) { deleteReward(editingRewardId); setShowForm(false); resetForm() } }}
                 className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">
                 🗑 Delete reward
               </button>
             )}
+          </div>
           </div>
         )}
 

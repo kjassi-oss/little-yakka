@@ -248,15 +248,17 @@ export default function AnalyticsPage() {
             <div className="space-y-3">
               {completionLeaders.map((k, i) => (
                 <div key={k.child.id} className="flex items-center gap-3">
-                  <span className="text-sm w-5 text-center">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '·'}</span>
-                  {k.child.avatar_url
-                    ? <img src={k.child.avatar_url} className="w-7 h-7 rounded-full object-cover" alt=""/>
-                    : <div className="w-7 h-7 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: k.child.colour + '33' }}>{k.child.avatar}</div>}
+                  <div className="relative w-7 h-7 flex-shrink-0">
+                    {k.child.avatar_url
+                      ? <img src={k.child.avatar_url} className="w-7 h-7 rounded-full object-cover" alt=""/>
+                      : <div className="w-7 h-7 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: k.child.colour + '33' }}>{k.child.avatar}</div>}
+                    {i < 3 && <span className="absolute -bottom-1.5 -right-1.5 text-xs leading-none">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>}
+                  </div>
                   <span className="text-sm font-bold text-gray-700 w-14 truncate">{k.child.name.split(' ')[0]}</span>
                   <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${k.pct}%`, backgroundColor: k.child.colour }}/>
                   </div>
-                  <span className="text-xs font-black text-gray-600 w-9 text-right">{k.pct}%</span>
+                  <span className="text-xs font-black text-gray-600 w-10 text-right">{k.pct}%</span>
                 </div>
               ))}
             </div>
