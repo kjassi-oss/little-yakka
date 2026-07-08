@@ -48,12 +48,44 @@ export function buildTrophies(stars: number, streak: number, completions: number
   ]
 }
 
-export default function TrophyShelf({ stars, streak, completions }: {
-  stars: number; streak: number; completions: number
+export default function TrophyShelf({ stars, streak, completions, compact = false }: {
+  stars: number; streak: number; completions: number; compact?: boolean
 }) {
   const trophies = buildTrophies(stars, streak, completions)
   const earnedCount = trophies.filter(t => t.earned).length
   const [selected, setSelected] = useState<Trophy | null>(null)
+
+  // Compact — tiny 4×3 icon grid that sits beside the lolly jar; tapping any
+  // trophy opens a themed modal with its playful description / unlock hint.
+  if (compact) {
+    return (
+      <div>
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wide mb-1 text-center">🏆 {earnedCount}/{trophies.length}</p>
+        <div className="grid grid-cols-4 gap-1">
+          {trophies.map(t => (
+            <button key={t.name} onClick={() => setSelected(t)}
+              className={`aspect-square rounded-md flex items-center justify-center active:scale-90 transition ${t.earned ? 'bg-yellow-50' : 'bg-gray-100'}`}>
+              <span className={`text-sm leading-none ${t.earned ? '' : 'grayscale opacity-40'}`}>{t.earned ? t.emoji : '🔒'}</span>
+            </button>
+          ))}
+        </div>
+        {selected && (
+          <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-6" onClick={() => setSelected(null)}>
+            <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in" onClick={e => e.stopPropagation()}>
+              <div className="text-5xl mb-2">{selected.earned ? selected.emoji : '🔒'}</div>
+              <h3 className="text-lg font-black text-gray-800 mb-1">{selected.name}</h3>
+              <p className="text-sm font-semibold text-gray-500 leading-snug">
+                {selected.earned ? selected.blurb : `${selected.hint} to unlock this trophy!`}
+              </p>
+              <button onClick={() => setSelected(null)}
+                className="mt-4 w-full py-2.5 rounded-2xl text-white font-black active:scale-95 transition"
+                style={{ background: 'var(--theme-gradient)' }}>Got it!</button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">

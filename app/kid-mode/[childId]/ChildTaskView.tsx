@@ -125,14 +125,6 @@ export default function ChildTaskView({
     if (eligible && autoSpin) setShowSpin(true)
   }, [bonusCadence, bonusDay, bonusTime, hasSpunToday, autoSpin])
 
-  // Default the list to TODAY — past days sit above and are reached by scrolling up
-  useEffect(() => {
-    if (tab !== 'tasks' || currentPraise || pulseId) return
-    const el = document.getElementById(`up-${todayStr}`)
-    if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   function scrollToToday() {
     const el = document.getElementById(`up-${todayStr}`)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -160,8 +152,8 @@ export default function ChildTaskView({
   const childrenList = [childU]
   const childMap = { [child.id]: childU }
   const dayDiff = (a: string, b: string) => Math.round((Date.parse(b + 'T00:00:00') - Date.parse(a + 'T00:00:00')) / 86400000)
-  // Past-this-week days sit above today; horizon ≈ 2 weeks past the current week
-  const [pastWindow, setPastWindow] = useState(Math.max(0, dayDiff(mondayStr, todayStr)))
+  // Starts at today (like the Tasks page); "Load earlier days" reveals past days. Horizon ≈ 2 weeks past the current week
+  const [pastWindow, setPastWindow] = useState(0)
   const daysAhead = Math.max(0, dayDiff(todayStr, weekEndStr) + 14)
   const noop = () => {}
 
@@ -355,14 +347,7 @@ export default function ChildTaskView({
   }
 
   return (
-    <div className="min-h-screen pb-32 relative"
-      style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--theme-from) 10%, white) 0%, #ffffff 55%)' }}>
-      {/* Floating background shapes — soft and kid-friendly, never in the way */}
-      {['⭐', '✨', '☁️', '⭐', '☁️', '✨'].map((e, i) => (
-        <span key={`bg-${i}`} className="fixed select-none pointer-events-none float-drift"
-          style={{ top: `${[10, 20, 34, 56, 72, 86][i]}%`, left: `${[6, 85, 10, 88, 4, 82][i]}%`,
-            fontSize: [22, 16, 30, 20, 26, 15][i], opacity: 0.15, animationDelay: `${i * 0.8}s`, zIndex: 0 }}>{e}</span>
-      ))}
+    <div className="min-h-screen pb-32 relative bg-gray-50">
       {claimBurst && <ClaimBurst emoji={claimBurst.emoji} title={claimBurst.title} sub={claimBurst.sub} colour={child.colour}/>}
 
       {/* Header — logo, child name and BACK stay pinned to the top */}
@@ -382,25 +367,23 @@ export default function ChildTaskView({
 
       <div className="max-w-sm mx-auto px-4 pt-3 space-y-3 relative z-10">
 
-        {/* Stats row — thumbnail + stars + tasks x/total + streak + lolly jar */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+        {/* Stats row — thumbnail + stars/tasks/streak, then jar, then compact 4×3 trophies */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2.5">
           <div className="flex-shrink-0">
-            <DecoratedAvatar child={child} size={52}/>
+            <DecoratedAvatar child={child} size={48}/>
+          </div>
+          <div className="flex-shrink-0 min-w-0">
+            <p className="text-xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
+            <p className="text-xs font-bold text-gray-600 mt-1">📋 {claimableDone}/{claimableTotal}</p>
+            {streakDays > 0 && <p className="text-xs font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
+          </div>
+          <div className="flex-shrink-0">
+            <StarJar done={claimableDone} total={claimableTotal} size={38}/>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
-            <div className="flex items-center gap-3 mt-1.5">
-              <span className="text-sm font-bold text-gray-600">📋 {claimableDone}/{claimableTotal}</span>
-              {streakDays > 0 && <span className="text-sm font-bold text-orange-500">🔥 {streakDays}d streak</span>}
-            </div>
-          </div>
-          <div className="flex-shrink-0">
-            <StarJar done={claimableDone} total={claimableTotal} size={46}/>
+            <TrophyShelf compact stars={starBalance} streak={streakDays} completions={totalCompletions}/>
           </div>
         </div>
-
-        {/* Trophies — full-width 4×3 grid */}
-        <TrophyShelf stars={starBalance} streak={streakDays} completions={totalCompletions}/>
 
         {/* Savings goal jar */}
         {!!child.goal_target && child.goal_target > 0 && (
@@ -417,15 +400,17 @@ export default function ChildTaskView({
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex bg-gray-100 rounded-2xl p-1">
-          {(['tasks', 'done', 'rewards'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
-              style={tab === t ? { background: 'var(--theme-gradient)' } : {}}>
-              {t === 'tasks' ? '📋 Tasks' : t === 'done' ? `✅ Done (${doneList.length})` : `🎁 My Rewards`}
-            </button>
-          ))}
+        {/* Tabs — stay locked under the header while the list scrolls */}
+        <div className="sticky top-[96px] z-20 -mx-4 px-4 pt-2 pb-1.5 bg-gray-50">
+          <div className="flex bg-gray-100 rounded-2xl p-1">
+            {(['tasks', 'done', 'rewards'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
+                style={tab === t ? { background: 'var(--theme-gradient)' } : {}}>
+                {t === 'tasks' ? '📋 Tasks' : t === 'done' ? `✅ Done (${doneList.length})` : `🎁 My Rewards`}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── TASKS TAB ── */}
@@ -454,7 +439,7 @@ export default function ChildTaskView({
               setPastWindow={setPastWindow}
               daysAhead={daysAhead}
               showChildFilter={false}
-              showPastWindow={false}
+              showPastWindow={true}
               showUpForGrabs={true}
               singleChildId={child.id}
               lockAfter={weekEndStr}
