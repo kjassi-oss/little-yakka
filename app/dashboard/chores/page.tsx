@@ -520,7 +520,7 @@ export default function ChoresPage() {
               <div>
                 <button onClick={() => setShowPresets(s => !s)}
                   className="text-sm font-bold active:scale-95 transition" style={{ color: 'var(--theme-from)' }}>
-                  {showPresets ? '× Hide templates' : '✨ Or select from a template'}
+                  {showPresets ? '× Hide templates' : '✨ Use a template'}
                 </button>
                 {showPresets && (
                   <div className="grid grid-cols-4 gap-2.5 mt-3">
