@@ -103,7 +103,7 @@ export default function ChoresPage() {
   // Upcoming tab: multi-select child filter (empty Set = everyone) + window completions
   const [upcomingFilter, setUpcomingFilter] = useState<Set<string>>(new Set())
   const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
-  const [pastWindow, setPastWindow] = useState(0) // days of history shown in Upcoming (0 = today only; max 7)
+  const [pastWindow, setPastWindow] = useState(0) // days of history shown in Upcoming (0 = today only; max 30)
   const [burst, setBurst] = useState<{ colour: string; emoji: string; title: string; sub?: string } | null>(null)
   // Themed confirmation dialog (replaces browser confirm() popups)
   const [confirmAsk, setConfirmAsk] = useState<{ emoji: string; title: string; sub: string; onConfirm: () => void } | null>(null)
@@ -157,7 +157,7 @@ export default function ChoresPage() {
     setFamilyId(fam.familyId)
 
     const today = new Date().toISOString().split('T')[0]
-    const winStart = new Date(); winStart.setDate(winStart.getDate() - 14)
+    const winStart = new Date(); winStart.setDate(winStart.getDate() - 30)
     const [
       { data: tasksData }, { data: childrenData }, { data: assignmentsData }, { data: completionsData },
       { data: historyData }, { data: approvalData }, { data: winData },
@@ -839,6 +839,7 @@ export default function ChoresPage() {
           const compKey = new Set(windowComps.map(c => `${c.task_id}|${c.child_id}|${c.date}`))
           const compRow = new Map(windowComps.map(c => [`${c.task_id}|${c.child_id}|${c.date}`, c]))
           const todayL = ymdLocal(new Date())
+          const carryCutoff = ymdLocal(new Date(Date.now() - 7 * 86400000)) // carry-over occurrences expire after 7 days
           const kidSelected = (id: string) => upcomingFilter.size === 0 || upcomingFilter.has(id)
           const singleChildId = upcomingFilter.size === 1 ? [...upcomingFilter][0] : null
           const singleChild = singleChildId ? childMap[singleChildId] : null
@@ -895,8 +896,8 @@ export default function ChoresPage() {
               )}
 
               {/* Load earlier days (up to a week back) — compact text link */}
-              {pastWindow < 7 && (
-                <button onClick={() => setPastWindow(w => Math.min(7, w + 3))}
+              {pastWindow < 30 && (
+                <button onClick={() => setPastWindow(w => Math.min(30, w + 7))}
                   className="w-full text-[11px] font-bold text-gray-400 py-0.5 active:scale-95 transition">
                   ↑ Load earlier days
                 </button>
@@ -979,9 +980,9 @@ export default function ChoresPage() {
                               ) : (ds > todayL && !((task as any).can_do_early ?? true)) ? (
                                 // Future task that can't be done early — match the kid zone
                                 <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
-                              ) : (ds < todayL && !((task as any).carry_over ?? true)) ? (
-                                // Missed past day that doesn't carry over — expired
-                                <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">missed</div>
+                              ) : (ds < todayL && (!((task as any).carry_over ?? true) || ds < carryCutoff)) ? (
+                                // Missed: either doesn't carry over, or the 7-day carry-over window has passed
+                                <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">{((task as any).carry_over ?? true) ? 'expired' : 'missed'}</div>
                               ) : (
                                 <button onClick={e => { e.stopPropagation(); completeUpcoming(task, singleChildId, ds, singleChild || undefined) }}
                                   className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
