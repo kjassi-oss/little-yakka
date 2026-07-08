@@ -120,8 +120,16 @@ export default function ChildTaskView({
     const now = new Date()
     const h = now.getHours(), m = now.getMinutes()
     const nowHHMM = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-    const dueToday = bonusCadence === 'monthly' ? now.getDate() === bonusDay : now.getDay() === bonusDay
-    const eligible = dueToday && nowHHMM >= bonusTime && !hasSpunToday
+    const start = new Date(now); start.setHours(0, 0, 0, 0)
+    if (bonusCadence === 'monthly') {
+      if (now.getDate() < bonusDay) start.setMonth(start.getMonth() - 1)
+      start.setDate(bonusDay)
+    } else {
+      start.setDate(start.getDate() - ((now.getDay() - bonusDay + 7) % 7))
+    }
+    const onStartDay = now.toDateString() === start.toDateString()
+    const withinWindow = now.getTime() < start.getTime() + 3 * 24 * 3600 * 1000 && (!onStartDay || nowHHMM >= bonusTime)
+    const eligible = withinWindow && !hasSpunToday
     setCanSpin(eligible)
     // Deep-link from the home "SPIN READY" badge opens the wheel straight away
     if (eligible && autoSpin) setShowSpin(true)

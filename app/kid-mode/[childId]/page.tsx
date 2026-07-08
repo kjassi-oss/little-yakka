@@ -58,7 +58,7 @@ export default async function ChildPage({ params, searchParams }: {
     supabase.from('completions').select('id', { count: 'exact', head: true })
       .eq('child_id', childId).eq('status', 'approved'),
     supabase.from('child_unlocks').select('item_id').eq('child_id', childId),
-    supabase.from('spin_results').select('id').eq('child_id', childId).eq('date', todayStr).maybeSingle(),
+    supabase.from('spin_results').select('date').eq('child_id', childId).gte('date', localDateStr(new Date(Date.now() - 30 * 86400000), tz)),
     supabase.from('praises').select('id, message').eq('child_id', childId).eq('seen', false).order('created_at'),
     supabase.from('redemptions').select('id, created_at, rewards(title, emoji, star_cost)')
       .eq('child_id', childId).eq('status', 'approved')
@@ -197,7 +197,12 @@ export default async function ChildPage({ params, searchParams }: {
   // Bonus wheel timing
   const bonusDay = family?.bonus_day ?? 0
   const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
-  const hasSpunToday = !!spinToday
+  // Bonus wheel opens on the scheduled occurrence and stays open for 3 days (one spin per window).
+  const _bn = localNow(tz)
+  if (isMonthly) { if (_bn.getDate() < bonusDay) _bn.setMonth(_bn.getMonth() - 1); _bn.setDate(bonusDay) }
+  else { _bn.setDate(_bn.getDate() - ((_bn.getDay() - bonusDay + 7) % 7)) }
+  const bonusStartStr = localDateStr(_bn, tz)
+  const hasSpunToday = ((spinToday as any[]) || []).some(s => s.date >= bonusStartStr)
 
   return (
     <ChildTaskView

@@ -85,15 +85,27 @@ export default async function DashboardPage() {
       .gte('created_at', weekStart.toISOString()),
     supabase.from('completions').select('child_id, task_id').eq('status', 'approved'),
     supabase.from('families').select('bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).maybeSingle(),
-    supabase.from('spin_results').select('child_id').eq('date', today),
+    supabase.from('spin_results').select('child_id, date').gte('date', localDateStr(thirtyDaysAgo, tz)),
   ])
   const bonusCadence = family?.bonus_cadence === 'monthly' ? 'monthly' : 'weekly'
   const bonusDay = family?.bonus_day ?? 0
   const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)
-  // Weekly = day of week; monthly = date of month. Real wall-clock time in tz.
-  const bonusDueNow = (bonusCadence === 'monthly' ? now.getDate() === bonusDay : now.getDay() === bonusDay)
-    && localTimeHHMM(tz) >= bonusTime
-  const spunSet = new Set((todaySpins || []).map(s => s.child_id))
+  // Bonus wheel opens on the scheduled day/time and stays available for 3 days.
+  // Find the most recent scheduled occurrence (weekly = day-of-week, monthly = date-of-month).
+  const bonusStart = new Date(now); bonusStart.setHours(0, 0, 0, 0)
+  if (bonusCadence === 'monthly') {
+    if (now.getDate() < bonusDay) bonusStart.setMonth(bonusStart.getMonth() - 1)
+    bonusStart.setDate(bonusDay)
+  } else {
+    bonusStart.setDate(bonusStart.getDate() - ((now.getDay() - bonusDay + 7) % 7))
+  }
+  const bonusStartStr = localDateStr(bonusStart, tz)
+  const onStartDay = localDateStr(now, tz) === bonusStartStr
+  // Open if within 3 days of the occurrence, and (on the start day) past the start time.
+  const bonusDueNow = now.getTime() < bonusStart.getTime() + 3 * 24 * 3600 * 1000
+    && (!onStartDay || localTimeHHMM(tz) >= bonusTime)
+  // One spin per bonus window: a child who spun any day since the occurrence is done.
+  const spunSet = new Set((todaySpins || []).filter(s => (s as any).date >= bonusStartStr).map(s => s.child_id))
 
   const completedSet = new Set(
     completions?.filter(c => c.status === 'approved' || c.status === 'pending')
