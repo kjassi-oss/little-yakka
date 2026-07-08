@@ -416,48 +416,42 @@ export default function ChildTaskView({
       ))}
       {claimBurst && <ClaimBurst emoji={claimBurst.emoji} title={claimBurst.title} sub={claimBurst.sub} colour={child.colour}/>}
 
-      {/* Header */}
-      <div className="pt-11 pb-2.5 px-4 bg-white border-b border-gray-100 relative z-10">
+      {/* Header — logo, child name and BACK stay pinned to the top */}
+      <div className="sticky top-0 z-30 pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
-          <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto"/>
-          <span className="text-3xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <img src="/logo.png" alt="Little Yakka" className="h-12 w-auto flex-shrink-0"/>
+          <span className="flex-1 min-w-0 truncate text-2xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {child.name.split(' ')[0]}
           </span>
-          <div className="w-16"/>
+          <button onClick={() => router.push('/dashboard')}
+            className="flex-shrink-0 px-3.5 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
+            style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
+            ← BACK
+          </button>
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto px-4 pt-2 space-y-3 relative z-10">
+      <div className="max-w-sm mx-auto px-4 pt-3 space-y-3 relative z-10">
 
-        {/* Sticky stats — avatar, stars and BACK stay pinned while scrolling */}
-        <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-1"
-          style={{ background: 'color-mix(in srgb, var(--theme-from) 8%, white)' }}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
-            <div className="flex-shrink-0 mt-2">
-              <DecoratedAvatar child={child} size={52}/>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
-              <p className="text-sm font-bold text-gray-600 mt-1">📋 {claimableDone}/{claimable.length} done this week</p>
-              {streakDays > 0 && <p className="text-sm font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
-            </div>
-            <button onClick={() => router.push('/dashboard')}
-              className="flex-shrink-0 px-3.5 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
-              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
-              ← BACK
-            </button>
-          </div>
-        </div>
-
-        {/* Sweets jar + trophies, side by side — keeps focus on the tasks below */}
-        <div className="flex gap-3 items-stretch">
-          <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex flex-col items-center justify-center">
-            <StarJar done={claimableDone} total={claimable.length} label="this week" size={68}/>
+        {/* Stats row — thumbnail + stars + tasks x/total + streak + lolly jar */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+          <div className="flex-shrink-0">
+            <DecoratedAvatar child={child} size={52}/>
           </div>
           <div className="flex-1 min-w-0">
-            <TrophyShelf stars={starBalance} streak={streakDays} completions={totalCompletions}/>
+            <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="text-sm font-bold text-gray-600">📋 {claimableDone}/{claimable.length}</span>
+              {streakDays > 0 && <span className="text-sm font-bold text-orange-500">🔥 {streakDays}d streak</span>}
+            </div>
+          </div>
+          <div className="flex-shrink-0">
+            <StarJar done={claimableDone} total={claimable.length} size={46}/>
           </div>
         </div>
+
+        {/* Trophies — full-width 4×3 grid */}
+        <TrophyShelf stars={starBalance} streak={streakDays} completions={totalCompletions}/>
 
         {/* Savings goal jar */}
         {!!child.goal_target && child.goal_target > 0 && (
