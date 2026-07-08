@@ -60,19 +60,19 @@ export default function TrophyShelf({ stars, streak, completions, compact = fals
   if (compact) {
     return (
       <div>
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wide mb-1 text-center">🏆 {earnedCount}/{trophies.length}</p>
-        <div className="grid grid-cols-4 gap-1">
+        <p className="text-[8px] font-black text-gray-400 uppercase tracking-wide mb-0.5 text-center">🏆 {earnedCount}/{trophies.length}</p>
+        <div className="grid grid-cols-4 gap-0.5">
           {trophies.map(t => (
             <button key={t.name} onClick={() => setSelected(t)}
-              className={`aspect-square rounded-md flex items-center justify-center active:scale-90 transition ${t.earned ? 'bg-yellow-50' : 'bg-gray-100'}`}>
-              <span className={`text-sm leading-none ${t.earned ? '' : 'grayscale opacity-40'}`}>{t.earned ? t.emoji : '🔒'}</span>
+              className={`aspect-square rounded flex items-center justify-center active:scale-90 transition ${t.earned ? 'bg-yellow-50' : 'bg-gray-50'}`}>
+              <span className={`text-[11px] leading-none ${t.earned ? '' : 'grayscale opacity-40'}`}>{t.emoji}</span>
             </button>
           ))}
         </div>
         {selected && (
           <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-6" onClick={() => setSelected(null)}>
             <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in" onClick={e => e.stopPropagation()}>
-              <div className="text-5xl mb-2">{selected.earned ? selected.emoji : '🔒'}</div>
+              <div className={`text-5xl mb-2 ${selected.earned ? '' : 'grayscale opacity-50'}`}>{selected.emoji}</div>
               <h3 className="text-lg font-black text-gray-800 mb-1">{selected.name}</h3>
               <p className="text-sm font-semibold text-gray-500 leading-snug">
                 {selected.earned ? selected.blurb : `${selected.hint} to unlock this trophy!`}

@@ -119,6 +119,7 @@ export default function ChoresPage() {
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6])
   const [emojiSearch, setEmojiSearch] = useState('')
   const [showEmojiSearch, setShowEmojiSearch] = useState(false)
+  const [showPresets, setShowPresets] = useState(false)
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(false)
   const [starValue, setStarValue] = useState(3)
@@ -297,9 +298,9 @@ export default function ChoresPage() {
     setStartDate(new Date().toISOString().split('T')[0])
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
-    setExistingBenchmarks([]); setAssignedChildren([]); setDifficulty('medium')
+    setExistingBenchmarks([]); setAssignedChildren(children.map(c => c.id)); setDifficulty('medium')
     setRequiresApproval(false); setCanDoEarly(false); setDaysOfWeek([0, 1, 2, 3, 4, 5, 6])
-    setUpForGrabs(false); setExpiresOn('')
+    setUpForGrabs(false); setExpiresOn(''); setShowPresets(false); setShowEmojiSearch(false); setEmojiSearch('')
     setFormError('')
     setShowForm(true)
   }
@@ -514,6 +515,27 @@ export default function ChoresPage() {
               <button onClick={closeForm} aria-label="Close" className="w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
             </div>
 
+            {/* Templates — collapsed by default; round icon + name, 4 per row */}
+            {!editingTaskId && (
+              <div>
+                <button onClick={() => setShowPresets(s => !s)}
+                  className="text-sm font-bold active:scale-95 transition" style={{ color: 'var(--theme-from)' }}>
+                  {showPresets ? '× Hide templates' : '✨ Or select from a template'}
+                </button>
+                {showPresets && (
+                  <div className="grid grid-cols-4 gap-2.5 mt-3">
+                    {TASK_PRESETS.map(p => (
+                      <button key={p.title} onClick={() => { setTitle(p.title); setEmoji(p.emoji); setShowPresets(false) }}
+                        className="flex flex-col items-center gap-1 active:scale-95 transition">
+                        <div className="w-14 h-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl">{p.emoji}</div>
+                        <span className="text-[10px] font-semibold text-gray-500 text-center leading-tight">{p.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Name with the chosen icon beside it (white bg, red border) */}
             <div className="flex items-center gap-2">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
@@ -549,22 +571,6 @@ export default function ChoresPage() {
                 ))}
               </div>
             </div>
-
-            {/* Quick-start presets (templates, like the rewards page) */}
-            {!editingTaskId && (
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Or start from a preset</p>
-                <div className="flex flex-wrap gap-2">
-                  {TASK_PRESETS.map(p => (
-                    <button key={p.title} onClick={() => { setTitle(p.title); setEmoji(p.emoji) }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition active:scale-95 ${title === p.title ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200'}`}
-                      style={title === p.title ? { background: 'var(--theme-gradient)' } : {}}>
-                      <span>{p.emoji}</span>{p.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Up for grabs — unassigned; any child can claim it, first done wins */}
             <div className="rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50 space-y-3">

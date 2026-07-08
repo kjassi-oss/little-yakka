@@ -367,20 +367,20 @@ export default function ChildTaskView({
 
       <div className="max-w-sm mx-auto px-4 pt-3 space-y-3 relative z-10">
 
-        {/* Stats row — thumbnail + stars/tasks/streak, then jar, then compact 4×3 trophies */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2.5">
+        {/* Stats row — bigger thumbnail/stars/tasks/jar; small 4×3 trophies on the right */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2">
           <div className="flex-shrink-0">
-            <DecoratedAvatar child={child} size={48}/>
-          </div>
-          <div className="flex-shrink-0 min-w-0">
-            <p className="text-xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
-            <p className="text-xs font-bold text-gray-600 mt-1">📋 {claimableDone}/{claimableTotal}</p>
-            {streakDays > 0 && <p className="text-xs font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
-          </div>
-          <div className="flex-shrink-0">
-            <StarJar done={claimableDone} total={claimableTotal} size={38}/>
+            <DecoratedAvatar child={child} size={60}/>
           </div>
           <div className="flex-1 min-w-0">
+            <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
+            <p className="text-sm font-bold text-gray-600 mt-1">📋 {claimableDone}/{claimableTotal}</p>
+            {streakDays > 0 && <p className="text-sm font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
+          </div>
+          <div className="flex-shrink-0">
+            <StarJar done={claimableDone} total={claimableTotal} size={54}/>
+          </div>
+          <div className="flex-shrink-0 w-[84px]">
             <TrophyShelf compact stars={starBalance} streak={streakDays} completions={totalCompletions}/>
           </div>
         </div>

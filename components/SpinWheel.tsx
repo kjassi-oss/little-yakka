@@ -10,16 +10,23 @@ const R = 135
 const CX = 160
 const CY = 160
 
-// Faint background decoration — task & reward icons, varied size/rotation
+// Playful floating decoration — packed around the edges so nothing overlaps the
+// wheel in the centre. Gentle drift (float-drift) makes the whole page feel alive.
 const DECOR = [
-  { e: '🧹', top: '8%', left: '8%', size: 46, rot: -18 },
-  { e: '🎁', top: '14%', left: '78%', size: 54, rot: 14 },
-  { e: '📚', top: '70%', left: '6%', size: 50, rot: 10 },
-  { e: '🍦', top: '78%', left: '82%', size: 44, rot: -12 },
-  { e: '⭐', top: '40%', left: '2%', size: 38, rot: 8 },
-  { e: '🪥', top: '4%', left: '46%', size: 36, rot: 20 },
-  { e: '🎮', top: '88%', left: '44%', size: 42, rot: -8 },
-  { e: '🚗', top: '46%', left: '88%', size: 40, rot: 16 },
+  // left edge
+  { e: '⭐', top: '5%', left: '3%', size: 40 },   { e: '✨', top: '20%', left: '9%', size: 30 },
+  { e: '🎁', top: '35%', left: '2%', size: 46 },  { e: '🍦', top: '52%', left: '9%', size: 38 },
+  { e: '🎮', top: '68%', left: '3%', size: 40 },  { e: '🌈', top: '84%', left: '8%', size: 44 },
+  { e: '💫', top: '92%', left: '2%', size: 30 },
+  // right edge
+  { e: '🎉', top: '6%', left: '89%', size: 42 },  { e: '🌟', top: '22%', left: '94%', size: 30 },
+  { e: '🏆', top: '37%', left: '88%', size: 46 }, { e: '⚽', top: '53%', left: '95%', size: 34 },
+  { e: '🍭', top: '69%', left: '88%', size: 40 }, { e: '🧸', top: '84%', left: '93%', size: 42 },
+  { e: '🎈', top: '93%', left: '90%', size: 32 },
+  // top & bottom bands (behind header / button)
+  { e: '💫', top: '2%', left: '30%', size: 30 },  { e: '✨', top: '3%', left: '66%', size: 26 },
+  { e: '🎊', top: '93%', left: '30%', size: 34 }, { e: '🥳', top: '94%', left: '64%', size: 32 },
+  { e: '🎯', top: '90%', left: '50%', size: 28 }, { e: '🚀', top: '1%', left: '50%', size: 26 },
 ]
 
 function toXY(deg: number, r: number): [number, number] {
@@ -96,10 +103,10 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-white overflow-y-auto">
-      {/* Faint task/reward decoration */}
+      {/* Playful floating task/reward decoration (drifts gently) */}
       {DECOR.map((d, i) => (
-        <span key={i} className="absolute pointer-events-none select-none opacity-[0.08]"
-          style={{ top: d.top, left: d.left, fontSize: d.size, transform: `rotate(${d.rot}deg)` }}>{d.e}</span>
+        <span key={i} className="absolute pointer-events-none select-none float-drift"
+          style={{ top: d.top, left: d.left, fontSize: d.size, opacity: 0.12, animationDelay: `${(i % 6) * 0.5}s` }}>{d.e}</span>
       ))}
 
       {/* Close */}

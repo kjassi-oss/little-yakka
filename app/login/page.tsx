@@ -58,7 +58,7 @@ export default function LoginPage() {
   const RAINBOW = 'var(--theme-gradient)'
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-4 pt-[15vh] bg-white">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-4 pt-[6vh] bg-white">
       <div className="w-full max-w-xs relative">
         {/* Big centred logo */}
         <BrandLogo className="w-full max-w-[300px] h-auto mx-auto block mb-3" fallbackSize={240}/>
