@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import PraiseButton from '@/components/PraiseButton'
 import ProfileButton from '@/components/ProfileButton'
-import TaskLauncher from '@/components/TaskLauncher'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
+import HomeTaskPreview from '@/components/HomeTaskPreview'
 import { occursOn } from '@/lib/recurrence'
 import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
 
@@ -44,8 +44,6 @@ function getLevel(stars: number) {
   return lvl
 }
 
-const TIME_ORDER: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 }
-const TIME_LABEL: Record<string, string> = { morning: '🌅 Morning', afternoon: '☀️ Afternoon', evening: '🌙 Evening' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -78,7 +76,7 @@ export default async function DashboardPage() {
     supabase.from('tasks').select('*').eq('family_id', guardian.family_id),
     supabase.from('task_assignments').select('task_id, child_id'),
     supabase.from('star_ledger').select('child_id, delta'),
-    supabase.from('completions').select('task_id, child_id, status').eq('date', today),
+    supabase.from('completions').select('id, task_id, child_id, date, status').eq('date', today),
     supabase.from('completions').select('child_id, date').eq('status', 'approved')
       .gte('date', localDateStr(thirtyDaysAgo, tz)),
     supabase.from('star_ledger').select('child_id, delta')
@@ -180,21 +178,10 @@ export default async function DashboardPage() {
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
 
-  // Up-for-grabs tasks — unassigned bounties any child can claim (first done wins)
-  const ufgClaimed: Record<string, string> = {}
-  ;(allCompletions || []).forEach((c: any) => { if (c.task_id) ufgClaimed[c.task_id] = c.child_id })
-  const ufgTasks = (tasks || []).filter((t: any) => t.up_for_grabs && (!t.expires_on || t.expires_on >= today))
-
-  // Today's tasks — all of them (completed shown with a strikethrough, not hidden)
-  const todayItems = (todayTasks || [])
-    .map(t => {
-      const kids = (assignmentMap[t.id] || []).map(id => childMap[id]).filter(Boolean)
-      const pending = kids.filter((k: any) => !completedSet.has(`${t.id}-${k.id}`))
-      const allDone = kids.length > 0 && pending.length === 0
-      return { task: t, kids, pending, allDone }
-    })
-    .filter(u => u.kids.length > 0)
-    .sort((a, b) => (TIME_ORDER[a.task.time_of_day] ?? 3) - (TIME_ORDER[b.task.time_of_day] ?? 3))
+  // Today's completions (with id + date) so the shared task view can show ✓ ticks.
+  const windowComps = (completions || [])
+    .filter((c: any) => c.status === 'approved' || c.status === 'pending')
+    .map((c: any) => ({ id: c.id, task_id: c.task_id, child_id: c.child_id, date: c.date }))
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
@@ -294,80 +281,9 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Today's Tasks — completed shown struck-through */}
+        {/* Task view — the SAME shared UpcomingTaskList as the Tasks page, next 2 days */}
         {childData.length > 0 && (
-          <div className="bg-white rounded-3xl shadow-sm p-4">
-            <p className="text-base font-black text-gray-700 uppercase tracking-wide mb-3">📋 Today's Tasks</p>
-
-            {todayItems.length === 0 ? (
-              <div className="text-center py-6">
-                <div className="text-4xl mb-1">🎉</div>
-                <p className="text-sm font-semibold text-gray-600">Nothing due today!</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {todayItems.map(({ task, kids, pending, allDone }) => (
-                  <TaskLauncher key={task.id} taskId={task.id} kids={pending.length ? pending : kids}>
-                    <div className={`flex items-center gap-3 rounded-2xl p-2.5 active:scale-[0.98] transition ${allDone ? 'bg-gray-50 opacity-70' : 'bg-gray-50'}`}>
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white" style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-bold text-base truncate ${allDone ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                        <p className="text-xs text-gray-400">
-                          {task.time_of_day ? TIME_LABEL[task.time_of_day] : '📋 Anytime'} · ⭐ {task.star_value}
-                        </p>
-                      </div>
-                      <div className="flex -space-x-2.5 flex-shrink-0">
-                        {kids.slice(0, 3).map((k: any) => {
-                          const done = completedSet.has(`${task.id}-${k.id}`)
-                          return k.avatar_url
-                            ? <img key={k.id} src={k.avatar_url} className={`w-10 h-10 rounded-full object-cover border-2 border-white ${done ? 'opacity-50' : ''}`} alt=""/>
-                            : <div key={k.id} className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 border-white ${done ? 'opacity-50' : ''}`}
-                                style={{ backgroundColor: k.colour + '33' }}>{k.avatar}</div>
-                        })}
-                        {kids.length > 3 && <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 border-2 border-white">+{kids.length - 3}</div>}
-                      </div>
-                    </div>
-                  </TaskLauncher>
-                ))}
-              </div>
-            )}
-
-            {/* Up for grabs — visually distinct amber bounties */}
-            {ufgTasks.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-xs font-black text-amber-500 uppercase tracking-wide">🙌 Up for grabs</p>
-                {ufgTasks.map((task: any) => {
-                  const claimerId = ufgClaimed[task.id]
-                  const claimer = claimerId ? childMap[claimerId] : null
-                  return (
-                    <TaskLauncher key={task.id} taskId={task.id} kids={claimer ? [claimer] : (children || [])}>
-                      <div className={`flex items-center gap-3 rounded-2xl p-2.5 border-2 border-dashed border-amber-300 bg-amber-50 active:scale-[0.98] transition ${claimer ? 'opacity-75' : ''}`}>
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white" style={{ border: '1.5px solid #F59E0B' }}>{task.emoji}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-semibold text-sm truncate ${claimer ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                          <p className="text-[11px] font-semibold text-amber-600">
-                            {claimer
-                              ? `Claimed by ${claimer.name.split(' ')[0]} 🎉`
-                              : `Anyone can claim · ⭐ ${task.star_value}${task.expires_on ? ` · ends ${new Date(task.expires_on + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}` : ''}`}
-                          </p>
-                        </div>
-                        {claimer && (
-                          claimer.avatar_url
-                            ? <img src={claimer.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white flex-shrink-0" alt=""/>
-                            : <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white flex-shrink-0"
-                                style={{ backgroundColor: claimer.colour + '33' }}>{claimer.avatar}</div>
-                        )}
-                      </div>
-                    </TaskLauncher>
-                  )
-                })}
-              </div>
-            )}
-
-            <Link href="/dashboard/chores" className="block text-center text-xs font-black pt-3 mt-1" style={{ color: 'var(--theme-from)' }}>
-              SHOW ALL TASKS →
-            </Link>
-          </div>
+          <HomeTaskPreview tasks={tasks || []} childrenList={children || []} assignments={assignmentMap} windowComps={windowComps} />
         )}
       </div>
     </div>

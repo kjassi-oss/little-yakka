@@ -32,6 +32,7 @@ interface Props {
   daysAhead?: number
   showChildFilter?: boolean
   showPastWindow?: boolean
+  showUpForGrabs?: boolean
   singleChildId?: string | null
   // Loose task types so callers can pass their own stricter Task shape without friction.
   onOpenTask: (task: any) => void
@@ -42,7 +43,7 @@ interface Props {
 export default function UpcomingTaskList({
   tasks, childrenList, childMap, assignments, windowComps, ufgClaims,
   upcomingFilter, setUpcomingFilter, toggleUpcomingChild, pastWindow, setPastWindow,
-  daysAhead = 14, showChildFilter = true, showPastWindow = true, singleChildId = null,
+  daysAhead = 14, showChildFilter = true, showPastWindow = true, showUpForGrabs = true, singleChildId = null,
   onOpenTask, onComplete, onUndo,
 }: Props) {
   const compKey = new Set(windowComps.map(c => `${c.task_id}|${c.child_id}|${c.date}`))
@@ -109,7 +110,7 @@ export default function UpcomingTaskList({
         </button>
       )}
 
-      {(() => {
+      {showUpForGrabs && (() => {
         const claimMap = new Map(ufgClaims.map(c => [c.task_id, c]))
         const ufgList = tasks.filter((t: any) => t.up_for_grabs && (!t.expires_on || t.expires_on >= todayL))
         if (!ufgList.length) return null
