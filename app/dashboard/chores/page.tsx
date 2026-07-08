@@ -457,6 +457,8 @@ export default function ChoresPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
+      {/* Frozen header + sub-bars — stay pinned while the list scrolls */}
+      <div className="sticky top-0 z-30 bg-white shadow-sm">
       {/* Compact header — logo left, centred title, settings right */}
       <div className="pt-14 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
@@ -513,6 +515,7 @@ export default function ChoresPage() {
           </div>
         </div>
       )}
+      </div>
 
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
 

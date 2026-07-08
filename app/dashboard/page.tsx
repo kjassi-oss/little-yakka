@@ -186,6 +186,8 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
+      {/* Frozen header + kids tiles — stay pinned while the task preview scrolls */}
+      <div className="sticky top-0 z-30" style={{ background: '#f8fafc' }}>
       {/* Header — logo left, centred title, settings right */}
       <div className="px-4 pt-14 pb-2 bg-white border-b border-gray-100">
         <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
@@ -195,7 +197,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 space-y-4">
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 pt-3 pb-2">
 
         {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
         {childData.length > 0 ? (
@@ -280,7 +282,10 @@ export default async function DashboardPage() {
             </Link>
           </div>
         )}
+      </div>
+      </div>
 
+      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 pt-4 space-y-4">
         {/* Task view — the SAME shared UpcomingTaskList as the Tasks page, next 2 days */}
         {childData.length > 0 && (
           <HomeTaskPreview tasks={tasks || []} childrenList={children || []} assignments={assignmentMap} windowComps={windowComps} />
