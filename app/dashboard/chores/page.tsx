@@ -50,6 +50,21 @@ const EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '🐾', kw: 'pet animal feed' }, { e: '🚗', kw: 'car wash tidy' },
   { e: '🎯', kw: 'goal target focus' }, { e: '📦', kw: 'box pack tidy put away' },
 ]
+// 10 default quick-pick icons shown 5-per-row (the 🔍 opens full search)
+const DEFAULT_EMOJIS = ['🛏️', '🦷', '🧸', '🐾', '📚', '🍽️', '🚮', '👕', '🪴', '🛁']
+// 20 named quick-start presets (tap to fill name + icon)
+const TASK_PRESETS: { emoji: string; title: string }[] = [
+  { emoji: '🛏️', title: 'Make the bed' },      { emoji: '🦷', title: 'Brush teeth' },
+  { emoji: '🧸', title: 'Tidy bedroom' },       { emoji: '🐾', title: 'Feed the pet' },
+  { emoji: '📚', title: 'Do homework' },        { emoji: '🍽️', title: 'Set the table' },
+  { emoji: '🧽', title: 'Clear the table' },    { emoji: '🚮', title: 'Take out the rubbish' },
+  { emoji: '🪴', title: 'Water the plants' },   { emoji: '👕', title: 'Put clothes away' },
+  { emoji: '📖', title: 'Read a book' },        { emoji: '🎹', title: 'Practise music' },
+  { emoji: '🧼', title: 'Wash the dishes' },    { emoji: '🧹', title: 'Vacuum the floor' },
+  { emoji: '🍳', title: 'Help make dinner' },   { emoji: '👚', title: 'Get dressed' },
+  { emoji: '🎒', title: 'Pack school bag' },    { emoji: '🐕', title: 'Walk the dog' },
+  { emoji: '🧺', title: 'Fold the laundry' },   { emoji: '🛁', title: 'Have a bath' },
+]
 const TIME_OPTIONS = [
   { value: 'anytime',   label: '📋 Anytime' },
   { value: 'morning',   label: '🌅 Morning' },
@@ -117,6 +132,7 @@ export default function ChoresPage() {
   const [startDate, setStartDate] = useState('')
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6])
   const [emojiSearch, setEmojiSearch] = useState('')
+  const [showEmojiSearch, setShowEmojiSearch] = useState(false)
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(false)
   const [starValue, setStarValue] = useState(3)
@@ -500,46 +516,66 @@ export default function ChoresPage() {
 
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
 
-        {/* Add/Edit Form */}
+        {/* Add/Edit Form — full-screen (nothing behind it) */}
         {showForm && (
-          <div className="bg-white rounded-3xl shadow-sm p-5 space-y-4">
-            <h2 className="font-bold text-gray-800">{editingTaskId ? 'Edit Task' : 'New Task'}</h2>
-
-            <div className="flex bg-gray-100 rounded-2xl p-1">
-              {(['chore', 'routine'] as const).map(t => (
-                <button key={t} onClick={() => setType(t)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition capitalize ${type === t ? 'bg-white shadow' : 'text-gray-400'}`}
-                  style={type === t ? { color: 'var(--theme-from)' } : {}}>
-                  {t}
-                </button>
-              ))}
+          <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-6 pb-28 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black text-gray-800">{editingTaskId ? 'Edit Task' : 'Create Task'}</h2>
+              <button onClick={closeForm} aria-label="Close" className="w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
             </div>
 
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              placeholder={type === 'chore' ? 'e.g. Make bed, Tidy room...' : 'e.g. Brush teeth, Read...'}/>
+            {/* Name with the chosen icon beside it (white bg, red border) */}
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
+                style={{ border: '2px solid #EF4444' }}>{emoji}</div>
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                placeholder="Task name"/>
+            </div>
 
+            {/* Icon picker — 10 defaults (5 per row); 🔍 reveals full search */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 16%, white)' }}>{emoji}</div>
-                <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  placeholder="🔍 Search icons (e.g. bed, teeth, dog)"/>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500">Choose an icon</p>
+                <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+                  aria-label="Search icons"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-base transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                  style={showEmojiSearch ? { background: 'var(--theme-gradient)' } : {}}>🔍</button>
               </div>
-              {/* 3 rows max, no scrolling — use the search box to find more */}
-              <div className="grid grid-cols-7 gap-1 p-1 bg-gray-50 rounded-2xl">
-                {EMOJI_OPTIONS
-                  .filter(o => { const q = emojiSearch.trim().toLowerCase(); return !q || o.kw.includes(q) })
-                  .slice(0, 21)
-                  .map((o, i) => (
-                    <button key={`${o.e}-${i}`} onClick={() => setEmoji(o.e)}
-                      className={`text-2xl p-1.5 rounded-xl transition ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'hover:bg-white'}`}>
-                      {o.e}
+              {showEmojiSearch && (
+                <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder="Search icons (e.g. bed, teeth, dog)"/>
+              )}
+              <div className="grid grid-cols-5 gap-1.5 p-1.5 bg-gray-50 rounded-2xl">
+                {(emojiSearch.trim()
+                  ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
+                  : DEFAULT_EMOJIS
+                ).map((e, i) => (
+                  <button key={`${e}-${i}`} onClick={() => setEmoji(e)}
+                    className={`text-2xl p-2 rounded-xl transition ${emoji === e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick-start presets (templates, like the rewards page) */}
+            {!editingTaskId && (
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Or start from a preset</p>
+                <div className="flex flex-wrap gap-2">
+                  {TASK_PRESETS.map(p => (
+                    <button key={p.title} onClick={() => { setTitle(p.title); setEmoji(p.emoji) }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition active:scale-95 ${title === p.title ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200'}`}
+                      style={title === p.title ? { background: 'var(--theme-gradient)' } : {}}>
+                      <span>{p.emoji}</span>{p.title}
                     </button>
                   ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Up for grabs — unassigned; any child can claim it, first done wins */}
             <div className="rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50 space-y-3">
@@ -576,9 +612,21 @@ export default function ChoresPage() {
               </div>
             </div>
 
-            {frequency === 'daily' && (
+            {frequency === 'daily' && (() => {
+              const allDays = daysOfWeek.length >= 7
+              return (
               <div>
-                <p className="text-xs text-gray-500 mb-2">Which days? <span className="text-gray-300">{daysOfWeek.length === 0 ? '(every day)' : ''}</span></p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-gray-500">Which days?</p>
+                  <button onClick={() => setDaysOfWeek(allDays ? [] : [0, 1, 2, 3, 4, 5, 6])}
+                    className="flex items-center gap-2 active:scale-95 transition">
+                    <span className={`text-xs font-bold ${allDays ? '' : 'text-gray-400'}`} style={allDays ? { color: 'var(--theme-from)' } : {}}>All days</span>
+                    <span className={`w-10 h-5 rounded-full relative transition-colors ${allDays ? '' : 'bg-gray-200'}`}
+                      style={allDays ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${allDays ? 'translate-x-5' : 'translate-x-0.5'}`}/>
+                    </span>
+                  </button>
+                </div>
                 <div className="flex gap-1.5">
                   {[['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6], ['S', 0]].map(([lbl, dow], i) => {
                     const on = daysOfWeek.includes(dow as number)
@@ -591,9 +639,10 @@ export default function ChoresPage() {
                     )
                   })}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">All days are on by default — tap to deselect the ones you don't need.</p>
+                <p className="text-[11px] text-gray-400 mt-1">All days on by default — untick any day you don't need.</p>
               </div>
-            )}
+              )
+            })()}
             </>)}
 
             {/* Time of day + start date on one row */}
@@ -638,101 +687,19 @@ export default function ChoresPage() {
             </>)}
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">Stars to earn ⭐</p>
-              <div className="flex items-center gap-3">
-                <input type="range" min={1} max={50} value={Math.min(starValue, 50)}
-                  onChange={e => setStarValue(Number(e.target.value))} className="flex-1"/>
-                <input type="number" inputMode="numeric" min={1} value={starValue}
-                  onChange={e => setStarValue(Math.max(1, Number(e.target.value) || 1))}
-                  className="w-20 border border-gray-200 rounded-xl px-2 py-2 text-center font-black text-yellow-500 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500">Stars to earn ⭐</p>
+                <span className="font-black text-yellow-500 text-lg leading-none">{starValue} ⭐</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>25</span><span>50 · or type any number →</span></div>
+              <input type="range" min={1} max={50} value={Math.min(starValue, 50)}
+                onChange={e => setStarValue(Number(e.target.value))} className="w-full"/>
+              <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>25</span><span>50</span></div>
             </div>
-
-            <div className="flex items-center justify-between py-1">
-              <div><p className="text-sm font-medium text-gray-700">Add benchmark photos 🖼️</p><p className="text-xs text-gray-400">Show kids the expected standard</p></div>
-              <button onClick={() => setRequiresBenchmarkPhoto(!requiresBenchmarkPhoto)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${requiresBenchmarkPhoto ? '' : 'bg-gray-200'}`}
-                style={requiresBenchmarkPhoto ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${requiresBenchmarkPhoto ? 'translate-x-6' : 'translate-x-0.5'}`}/>
-              </button>
-            </div>
-
-            {requiresBenchmarkPhoto && (
-              <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
-                {existingBenchmarks.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Current benchmarks</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {existingBenchmarks.map(b => (
-                        <div key={b.id} className="relative">
-                          {b.media_type === 'video'
-                            ? <div className="w-16 h-16 bg-gray-200 rounded-xl flex items-center justify-center text-2xl">🎥</div>
-                            : <img src={b.url} className="w-16 h-16 object-cover rounded-xl" alt="benchmark"/>}
-                          <button onClick={async () => {
-                            await createClient().from('task_benchmark_photos').delete().eq('id', b.id)
-                            setExistingBenchmarks(prev => prev.filter(x => x.id !== b.id))
-                          }} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center font-bold">×</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs text-gray-500 mb-2 font-medium">Add photos <span className="text-gray-400">(up to {5 - existingBenchmarks.filter(b => b.media_type === 'photo').length} more)</span></p>
-                  {benchmarkFiles.length > 0 && (
-                    <div className="flex gap-2 flex-wrap mb-2">
-                      {benchmarkFiles.map((f, i) => (
-                        <div key={i} className="relative">
-                          <img src={URL.createObjectURL(f)} className="w-16 h-16 object-cover rounded-xl" alt=""/>
-                          <button onClick={() => setBenchmarkFiles(prev => prev.filter((_, j) => j !== i))}
-                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center font-bold">×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <button onClick={() => benchmarkPhotoRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-400 font-medium w-full justify-center">
-                    📷 Add photos
-                  </button>
-                  <input type="file" accept="image/*" multiple className="hidden" ref={benchmarkPhotoRef}
-                    onChange={e => {
-                      const files = Array.from(e.target.files || [])
-                      const maxNew = 5 - existingBenchmarks.filter(b => b.media_type === 'photo').length - benchmarkFiles.length
-                      setBenchmarkFiles(prev => [...prev, ...files.slice(0, maxNew)])
-                    }}/>
-                </div>
-                <div>
-                  {benchmarkVideo ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-16 bg-gray-200 rounded-xl flex items-center justify-center text-2xl">🎥</div>
-                      <div className="flex-1"><p className="text-xs text-gray-600 truncate">{benchmarkVideo.name}</p>
-                        <button onClick={() => setBenchmarkVideo(null)} className="text-xs text-red-400 font-semibold mt-0.5">Remove</button></div>
-                    </div>
-                  ) : !existingBenchmarks.some(b => b.media_type === 'video') ? (
-                    <button onClick={() => benchmarkVideoRef.current?.click()}
-                      className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-400 font-medium w-full justify-center">
-                      🎥 Add short video
-                    </button>
-                  ) : null}
-                  <input type="file" accept="video/*" className="hidden" ref={benchmarkVideoRef}
-                    onChange={e => { if (e.target.files?.[0]) setBenchmarkVideo(e.target.files[0]) }}/>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <div><p className="text-sm font-medium text-gray-700">Different per child</p><p className="text-xs text-gray-400">Each child has their own benchmark</p></div>
-                  <button onClick={() => setBenchmarkDiffersPerChild(!benchmarkDiffersPerChild)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${benchmarkDiffersPerChild ? '' : 'bg-gray-200'}`}
-                    style={benchmarkDiffersPerChild ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${benchmarkDiffersPerChild ? 'translate-x-6' : 'translate-x-0.5'}`}/>
-                  </button>
-                </div>
-              </div>
-            )}
 
             {!upForGrabs && (
             <div>
               <p className="text-xs text-gray-500 mb-2">Assign to</p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(children.length, 1), 4)}, minmax(0, 1fr))` }}>
                 {children.map(child => {
                   const sel = assignedChildren.includes(child.id)
                   return (
@@ -772,6 +739,7 @@ export default function ChoresPage() {
                 🗑 Delete task
               </button>
             )}
+          </div>
           </div>
         )}
 
