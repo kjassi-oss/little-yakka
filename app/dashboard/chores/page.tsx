@@ -50,21 +50,22 @@ const EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '🐾', kw: 'pet animal feed' }, { e: '🚗', kw: 'car wash tidy' },
   { e: '🎯', kw: 'goal target focus' }, { e: '📦', kw: 'box pack tidy put away' },
 ]
-// 10 default quick-pick icons shown 5-per-row (the 🔍 opens full search)
-const DEFAULT_EMOJIS = ['🛏️', '🦷', '🧸', '🐾', '📚', '🍽️', '🚮', '👕', '🪴', '🛁']
-// 20 named quick-start presets (tap to fill name + icon)
+// 20 named quick-start presets (tap to fill name + icon). Same list used in the
+// onboarding setup wizard (SETUP_TASK_PRESETS in lib/taskPresets).
 const TASK_PRESETS: { emoji: string; title: string }[] = [
-  { emoji: '🛏️', title: 'Make the bed' },      { emoji: '🦷', title: 'Brush teeth' },
-  { emoji: '🧸', title: 'Tidy bedroom' },       { emoji: '🐾', title: 'Feed the pet' },
-  { emoji: '📚', title: 'Do homework' },        { emoji: '🍽️', title: 'Set the table' },
-  { emoji: '🧽', title: 'Clear the table' },    { emoji: '🚮', title: 'Take out the rubbish' },
-  { emoji: '🪴', title: 'Water the plants' },   { emoji: '👕', title: 'Put clothes away' },
-  { emoji: '📖', title: 'Read a book' },        { emoji: '🎹', title: 'Practise music' },
-  { emoji: '🧼', title: 'Wash the dishes' },    { emoji: '🧹', title: 'Vacuum the floor' },
-  { emoji: '🍳', title: 'Help make dinner' },   { emoji: '👚', title: 'Get dressed' },
-  { emoji: '🎒', title: 'Pack school bag' },    { emoji: '🐕', title: 'Walk the dog' },
-  { emoji: '🧺', title: 'Fold the laundry' },   { emoji: '🛁', title: 'Have a bath' },
+  { emoji: '🦷', title: 'Brush teeth' },              { emoji: '📚', title: 'Homework / Study' },
+  { emoji: '🎹', title: 'Music practice' },           { emoji: '😴', title: 'Get ready for bed' },
+  { emoji: '🎒', title: 'Pack school bag' },          { emoji: '🧸', title: 'Clean room' },
+  { emoji: '🛏️', title: 'Make the bed' },             { emoji: '🧺', title: 'Clothes in hamper' },
+  { emoji: '🍽️', title: 'Wash dishes' },              { emoji: '🍴', title: 'Set / clear table' },
+  { emoji: '🧽', title: 'Wipe the counters' },        { emoji: '🗑️', title: 'Take out the trash' },
+  { emoji: '🧹', title: 'Vacuum / sweep floors' },    { emoji: '🪶', title: 'Dust the furniture' },
+  { emoji: '👕', title: 'Fold / put away laundry' },  { emoji: '🛍️', title: 'Carry in groceries' },
+  { emoji: '🌱', title: 'Mow the lawn' },             { emoji: '🍂', title: 'Rake / weed the garden' },
+  { emoji: '🪴', title: 'Water the plants' },         { emoji: '🐕', title: 'Feed pet / walk dog' },
 ]
+// 10 default quick-pick icons shown 5-per-row (the 🔍 opens full search)
+const DEFAULT_EMOJIS = ['🦷', '📚', '🎹', '🎒', '🧸', '🛏️', '🍽️', '🗑️', '🧹', '🪴']
 const TIME_OPTIONS = [
   { value: 'anytime',   label: '📋 Anytime' },
   { value: 'morning',   label: '🌅 Morning' },
@@ -619,18 +620,13 @@ export default function ChoresPage() {
               const allDays = daysOfWeek.length >= 7
               return (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-gray-500">Which days?</p>
-                  <button onClick={() => setDaysOfWeek(allDays ? [] : [0, 1, 2, 3, 4, 5, 6])}
-                    className="flex items-center gap-2 active:scale-95 transition">
-                    <span className={`text-xs font-bold ${allDays ? '' : 'text-gray-400'}`} style={allDays ? { color: 'var(--theme-from)' } : {}}>All days</span>
-                    <span className={`w-10 h-5 rounded-full relative transition-colors ${allDays ? '' : 'bg-gray-200'}`}
-                      style={allDays ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${allDays ? 'translate-x-5' : 'translate-x-0.5'}`}/>
-                    </span>
-                  </button>
-                </div>
+                <p className="text-xs text-gray-500 mb-2">Which days?</p>
                 <div className="flex gap-1.5">
+                  <button onClick={() => setDaysOfWeek(allDays ? [] : [0, 1, 2, 3, 4, 5, 6])}
+                    className={`flex-[1.4] h-9 rounded-xl text-xs font-black transition ${allDays ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                    style={allDays ? { background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' } : {}}>
+                    All
+                  </button>
                   {[['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6], ['S', 0]].map(([lbl, dow], i) => {
                     const on = daysOfWeek.includes(dow as number)
                     return (
@@ -642,7 +638,7 @@ export default function ChoresPage() {
                     )
                   })}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">All days on by default — untick any day you don't need.</p>
+                <p className="text-[11px] text-gray-400 mt-1">Tap <span className="font-bold">All</span> for every day, or pick specific days.</p>
               </div>
               )
             })()}

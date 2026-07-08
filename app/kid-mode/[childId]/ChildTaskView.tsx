@@ -541,8 +541,8 @@ export default function ChildTaskView({
         <button aria-label="Back to today" onClick={scrollToToday}
           className="fixed bottom-24 left-5 w-14 h-14 rounded-full bg-white shadow-xl border-2 flex flex-col items-center justify-center active:scale-90 transition z-20"
           style={{ borderColor: 'var(--theme-from)' }}>
-          <span className="text-[8px] font-black leading-none mt-1" style={{ color: 'var(--theme-from)' }}>{new Date().toLocaleDateString('en-AU', { month: 'short' }).toUpperCase()}</span>
-          <span className="text-xl font-black leading-none" style={{ color: 'var(--theme-from)' }}>{new Date().getDate()}</span>
+          <span suppressHydrationWarning className="text-[8px] font-black leading-none mt-1" style={{ color: 'var(--theme-from)' }}>{new Date().toLocaleDateString('en-AU', { month: 'short' }).toUpperCase()}</span>
+          <span suppressHydrationWarning className="text-xl font-black leading-none" style={{ color: 'var(--theme-from)' }}>{new Date().getDate()}</span>
         </button>
       )}
 
