@@ -43,7 +43,7 @@ export default async function ChildPage({ params, searchParams }: {
   ] = await Promise.all([
     supabase.from('families').select('*').eq('id', guardian?.family_id).maybeSingle(),
     supabase.from('task_assignments').select('task_id, tasks(*)').eq('child_id', childId),
-    supabase.from('completions').select('task_id, date, created_at').eq('child_id', childId)
+    supabase.from('completions').select('id, task_id, child_id, date, created_at').eq('child_id', childId)
       .gte('date', mondayStr).lte('date', ymd(horizonEnd)),
     supabase.from('completions')
       .select('task_id, date, created_at, tasks(title, emoji, star_value)')
@@ -85,24 +85,23 @@ export default async function ChildPage({ params, searchParams }: {
   const completedKeys = (completions || []).map(c => `${c.task_id}|${c.date}`)
 
   // Up-for-grabs bounties — one-offs any child can claim (first done wins).
-  // Shown on today until claimed/expired; hidden here once a sibling claims it.
-  const ufgTasks = (ufgData || []).filter((t: any) => !t.expires_on || t.expires_on >= todayStr)
-  if (ufgTasks.length) {
+  // Hidden once a sibling claims it; shown as claimed (with undo) if THIS child got it.
+  const ufgAvailable = (ufgData || []).filter((t: any) => !t.expires_on || t.expires_on >= todayStr)
+  const ufgTasksForList: any[] = []
+  let ufgClaims: { id: string; task_id: string; child_id: string; date: string }[] = []
+  if (ufgAvailable.length) {
     const { data: ufgComps } = await supabase
-      .from('completions').select('task_id, child_id, date').in('task_id', ufgTasks.map((t: any) => t.id))
+      .from('completions').select('id, task_id, child_id, date').in('task_id', ufgAvailable.map((t: any) => t.id))
     const claimedBy: Record<string, string> = {}
     ;(ufgComps || []).forEach((c: any) => { claimedBy[c.task_id] = c.child_id })
-    for (const t of ufgTasks) {
+    for (const t of ufgAvailable) {
       const claimer = claimedBy[t.id]
       if (claimer && claimer !== childId) continue // a sibling got there first
-      occurrences.push({
-        id: `${t.id}|${todayStr}`, taskId: t.id, title: t.title, emoji: t.emoji,
-        star_value: t.star_value, time_of_day: t.time_of_day ?? null, date: todayStr,
-        canDoEarly: true, carryOver: true, upForGrabs: true,
-      })
-      // claimed by THIS child (possibly on an earlier day) — show as done
-      if (claimer && !completedKeys.includes(`${t.id}|${todayStr}`)) completedKeys.push(`${t.id}|${todayStr}`)
+      ufgTasksForList.push(t)
     }
+    ufgClaims = (ufgComps || [])
+      .filter((c: any) => c.child_id === childId)
+      .map((c: any) => ({ id: c.id as string, task_id: c.task_id as string, child_id: c.child_id as string, date: c.date as string }))
   }
 
   // Completed history (last 30 days) for the "Done" tab — with timestamps
@@ -204,11 +203,27 @@ export default async function ChildPage({ params, searchParams }: {
   const bonusStartStr = localDateStr(_bn, tz)
   const hasSpunToday = ((spinToday as any[]) || []).some(s => s.date >= bonusStartStr)
 
+  // ── Raw data for the shared UpcomingTaskList (Kids Zone renders through it) ──
+  const assignmentsMap: Record<string, string[]> = {}
+  for (const t of allTasks) assignmentsMap[t.id] = [childId]
+  const taskById = new Map<string, any>(allTasks.map((t: any) => [t.id, t]))
+  for (const t of ufgTasksForList) if (!taskById.has(t.id)) taskById.set(t.id, t)
+  const tasksForList = [...taskById.values()]
+  const windowComps = (completions || []).map((c: any) => ({ id: c.id as string, task_id: c.task_id as string, child_id: childId, date: c.date as string }))
+  // This week's claimable occurrences (excludes ufg bounties) for header + celebration
+  const claimableOccs = occurrences.filter((o: any) => !o.upForGrabs && o.date >= mondayStr && o.date <= weekEndStr)
+  const claimableTotal = claimableOccs.length
+  const claimableDoneInit = claimableOccs.filter((o: any) => completedKeys.includes(o.id)).length
+
   return (
     <ChildTaskView
       child={child}
-      occurrences={occurrences}
-      completedKeys={completedKeys}
+      tasks={tasksForList}
+      assignments={assignmentsMap}
+      windowComps={windowComps}
+      ufgClaims={ufgClaims}
+      claimableTotal={claimableTotal}
+      claimableDoneInit={claimableDoneInit}
       weekEndStr={weekEndStr}
       mondayStr={mondayStr}
       todayStr={todayStr}

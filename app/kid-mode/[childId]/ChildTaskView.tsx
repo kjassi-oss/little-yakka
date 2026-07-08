@@ -8,15 +8,8 @@ import { completionFeedback, redeemFeedback } from '@/lib/feedback'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import StarJar from '@/components/StarJar'
 import TrophyShelf from '@/components/TrophyShelf'
+import UpcomingTaskList, { type UChild, type UComp } from '@/components/UpcomingTaskList'
 
-interface Occurrence { id: string; taskId: string; title: string; emoji: string; star_value: number; time_of_day: string | null; date: string; canDoEarly: boolean; carryOver: boolean; upForGrabs?: boolean }
-
-const TIME_SORT: Record<string, number> = { anytime: 0, morning: 1, afternoon: 2, evening: 3 }
-function sortOccs(occs: Occurrence[]) {
-  return [...occs].sort((a, b) =>
-    (TIME_SORT[a.time_of_day ?? 'anytime'] ?? 0) - (TIME_SORT[b.time_of_day ?? 'anytime'] ?? 0)
-  )
-}
 interface Child {
   id: string; name: string; avatar: string; colour: string; avatar_url?: string
   goal_title?: string | null; goal_emoji?: string | null; goal_target?: number | null
@@ -29,8 +22,12 @@ interface MyReward { id: string; title: string; emoji: string; cost: number; dat
 
 interface Props {
   child: Child
-  occurrences: Occurrence[]
-  completedKeys: string[]
+  tasks: any[]
+  assignments: Record<string, string[]>
+  windowComps: UComp[]
+  ufgClaims: UComp[]
+  claimableTotal: number
+  claimableDoneInit: number
   weekEndStr: string
   mondayStr: string
   todayStr: string
@@ -71,15 +68,6 @@ const CHEERS = [
   'Champion work! 👑',
 ]
 
-function dateLabel(ds: string, todayStr: string): string {
-  if (ds === todayStr) return 'Today'
-  const tomorrow = new Date(todayStr + 'T00:00:00')
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  if (ds === tomorrow.toISOString().split('T')[0]) return 'Tomorrow'
-  const past = ds < todayStr
-  return new Date(ds + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' }) + (past ? ' (past)' : '')
-}
-
 function fmtTimestamp(iso: string): string {
   try {
     const d = new Date(iso)
@@ -88,7 +76,8 @@ function fmtTimestamp(iso: string): string {
 }
 
 export default function ChildTaskView({
-  child, occurrences, completedKeys, weekEndStr, mondayStr, todayStr,
+  child, tasks, assignments, windowComps, ufgClaims, claimableTotal, claimableDoneInit,
+  weekEndStr, mondayStr, todayStr,
   starBalance: initialBalance, rewards, pendingRewardIds: initialPending,
   hasSpunToday, bonusCadence, bonusDay, bonusTime, maxPrize,
   streakDays, doneHistory, unseenPraises, highlightTaskId, autoSpin,
@@ -100,8 +89,10 @@ export default function ChildTaskView({
   const [doneList, setDoneList] = useState<DoneItem[]>(doneHistory)
   const [myRewardsList, setMyRewardsList] = useState<MyReward[]>(myRewards)
   const [pulseId, setPulseId] = useState<string | null>(highlightTaskId ? `${highlightTaskId}|${todayStr}` : null)
-  const [pendingUndo, setPendingUndo] = useState<Occurrence | null>(null)
-  const [completed, setCompleted] = useState(new Set(completedKeys))
+  const [pendingUndo, setPendingUndo] = useState<{ task: any; comp: UComp } | null>(null)
+  const [comps, setComps] = useState<UComp[]>(windowComps)
+  const [ufgClaimsState, setUfgClaimsState] = useState<UComp[]>(ufgClaims)
+  const [claimableDone, setClaimableDone] = useState(claimableDoneInit)
   const [starBalance, setStarBalance] = useState(initialBalance)
   const [pendingRewardIds, setPendingRewardIds] = useState(new Set(initialPending))
   const [showCelebration, setShowCelebration] = useState(false)
@@ -110,7 +101,6 @@ export default function ChildTaskView({
   const [canSpin, setCanSpin] = useState(false)
   const [requestingId, setRequestingId] = useState<string | null>(null)
   const [justRequestedId, setJustRequestedId] = useState<string | null>(null)
-  const [justClaimedId, setJustClaimedId] = useState<string | null>(null)
   const [claimBurst, setClaimBurst] = useState<{ emoji: string; title: string; sub: string } | null>(null)
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
@@ -137,14 +127,14 @@ export default function ChildTaskView({
 
   // Default the list to TODAY — past days sit above and are reached by scrolling up
   useEffect(() => {
-    if (tab !== 'tasks' || currentPraise) return
-    const el = document.getElementById(`date-${todayStr}`)
+    if (tab !== 'tasks' || currentPraise || pulseId) return
+    const el = document.getElementById(`up-${todayStr}`)
     if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function scrollToToday() {
-    const el = document.getElementById(`date-${todayStr}`)
+    const el = document.getElementById(`up-${todayStr}`)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -165,73 +155,93 @@ export default function ChildTaskView({
     setCurrentPraise(remaining[0] ?? null)
   }
 
-  // Current-week tasks for progress bar (Mon–Sun)
-  const claimable = occurrences.filter(o => o.date >= mondayStr && o.date <= weekEndStr)
-  const claimableDone = claimable.filter(o => completed.has(o.id)).length
+  // Single-child data for the shared UpcomingTaskList
+  const childU: UChild = { id: child.id, name: child.name, avatar: child.avatar, colour: child.colour, avatar_url: child.avatar_url }
+  const childrenList = [childU]
+  const childMap = { [child.id]: childU }
+  const dayDiff = (a: string, b: string) => Math.round((Date.parse(b + 'T00:00:00') - Date.parse(a + 'T00:00:00')) / 86400000)
+  // Past-this-week days sit above today; horizon ≈ 2 weeks past the current week
+  const [pastWindow, setPastWindow] = useState(Math.max(0, dayDiff(mondayStr, todayStr)))
+  const daysAhead = Math.max(0, dayDiff(todayStr, weekEndStr) + 14)
+  const noop = () => {}
 
-  // Group by date, split into past-this-week and today-onward
-  const byDate: Record<string, Occurrence[]> = {}
-  occurrences.forEach(o => { (byDate[o.date] ||= []).push(o) })
-  const allDates = Object.keys(byDate).sort()
-  const pastDates = allDates.filter(ds => ds >= mondayStr && ds < todayStr)
-  const upcomingDates = allDates.filter(ds => ds >= todayStr)
-
-  async function completeTask(occ: Occurrence) {
-    if (completed.has(occ.id) || occ.date > weekEndStr) return
-    // A missed day can only be caught up if the task carries over (until Sunday)
-    if (occ.date < todayStr && !occ.carryOver) return
+  // Completing a task — inserts the completion + stars, fires the confetti burst,
+  // updates optimistic state, and pops the "all done!" celebration when the week's
+  // claimable tasks are all ticked. (up-for-grabs bounties don't count toward the week.)
+  async function handleComplete(task: any, _childId: string, ds: string) {
+    if (ds > weekEndStr) return // next-week tasks are locked
+    if (comps.some(c => c.task_id === task.id && c.date === ds && c.child_id === child.id)) return
+    const isUfg = !!task.up_for_grabs
+    if (ds < todayStr && !(task.carry_over ?? true) && !isUfg) return // missed, non-carry-over
     completionFeedback()
     const supabase = createClient()
     const { data: completion } = await supabase.from('completions').insert({
-      task_id: occ.taskId, child_id: child.id, date: occ.date, status: 'approved',
+      task_id: task.id, child_id: child.id, date: ds, status: 'approved',
     }).select('id').single()
     await supabase.from('star_ledger').insert({
-      child_id: child.id, delta: occ.star_value,
-      reason: `Completed: ${occ.title}`, source_type: 'completion', source_id: completion?.id,
+      child_id: child.id, delta: task.star_value,
+      reason: `Completed: ${task.title}`, source_type: 'completion', source_id: completion?.id,
     })
     // Nudge the family's subscribed devices (fire-and-forget)
     fetch('/api/push/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '⭐ Task done!', body: `${child.name.split(' ')[0]} finished "${occ.title}" (+${occ.star_value} ⭐)` }),
+      body: JSON.stringify({ title: '⭐ Task done!', body: `${child.name.split(' ')[0]} finished "${task.title}" (+${task.star_value} ⭐)` }),
     }).catch(() => {})
-    setJustClaimedId(occ.id)
-    setTimeout(() => setJustClaimedId(null), 600)
     setClaimBurst({
-      emoji: occ.emoji,
+      emoji: task.emoji,
       title: CHEERS[Math.floor(Math.random() * CHEERS.length)],
-      sub: `+${occ.star_value} ⭐`,
+      sub: `+${task.star_value} ⭐`,
     })
     setTimeout(() => setClaimBurst(null), 2200)
-    setStarBalance(prev => prev + occ.star_value)
-    // Done tab updates live
+    setStarBalance(prev => prev + task.star_value)
     setDoneList(prev => [{
-      key: `${occ.taskId}|${occ.date}`, date: occ.date, createdAt: new Date().toISOString(),
-      title: occ.title, emoji: occ.emoji, starValue: occ.star_value,
+      key: `${task.id}|${ds}`, date: ds, createdAt: new Date().toISOString(),
+      title: task.title, emoji: task.emoji, starValue: task.star_value,
     }, ...prev])
-    const remaining = claimable.filter(o => !completed.has(o.id) && o.id !== occ.id).length
-    setCompleted(prev => new Set([...prev, occ.id]))
-    if (remaining === 0) setTimeout(() => setShowCelebration(true), 700)
+    const newComp: UComp = { id: (completion?.id as string) ?? `tmp-${task.id}-${ds}`, task_id: task.id, child_id: child.id, date: ds }
+    setComps(prev => [...prev, newComp])
+    if (isUfg) setUfgClaimsState(prev => [...prev, newComp])
+    if (!isUfg && ds >= mondayStr && ds <= weekEndStr) {
+      setClaimableDone(prev => {
+        const next = prev + 1
+        if (next >= claimableTotal && claimableTotal > 0) setTimeout(() => setShowCelebration(true), 700)
+        return next
+      })
+    }
+  }
+
+  // UpcomingTaskList calls this when a ✓ is tapped — open the themed confirm modal.
+  function handleUndoRequest(comp: UComp, task: any) {
+    setPendingUndo({ task, comp })
   }
 
   // Kids can undo their own tick (removes the completion + the stars).
-  // Confirmation happens in the themed modal (pendingUndo), not a browser popup.
-  async function undoTask(occ: Occurrence) {
-    if (!completed.has(occ.id)) return
+  async function confirmUndo() {
+    if (!pendingUndo) return
+    const { task, comp } = pendingUndo
     setPendingUndo(null)
     const supabase = createClient()
-    await supabase.from('completions').delete()
-      .eq('task_id', occ.taskId).eq('child_id', child.id).eq('date', occ.date)
+    if (comp.id && !String(comp.id).startsWith('tmp-')) {
+      await supabase.from('completions').delete().eq('id', comp.id)
+    } else {
+      await supabase.from('completions').delete()
+        .eq('task_id', task.id).eq('child_id', child.id).eq('date', comp.date)
+    }
     await supabase.from('star_ledger').insert({
-      child_id: child.id, delta: -occ.star_value,
-      reason: `Undo: ${occ.title}`, source_type: 'undo',
+      child_id: child.id, delta: -task.star_value,
+      reason: `Undo: ${task.title}`, source_type: 'undo',
     })
-    setCompleted(prev => { const next = new Set(prev); next.delete(occ.id); return next })
-    setStarBalance(prev => prev - occ.star_value)
+    setComps(prev => prev.filter(c => !(c.task_id === task.id && c.date === comp.date && c.child_id === child.id)))
+    setUfgClaimsState(prev => prev.filter(c => !(c.task_id === task.id && c.date === comp.date && c.child_id === child.id)))
+    setStarBalance(prev => prev - task.star_value)
     setDoneList(prev => {
-      const idx = prev.findIndex(d => d.key === `${occ.taskId}|${occ.date}`)
+      const idx = prev.findIndex(d => d.key === `${task.id}|${comp.date}`)
       if (idx === -1) return prev
       return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
     })
+    if (!task.up_for_grabs && comp.date >= mondayStr && comp.date <= weekEndStr) {
+      setClaimableDone(prev => Math.max(0, prev - 1))
+    }
   }
 
   async function handleSpinWin(stars: number) {
@@ -344,67 +354,6 @@ export default function ChildTaskView({
     )
   }
 
-  const progress = claimable.length > 0 ? (claimableDone / claimable.length) * 100 : 0
-
-  function renderTaskRow(occ: Occurrence) {
-    const done = completed.has(occ.id)
-    const locked = occ.date > weekEndStr
-    const isPast = occ.date < todayStr
-    const isFutureThisWeek = occ.date > todayStr && !locked
-    const notYetAvailable = isFutureThisWeek && !occ.canDoEarly
-    // Missed day: carry-over → still catchable (red); otherwise it's expired/gone
-    const overdueCatchup = isPast && !done && !locked && occ.carryOver
-    const missedExpired = isPast && !done && !locked && !occ.carryOver
-    const muted = locked || notYetAvailable || missedExpired
-    return (
-      <div key={occ.id} id={`occ-${occ.id}`}
-        className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300
-          ${done ? 'bg-gray-50 border-gray-100 opacity-70'
-            : occ.upForGrabs ? 'bg-amber-50 border-2 border-dashed border-amber-300 shadow-sm'
-            : overdueCatchup ? 'bg-red-50 border-red-100'
-            : muted ? 'bg-gray-50 border-gray-100 opacity-60'
-            : 'bg-white border-gray-100 shadow-sm'}
-          ${justClaimedId === occ.id ? 'scale-95' : ''}
-          ${pulseId === occ.id ? 'bounce-in' : ''}`}
-        style={pulseId === occ.id ? { boxShadow: `0 0 0 3px ${child.colour}` } : {}}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white ${muted ? 'grayscale opacity-40' : ''}`}
-          style={{ border: '1.5px solid var(--theme-from)' }}>
-          {occ.emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          {occ.upForGrabs && !done && (
-            <span className="inline-block text-[9px] font-black bg-amber-100 text-amber-600 rounded-full px-1.5 py-0.5 mb-0.5">🙌 UP FOR GRABS</span>
-          )}
-          <p className={`font-bold text-base ${done ? 'line-through text-gray-400' : overdueCatchup ? 'text-red-500' : muted ? 'text-gray-400' : 'text-gray-800'}`}>
-            {occ.title}
-          </p>
-          <p className={`text-xs ${occ.upForGrabs && !done ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
-            {occ.upForGrabs && !done ? 'First done wins! · ' : ''}{occ.time_of_day || 'Anytime'} · +{occ.star_value} ⭐
-          </p>
-        </div>
-        {done ? (
-          <button onClick={() => setPendingUndo(occ)} title="Undo"
-            className="flex-shrink-0 flex flex-col items-center active:scale-90 transition">
-            <span className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold text-lg">✓</span>
-            <span className="text-[9px] font-bold text-gray-300 mt-0.5">undo</span>
-          </button>
-        ) : locked ? (
-          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
-        ) : notYetAvailable ? (
-          <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
-        ) : missedExpired ? (
-          <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">missed</div>
-        ) : (
-          <button onClick={() => completeTask(occ)}
-            className="flex-shrink-0 px-4 py-2 rounded-xl text-white font-black text-sm shadow-sm active:scale-90 transition"
-            style={{ background: occ.upForGrabs ? '#F59E0B' : overdueCatchup ? '#EF4444' : 'var(--theme-gradient)' }}>
-            DONE
-          </button>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen pb-32 relative"
       style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--theme-from) 10%, white) 0%, #ffffff 55%)' }}>
@@ -441,12 +390,12 @@ export default function ChildTaskView({
           <div className="flex-1 min-w-0">
             <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
             <div className="flex items-center gap-3 mt-1.5">
-              <span className="text-sm font-bold text-gray-600">📋 {claimableDone}/{claimable.length}</span>
+              <span className="text-sm font-bold text-gray-600">📋 {claimableDone}/{claimableTotal}</span>
               {streakDays > 0 && <span className="text-sm font-bold text-orange-500">🔥 {streakDays}d streak</span>}
             </div>
           </div>
           <div className="flex-shrink-0">
-            <StarJar done={claimableDone} total={claimable.length} size={46}/>
+            <StarJar done={claimableDone} total={claimableTotal} size={46}/>
           </div>
         </div>
 
@@ -491,47 +440,29 @@ export default function ChildTaskView({
               </button>
             )}
 
-            {/* Past days sit above today — scroll UP to see them (view starts at Today) */}
-            {pastDates.map(ds => {
-              const items = sortOccs(byDate[ds])
-              return (
-                <div key={ds} id={`date-${ds}`} className="scroll-mt-32">
-                  <p className="text-2xl font-black text-gray-400 mb-2 px-1 leading-none">
-                    {dateLabel(ds, todayStr)}
-                  </p>
-                  <div className="space-y-2">{items.map(renderTaskRow)}</div>
-                </div>
-              )
-            })}
-
-            {/* Today + upcoming */}
-            {upcomingDates.map(ds => {
-              const locked = ds > weekEndStr
-              const isToday = ds === todayStr
-              const items = sortOccs(byDate[ds])
-              return (
-                <div key={ds} id={`date-${ds}`} className="scroll-mt-32">
-                  <div className="flex items-center gap-2 mb-2 px-1">
-                    <p className={`text-2xl font-black leading-none ${isToday ? '' : 'text-gray-700'}`}
-                      style={isToday ? { color: 'var(--theme-from)' } : {}}>
-                      {dateLabel(ds, todayStr)}
-                    </p>
-                    {locked && (
-                      <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">🔒 next week</span>
-                    )}
-                  </div>
-                  <div className="space-y-2">{items.map(renderTaskRow)}</div>
-                </div>
-              )
-            })}
-
-            {occurrences.length === 0 && (
-              <div className="text-center py-16 px-4">
-                <div className="text-6xl mb-4">🎉</div>
-                <p className="text-gray-600 font-semibold">No tasks coming up!</p>
-                <p className="text-gray-400 text-sm mt-1">Ask a grown-up to add some tasks.</p>
-              </div>
-            )}
+            <UpcomingTaskList
+              tasks={tasks}
+              childrenList={childrenList}
+              childMap={childMap}
+              assignments={assignments}
+              windowComps={comps}
+              ufgClaims={ufgClaimsState}
+              upcomingFilter={new Set()}
+              setUpcomingFilter={noop}
+              toggleUpcomingChild={noop}
+              pastWindow={pastWindow}
+              setPastWindow={setPastWindow}
+              daysAhead={daysAhead}
+              showChildFilter={false}
+              showPastWindow={false}
+              showUpForGrabs={true}
+              singleChildId={child.id}
+              lockAfter={weekEndStr}
+              highlightKey={pulseId}
+              onOpenTask={noop}
+              onComplete={handleComplete}
+              onUndo={handleUndoRequest}
+            />
           </div>
         )}
 
@@ -635,16 +566,16 @@ export default function ChildTaskView({
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6" onClick={() => setPendingUndo(null)}>
           <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
             <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
-              style={{ border: '2px solid var(--theme-from)' }}>{pendingUndo.emoji}</div>
-            <h3 className="text-xl font-black text-gray-800 leading-tight mb-1">Undo "{pendingUndo.title}"?</h3>
-            <p className="text-sm font-semibold text-gray-400 mb-5">You'll give back {pendingUndo.star_value} ⭐</p>
+              style={{ border: '2px solid var(--theme-from)' }}>{pendingUndo.task.emoji}</div>
+            <h3 className="text-xl font-black text-gray-800 leading-tight mb-1">Undo "{pendingUndo.task.title}"?</h3>
+            <p className="text-sm font-semibold text-gray-400 mb-5">You'll give back {pendingUndo.task.star_value} ⭐</p>
             <div className="flex gap-2">
               <button onClick={() => setPendingUndo(null)}
                 className="flex-1 py-3 rounded-2xl font-black text-sm text-white shadow active:scale-95 transition"
                 style={{ background: 'var(--theme-gradient)' }}>
                 Keep it! ✓
               </button>
-              <button onClick={() => undoTask(pendingUndo)}
+              <button onClick={confirmUndo}
                 className="flex-1 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
                 Undo
               </button>

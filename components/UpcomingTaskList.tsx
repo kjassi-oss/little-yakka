@@ -4,6 +4,7 @@
 // list used on the Tasks page (Upcoming tab), the Home page (short preview), and the
 // Kids Zone. Pages pass their data + action callbacks; this owns the grouping + layout
 // so all three look and behave identically.
+import { useEffect } from 'react'
 import { occursOn } from '@/lib/recurrence'
 
 export interface UTask {
@@ -34,18 +35,28 @@ interface Props {
   showPastWindow?: boolean
   showUpForGrabs?: boolean
   singleChildId?: string | null
+  // Kids Zone extras (ignored elsewhere): lock task-days after this date (shows a
+  // 🔒 "next week" state instead of DONE), and scroll+pulse a single "taskId|date".
+  lockAfter?: string | null
+  highlightKey?: string | null
   // Loose task types so callers can pass their own stricter Task shape without friction.
   onOpenTask: (task: any) => void
   onComplete: (task: any, childId: string, date: string, child?: any) => void
-  onUndo: (comp: { id: string; child_id: string }, task: any, childName: string) => void
+  onUndo: (comp: UComp, task: any, childName: string) => void
 }
 
 export default function UpcomingTaskList({
   tasks, childrenList, childMap, assignments, windowComps, ufgClaims,
   upcomingFilter, setUpcomingFilter, toggleUpcomingChild, pastWindow, setPastWindow,
   daysAhead = 14, showChildFilter = true, showPastWindow = true, showUpForGrabs = true, singleChildId = null,
+  lockAfter = null, highlightKey = null,
   onOpenTask, onComplete, onUndo,
 }: Props) {
+  useEffect(() => {
+    if (!highlightKey) return
+    const el = document.getElementById(`occ-${highlightKey}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightKey])
   const compKey = new Set(windowComps.map(c => `${c.task_id}|${c.child_id}|${c.date}`))
   const compRow = new Map(windowComps.map(c => [`${c.task_id}|${c.child_id}|${c.date}`, c]))
   const todayL = ymdLocal(new Date())
@@ -155,12 +166,16 @@ export default function UpcomingTaskList({
       ) : days.map(({ ds, d, items }) => {
         const isToday = ds === todayL
         const isPast = ds < todayL
+        const lockedDay = !!(singleChildId && lockAfter && ds > lockAfter)
         return (
           <div key={ds} id={`up-${ds}`} className="scroll-mt-2">
-            <p className={`text-2xl font-black mb-2 px-1 leading-none ${isToday ? '' : isPast ? 'text-gray-400' : 'text-gray-700'}`}
-              style={isToday ? { color: 'var(--theme-from)' } : {}}>
-              {isToday ? 'Today' : d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}{isPast ? ' (past)' : ''}
-            </p>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <p className={`text-2xl font-black leading-none ${isToday ? '' : isPast ? 'text-gray-400' : 'text-gray-700'}`}
+                style={isToday ? { color: 'var(--theme-from)' } : {}}>
+                {isToday ? 'Today' : d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}{isPast ? ' (past)' : ''}
+              </p>
+              {lockedDay && <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">🔒 next week</span>}
+            </div>
             <div className="space-y-2">
               {items.map(({ task, kids }) => {
                 const doneCount = kids.filter(k => compKey.has(`${task.id}|${k.id}|${ds}`)).length
@@ -168,14 +183,17 @@ export default function UpcomingTaskList({
                 const missed = isPast && doneCount === 0
                 const singleDone = singleChildId ? compKey.has(`${task.id}|${singleChildId}|${ds}`) : false
                 const struck = singleChildId ? singleDone : allDone
+                const highlit = highlightKey === `${task.id}|${ds}`
                 return (
                   <div key={task.id}
+                    id={singleChildId ? `occ-${task.id}|${ds}` : undefined}
                     onClick={() => { if (!singleChildId) onOpenTask(task) }}
-                    className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white ${missed ? 'grayscale opacity-50' : ''}`}
+                    className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${highlit ? 'bounce-in' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}
+                    style={highlit ? { boxShadow: '0 0 0 3px var(--theme-from)' } : undefined}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white ${missed || lockedDay ? 'grayscale opacity-50' : ''}`}
                       style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-base truncate ${struck ? 'line-through text-gray-400' : missed ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                      <p className={`font-bold text-base truncate ${struck ? 'line-through text-gray-400' : missed || lockedDay ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
                       <p className="text-sm text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
                     </div>
 
@@ -183,6 +201,8 @@ export default function UpcomingTaskList({
                       singleDone ? (
                         <button title="Undo" onClick={e => { e.stopPropagation(); const row = compRow.get(`${task.id}|${singleChildId}|${ds}`); if (row) onUndo(row, task, singleChild?.name.split(' ')[0] || '') }}
                           className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-500 font-bold flex-shrink-0 text-lg active:scale-90 transition">✓</button>
+                      ) : lockedDay ? (
+                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
                       ) : (ds > todayL && !((task as any).can_do_early ?? true)) ? (
                         <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
                       ) : (ds < todayL && (!((task as any).carry_over ?? true) || ds < carryCutoff)) ? (
