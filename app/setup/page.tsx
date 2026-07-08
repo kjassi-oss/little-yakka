@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/imageCompress'
+import { TASK_PRESETS as PREDEFINED_TASKS } from '@/lib/taskPresets'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
@@ -16,15 +17,6 @@ const TASK_EMOJIS = [
 ]
 const REWARD_EMOJIS = ['🎁','🍦','🎬','🍔','🎮','📱','🍿','🎨','🍫','🍭','🏆','⚽','🛍️','🎡','🍰','🎠']
 
-// Predefined starters — tap to auto-fill name + icon, then tweak the full form
-const PREDEFINED_TASKS: { title: string; emoji: string }[] = [
-  { title: 'Clean Bedroom', emoji: '🧹' }, { title: 'Homework', emoji: '📝' },
-  { title: 'Music Practice', emoji: '🎵' }, { title: 'Wash Dishes', emoji: '🍽️' },
-  { title: 'Do Laundry', emoji: '🧺' }, { title: 'Cut Grass', emoji: '🌿' },
-  { title: 'Wash Car', emoji: '🚗' }, { title: 'Make Your Bed', emoji: '🛏️' },
-  { title: 'Take Out Rubbish', emoji: '🗑️' }, { title: 'Walk The Dog', emoji: '🐕' },
-  { title: 'Reading', emoji: '📖' }, { title: 'Brush Teeth', emoji: '🪥' },
-]
 const PREDEFINED_REWARDS: { title: string; emoji: string }[] = [
   { title: 'Ice Cream', emoji: '🍦' }, { title: 'iPad Time', emoji: '📱' },
   { title: 'Go To Movies', emoji: '🎬' }, { title: 'Takeaway', emoji: '🍔' },
@@ -400,12 +392,12 @@ export default function SetupPage() {
 
       {!taskFormOpen ? (
         <>
-          <div className="grid grid-cols-4 gap-2.5 mb-4">
+          <div className="grid grid-cols-5 gap-2 mb-4">
             {PREDEFINED_TASKS.map(p => (
               <button key={p.title} onClick={() => startTask(p)}
                 className="flex flex-col items-center gap-1 active:scale-95 transition">
-                <div className="w-14 h-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl">{p.emoji}</div>
-                <span className="text-[10px] font-semibold text-gray-500 text-center leading-tight">{p.title}</span>
+                <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-xl">{p.emoji}</div>
+                <span className="text-[9px] font-semibold text-gray-500 text-center leading-tight">{p.title}</span>
               </button>
             ))}
           </div>

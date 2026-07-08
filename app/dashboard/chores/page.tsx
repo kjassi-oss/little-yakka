@@ -10,6 +10,7 @@ import CelebrationBurst from '@/components/CelebrationBurst'
 import { getCachedFamily } from '@/lib/familyCache'
 import { completionFeedback } from '@/lib/feedback'
 import UpcomingTaskList from '@/components/UpcomingTaskList'
+import { TASK_PRESETS, DEFAULT_TASK_EMOJIS as DEFAULT_EMOJIS } from '@/lib/taskPresets'
 
 // Searchable emoji set (keywords drive the search box)
 const EMOJI_OPTIONS: { e: string; kw: string }[] = [
@@ -50,22 +51,6 @@ const EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '🐾', kw: 'pet animal feed' }, { e: '🚗', kw: 'car wash tidy' },
   { e: '🎯', kw: 'goal target focus' }, { e: '📦', kw: 'box pack tidy put away' },
 ]
-// 20 named quick-start presets (tap to fill name + icon). Same list used in the
-// onboarding setup wizard (SETUP_TASK_PRESETS in lib/taskPresets).
-const TASK_PRESETS: { emoji: string; title: string }[] = [
-  { emoji: '🦷', title: 'Brush teeth' },              { emoji: '📚', title: 'Homework / Study' },
-  { emoji: '🎹', title: 'Music practice' },           { emoji: '😴', title: 'Get ready for bed' },
-  { emoji: '🎒', title: 'Pack school bag' },          { emoji: '🧸', title: 'Clean room' },
-  { emoji: '🛏️', title: 'Make the bed' },             { emoji: '🧺', title: 'Clothes in hamper' },
-  { emoji: '🍽️', title: 'Wash dishes' },              { emoji: '🍴', title: 'Set / clear table' },
-  { emoji: '🧽', title: 'Wipe the counters' },        { emoji: '🗑️', title: 'Take out the trash' },
-  { emoji: '🧹', title: 'Vacuum / sweep floors' },    { emoji: '🪶', title: 'Dust the furniture' },
-  { emoji: '👕', title: 'Fold / put away laundry' },  { emoji: '🛍️', title: 'Carry in groceries' },
-  { emoji: '🌱', title: 'Mow the lawn' },             { emoji: '🍂', title: 'Rake / weed the garden' },
-  { emoji: '🪴', title: 'Water the plants' },         { emoji: '🐕', title: 'Feed pet / walk dog' },
-]
-// 10 default quick-pick icons shown 5-per-row (the 🔍 opens full search)
-const DEFAULT_EMOJIS = ['🦷', '📚', '🎹', '🎒', '🧸', '🛏️', '🍽️', '🗑️', '🧹', '🪴']
 const TIME_OPTIONS = [
   { value: 'anytime',   label: '📋 Anytime' },
   { value: 'morning',   label: '🌅 Morning' },
