@@ -2,12 +2,14 @@
 // jar, and colourful sweets stack up from the bottom in real time.
 const SWEETS = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', '#F97316', '#14B8A6', '#FACC15', '#A855F7', '#22C55E', '#F43F5E']
 
-// Fixed staggered slots (left%, bottom%) so sweets pile up naturally
+// Fixed staggered slots (left%, bottom%) so sweets pile up naturally. More,
+// smaller sweets fill the jar for a fuller, lolly-jar look.
 const SLOTS = [
-  { l: 16, b: 3 },  { l: 44, b: 1 },  { l: 68, b: 4 },
-  { l: 6, b: 20 },  { l: 33, b: 18 }, { l: 61, b: 21 },
-  { l: 18, b: 37 }, { l: 47, b: 35 }, { l: 70, b: 38 },
-  { l: 10, b: 54 }, { l: 38, b: 52 }, { l: 63, b: 55 },
+  { l: 10, b: 3 },  { l: 32, b: 2 },  { l: 54, b: 4 },  { l: 74, b: 3 },
+  { l: 6, b: 17 },  { l: 22, b: 18 }, { l: 44, b: 16 }, { l: 64, b: 19 },
+  { l: 12, b: 32 }, { l: 34, b: 33 }, { l: 56, b: 31 }, { l: 76, b: 34 },
+  { l: 8, b: 47 },  { l: 24, b: 48 }, { l: 46, b: 46 }, { l: 66, b: 49 },
+  { l: 14, b: 62 }, { l: 36, b: 63 }, { l: 58, b: 61 }, { l: 78, b: 64 },
 ]
 
 export default function StarJar({ done, total, label, size = 72 }: {
@@ -17,7 +19,7 @@ export default function StarJar({ done, total, label, size = 72 }: {
   const shown = Math.round((pct / 100) * SLOTS.length)
   const width = size
   const height = Math.round(size * 1.2)
-  const sweet = Math.max(9, Math.round(size * 0.22))
+  const sweet = Math.max(7, Math.round(size * 0.155))
 
   return (
     <div className="flex flex-col items-center">
