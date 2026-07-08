@@ -350,40 +350,59 @@ export default function ChildTaskView({
     <div className="min-h-screen pb-32 relative bg-gray-50">
       {claimBurst && <ClaimBurst emoji={claimBurst.emoji} title={claimBurst.title} sub={claimBurst.sub} colour={child.colour}/>}
 
-      {/* Header — logo, child name and BACK stay pinned to the top */}
-      <div className="sticky top-0 z-30 pt-11 pb-2.5 px-4 bg-white border-b border-gray-100">
-        <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
-          <img src="/logo.png" alt="Little Yakka" className="h-12 w-auto flex-shrink-0"/>
-          <span className="flex-1 min-w-0 truncate text-2xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {child.name.split(' ')[0]}
-          </span>
-          <button onClick={() => router.push('/dashboard')}
-            className="flex-shrink-0 px-3.5 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
-            style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
-            ← BACK
-          </button>
+      {/* Pinned header — top bar, stats row AND tabs stay locked while the list
+          scrolls, so the lolly jar / progress update in view as tasks are ticked */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
+        <div className="pt-11 pb-2 px-4">
+          <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
+            <img src="/logo.png" alt="Little Yakka" className="h-12 w-auto flex-shrink-0"/>
+            <span className="flex-1 min-w-0 truncate text-2xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              {child.name.split(' ')[0]}
+            </span>
+            <button onClick={() => router.push('/dashboard')}
+              className="flex-shrink-0 px-3.5 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
+              style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
+              ← BACK
+            </button>
+          </div>
+        </div>
+
+        {/* Stats row — avatar + stars/tasks/streak · lolly jar · trophy shelf */}
+        <div className="px-4 pb-2">
+          <div className="max-w-sm mx-auto bg-gray-50 rounded-2xl border border-gray-100 px-3 py-2.5 flex items-center gap-2.5">
+            <div className="flex-shrink-0">
+              <DecoratedAvatar child={child} size={56}/>
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <p className="text-xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
+              <p className="text-[13px] font-bold text-gray-600 leading-none">📋 {claimableDone}/{claimableTotal}</p>
+              {streakDays > 0 && <p className="text-[13px] font-bold text-orange-500 leading-none">🔥 {streakDays}d streak</p>}
+            </div>
+            <div className="flex-shrink-0">
+              <StarJar done={claimableDone} total={claimableTotal} size={52}/>
+            </div>
+            <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
+            <div className="flex-shrink-0 w-[92px]">
+              <TrophyShelf compact stars={starBalance} streak={streakDays} completions={totalCompletions}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-4 pb-2.5">
+          <div className="max-w-sm mx-auto flex bg-gray-100 rounded-2xl p-1">
+            {(['tasks', 'done', 'rewards'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
+                style={tab === t ? { background: 'var(--theme-gradient)' } : {}}>
+                {t === 'tasks' ? '📋 Tasks' : t === 'done' ? `✅ Done (${doneList.length})` : `🎁 My Rewards`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="max-w-sm mx-auto px-4 pt-3 space-y-3 relative z-10">
-
-        {/* Stats row — bigger thumbnail/stars/tasks/jar; small 4×3 trophies on the right */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2">
-          <div className="flex-shrink-0">
-            <DecoratedAvatar child={child} size={60}/>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-2xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
-            <p className="text-sm font-bold text-gray-600 mt-1">📋 {claimableDone}/{claimableTotal}</p>
-            {streakDays > 0 && <p className="text-sm font-bold text-orange-500 mt-0.5">🔥 {streakDays}d streak</p>}
-          </div>
-          <div className="flex-shrink-0">
-            <StarJar done={claimableDone} total={claimableTotal} size={54}/>
-          </div>
-          <div className="flex-shrink-0 w-[84px]">
-            <TrophyShelf compact stars={starBalance} streak={streakDays} completions={totalCompletions}/>
-          </div>
-        </div>
 
         {/* Savings goal jar */}
         {!!child.goal_target && child.goal_target > 0 && (
@@ -399,19 +418,6 @@ export default function ChildTaskView({
             </div>
           </div>
         )}
-
-        {/* Tabs — stay locked under the header while the list scrolls */}
-        <div className="sticky top-[96px] z-20 -mx-4 px-4 pt-2 pb-1.5 bg-gray-50">
-          <div className="flex bg-gray-100 rounded-2xl p-1">
-            {(['tasks', 'done', 'rewards'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${tab === t ? 'text-white shadow' : 'text-gray-400'}`}
-                style={tab === t ? { background: 'var(--theme-gradient)' } : {}}>
-                {t === 'tasks' ? '📋 Tasks' : t === 'done' ? `✅ Done (${doneList.length})` : `🎁 My Rewards`}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* ── TASKS TAB ── */}
         {tab === 'tasks' && (

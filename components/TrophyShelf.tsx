@@ -60,12 +60,12 @@ export default function TrophyShelf({ stars, streak, completions, compact = fals
   if (compact) {
     return (
       <div>
-        <p className="text-[8px] font-black text-gray-400 uppercase tracking-wide mb-0.5 text-center">🏆 {earnedCount}/{trophies.length}</p>
-        <div className="grid grid-cols-4 gap-0.5">
+        <p className="text-lg font-black text-gray-800 leading-none mb-1 text-center">🏆 {earnedCount}/{trophies.length}</p>
+        <div className="grid grid-cols-4 gap-1">
           {trophies.map(t => (
             <button key={t.name} onClick={() => setSelected(t)}
-              className={`aspect-square rounded flex items-center justify-center active:scale-90 transition ${t.earned ? 'bg-yellow-50' : 'bg-gray-50'}`}>
-              <span className={`text-[11px] leading-none ${t.earned ? '' : 'grayscale opacity-40'}`}>{t.emoji}</span>
+              className={`aspect-square rounded-md flex items-center justify-center active:scale-90 transition ${t.earned ? 'bg-yellow-50' : 'bg-gray-50'}`}>
+              <span className={`text-[13px] leading-none ${t.earned ? '' : 'grayscale opacity-40'}`}>{t.emoji}</span>
             </button>
           ))}
         </div>
