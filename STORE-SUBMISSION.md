@@ -5,25 +5,30 @@
 
 ---
 
-## ▶ START HERE — current status (updated 2026-07-08)
+## ▶ START HERE — current status (updated 2026-07-09)
 
-**Where we are:** Already on **TestFlight (Build 9/10)**. The **Codemagic** cloud-build pipeline
-signs + uploads end-to-end on Windows/no-Mac. **Signing profile is regenerated and valid**
-(includes Sign in with Apple + Push). **Sign in with Apple login is confirmed working.** The
-full post-launch **UI overhaul is complete and deployed** to `www.littleyakka.com` — and because
-the native app uses the **remote-URL model** (`server.url = https://www.littleyakka.com`), all of
-it is **already live inside the TestFlight app with no rebuild**.
+**Where we are:** On **TestFlight (Build 9/10)**; Codemagic pipeline works end-to-end on
+Windows/no-Mac; signing profile valid (Push + Sign in with Apple); Sign in with Apple confirmed
+working; full UI overhaul live via the remote-URL model (`server.url = https://www.littleyakka.com`).
 
-**Next steps to reach App Store submission:**
-1. Confirm pending push setup is done — APNs SQL migration in Supabase + Vercel env vars
-   `APNS_KEY_ID / APNS_TEAM_ID / APNS_BUNDLE_ID / APNS_PRIVATE_KEY`.
-2. Device test via TestFlight — haptics, native push, offline, Apple + Google sign-in.
-3. App Store Connect metadata — screenshots, description, privacy nutrition label, age rating,
-   privacy-policy URL (mandatory for a kids app).
-4. Kids-app compliance — Guideline 5.1.4 (children's data), 4.2 (native push/haptics/offline),
-   4.8 (Sign in with Apple alongside Google — done).
-5. Submit for review; handle any rejections (may need a rented cloud Mac for on-device debugging).
-6. Google Play second (US$25 one-time; Families policy).
+**Done 2026-07-09:**
+- ✅ **Full app audit** on the throwaway account — all pages verified live (the old preview
+  limitation is gone), no broken flows. Audit fixes deployed: form modals cover the bottom nav,
+  Supabase client no-lock hardening (WKWebView hang class), hidden chip-row scrollbars,
+  bonus-wheel copy, Settings load off-critical-path ledger fetch.
+- ✅ **APNs setup CONFIRMED complete**: `push_subscriptions.platform` live in Supabase (probed via
+  REST) + all four `APNS_*` env vars present in Vercel Production.
+- ✅ **Support page** live: https://www.littleyakka.com/support (App Store Support URL).
+- ✅ **All App Store Connect metadata drafted, paste-ready → `APP-STORE-METADATA.md`**
+  (name/subtitle/description/keywords, privacy nutrition label, age rating, review notes +
+  demo account, Kids-Category decision = do NOT opt in, screenshot shot-list, device-test checklist).
+
+**Remaining (user actions):**
+1. Device test on iPhone via TestFlight — checklist in `APP-STORE-METADATA.md` §8.
+2. Take 4–6 screenshots during the test (§3 shot list).
+3. Paste metadata into App Store Connect (§1–§5), select Build 10, submit for review.
+4. Handle any rejection (may need a rented cloud Mac for on-device debugging).
+5. Google Play second (US$25 one-time; Families policy).
 
 **Local preview / audit:** dev server = `.claude/launch.json` config `little-yakka` (`npm run dev`,
 port 3001). Sign in via the real `/login` form with the throwaway account **kjtest@gmail.com /
