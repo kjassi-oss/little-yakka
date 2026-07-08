@@ -5,6 +5,39 @@
 
 ---
 
+## ▶ START HERE — current status (updated 2026-07-08)
+
+**Where we are:** Already on **TestFlight (Build 9/10)**. The **Codemagic** cloud-build pipeline
+signs + uploads end-to-end on Windows/no-Mac. **Signing profile is regenerated and valid**
+(includes Sign in with Apple + Push). **Sign in with Apple login is confirmed working.** The
+full post-launch **UI overhaul is complete and deployed** to `www.littleyakka.com` — and because
+the native app uses the **remote-URL model** (`server.url = https://www.littleyakka.com`), all of
+it is **already live inside the TestFlight app with no rebuild**.
+
+**Next steps to reach App Store submission:**
+1. Confirm pending push setup is done — APNs SQL migration in Supabase + Vercel env vars
+   `APNS_KEY_ID / APNS_TEAM_ID / APNS_BUNDLE_ID / APNS_PRIVATE_KEY`.
+2. Device test via TestFlight — haptics, native push, offline, Apple + Google sign-in.
+3. App Store Connect metadata — screenshots, description, privacy nutrition label, age rating,
+   privacy-policy URL (mandatory for a kids app).
+4. Kids-app compliance — Guideline 5.1.4 (children's data), 4.2 (native push/haptics/offline),
+   4.8 (Sign in with Apple alongside Google — done).
+5. Submit for review; handle any rejections (may need a rented cloud Mac for on-device debugging).
+6. Google Play second (US$25 one-time; Families policy).
+
+**Local preview / audit:** dev server = `.claude/launch.json` config `little-yakka` (`npm run dev`,
+port 3001). Sign in via the real `/login` form with the throwaway account **kjtest@gmail.com /
+kjtest** (3 kids + sample data). ⚠️ Client-fetched pages (`/dashboard/chores`, `/rewards`,
+`/report`, likely `/settings`) hang in the headless preview browser (Supabase `navigator.locks`);
+server-rendered pages (`/login`, `/dashboard`, `/kid-mode/[childId]`) work. See the memory file
+`reference_little_yakka_preview.md` for details.
+
+The full history + signing lessons live in project memory (folder
+`…\.claude\projects\C--Users-kiran-OneDrive-Desktop-Claude-Code-Dashboard\memory\`,
+file `project_little_yakka_store.md`). The detailed log below is the source of truth.
+
+---
+
 ## Locked-in decisions (don't re-litigate)
 
 - **No Mac, not buying one.** iOS builds run on **Codemagic** cloud CI (free tier = 500 macOS
