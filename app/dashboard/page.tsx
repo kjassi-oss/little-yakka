@@ -201,7 +201,7 @@ export default async function DashboardPage() {
 
         {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
         {childData.length > 0 ? (
-          <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'}>
+          <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'}>
             {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, canSpin, weekPct }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total

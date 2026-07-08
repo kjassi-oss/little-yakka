@@ -125,16 +125,18 @@ export default function SettingsPage() {
     if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
     if ((familyData as any)?.bonus_award_pct != null) setBonusAwardPct((familyData as any).bonus_award_pct)
 
-    // Manual star-adjustment history (audit log)
+    setLoading(false)
+
+    // Manual star-adjustment history (audit log) — off the critical path;
+    // the collapsible section fills in when it arrives.
     const cIds = (childrenData || []).map(c => c.id)
     if (cIds.length) {
-      const { data: ml } = await supabase.from('star_ledger')
+      supabase.from('star_ledger')
         .select('id, child_id, delta, reason, created_at')
         .eq('source_type', 'manual').in('child_id', cIds)
         .order('created_at', { ascending: false }).limit(40)
-      setManualLog(ml || [])
+        .then(({ data: ml }) => setManualLog(ml || []))
     }
-    setLoading(false)
   }
 
   // ── Push notifications ─────────────────────────────────────────────────────
@@ -480,7 +482,7 @@ export default function SettingsPage() {
             style={{ background: 'var(--theme-gradient)' }}>
             {savingBonus ? 'Saving...' : bonusSaved ? 'Saved ✓' : 'Save bonus settings'}
           </button>
-          <p className="text-[11px] text-gray-400 mt-2">Each child gets their own spin, redeemable that day only. They'll see a "Bonus spin ready!" banner in their zone.</p>
+          <p className="text-[11px] text-gray-400 mt-2">Each child gets their own spin, available for 3 days from spin time. They'll see a "Bonus spin ready!" banner in their zone.</p>
         </div>
 
         {/* Colour theme — collapsible */}

@@ -508,7 +508,7 @@ export default function ChoresPage() {
 
         {/* Add/Edit Form — full-screen (nothing behind it) */}
         {showForm && (
-          <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
           <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-6 pb-28 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-black text-gray-800">{editingTaskId ? 'Edit Task' : 'Create Task'}</h2>
@@ -858,7 +858,7 @@ export default function ChoresPage() {
 
       {/* Themed confirmation dialog */}
       {confirmAsk && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-6" onClick={() => setConfirmAsk(null)}>
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-6" onClick={() => setConfirmAsk(null)}>
           <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
             <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
               style={{ border: '2px solid var(--theme-from)' }}>{confirmAsk.emoji}</div>

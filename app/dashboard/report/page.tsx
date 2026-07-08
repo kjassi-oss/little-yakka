@@ -184,7 +184,7 @@ export default function AnalyticsPage() {
         const item = scroll ? 'flex-shrink-0 w-16' : 'flex-1 min-w-0'
         return (
           <div className="bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-            <div className={`max-w-sm lg:max-w-3xl mx-auto flex gap-2 ${scroll ? 'overflow-x-auto' : ''}`}>
+            <div className={`max-w-sm lg:max-w-3xl mx-auto flex gap-2 ${scroll ? 'overflow-x-auto no-scrollbar' : ''}`}>
               <button onClick={() => setSelectedKid(null)} className={`flex flex-col items-center gap-1 active:scale-95 transition ${item}`}>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-black ${!selectedKid ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
                   style={!selectedKid ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>

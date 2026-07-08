@@ -231,7 +231,7 @@ export default function RewardsPage() {
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-4">
         {/* Create form — full-screen (nothing behind it) */}
         {showForm && (
-          <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
           <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-6 pb-28 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-black text-gray-800">{editingRewardId ? 'Edit Reward' : 'Create Reward'}</h2>

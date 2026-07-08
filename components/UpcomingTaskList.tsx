@@ -83,7 +83,7 @@ export default function UpcomingTaskList({
   return (
     <div className="space-y-2">
       {showChildFilter && childrenList.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
           <button onClick={() => setUpcomingFilter(new Set())}
             className="flex flex-col items-center gap-1 active:scale-95 transition flex-shrink-0"
             style={{ width: 'calc((100% - 1.5rem) / 4)' }}>
