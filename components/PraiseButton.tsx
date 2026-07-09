@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const QUICK_PRAISES = [
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function PraiseButton({ childId, childName, childColour, variant = 'pill' }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('')
   const [sending, setSending] = useState(false)
@@ -31,8 +33,13 @@ export default function PraiseButton({ childId, childName, childColour, variant 
     if (!message.trim() || sending) return
     setSending(true)
     const supabase = createClient()
-    await supabase.from('praises').insert({ child_id: childId, message: message.trim() })
+    const { error } = await supabase.from('praises').insert({ child_id: childId, message: message.trim() })
     setSending(false)
+    if (error) { alert(`Couldn't send praise: ${error.message}`); return }
+    // Purge the client router cache so the kid's zone refetches and shows the
+    // praise immediately (a recently-visited zone would otherwise be served
+    // from the 30s stale cache without it)
+    router.refresh()
     setSent(true)
     setCustom('')
     setTimeout(() => { setSent(false); setOpen(false) }, 1500)

@@ -308,29 +308,6 @@ export default function ChildTaskView({
     router.refresh()
   }
 
-  // ── Praise overlay ──
-  if (currentPraise) {
-    return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 text-center z-50 bg-white">
-        <div className="mb-4">
-          {child.avatar_url
-            ? <img src={child.avatar_url} className="w-28 h-28 rounded-3xl object-cover mx-auto" alt=""/>
-            : <div className="text-8xl animate-bounce">{child.avatar}</div>}
-        </div>
-        <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 max-w-xs w-full pop-in">
-          <p className="text-5xl mb-3">💌</p>
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">A message from your parent</p>
-          <p className="text-2xl font-black text-gray-800 leading-snug mb-6">"{currentPraise.message}"</p>
-          <button onClick={dismissPraise}
-            className="w-full text-white font-black text-lg py-4 rounded-2xl active:scale-95 transition"
-            style={{ background: 'var(--theme-gradient)' }}>
-            {praiseQueue.length > 1 ? `Next (${praiseQueue.length - 1} more) →` : '❤️ Thanks!'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // ── Celebration screen ──
   if (showCelebration) {
     return (
@@ -378,6 +355,27 @@ export default function ChildTaskView({
   return (
     <div className="min-h-screen pb-32 relative bg-gray-50">
       {claimBurst && <ClaimBurst emoji={claimBurst.emoji} title={claimBurst.title} sub={claimBurst.sub} colour={child.colour}/>}
+
+      {/* Praise from a parent — pop-in modal over the zone (matches the other popups) */}
+      {currentPraise && (
+        <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in">
+            <div className="mb-3">
+              {child.avatar_url
+                ? <img src={child.avatar_url} className="w-20 h-20 rounded-full object-cover mx-auto" style={{ border: `4px solid ${child.colour}` }} alt=""/>
+                : <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl" style={{ backgroundColor: child.colour + '33', border: `4px solid ${child.colour}` }}>{child.avatar}</div>}
+            </div>
+            <p className="text-4xl mb-2">💌</p>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-2">A message from your parent</p>
+            <p className="text-xl font-black text-gray-800 leading-snug mb-5">&ldquo;{currentPraise.message}&rdquo;</p>
+            <button onClick={dismissPraise}
+              className="w-full text-white font-black text-lg py-3.5 rounded-2xl active:scale-95 transition"
+              style={{ background: 'var(--theme-gradient)' }}>
+              {praiseQueue.length > 1 ? `Next (${praiseQueue.length - 1} more) →` : '❤️ Thanks!'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pinned header — top bar, stats row AND tabs stay locked while the list
           scrolls, so the lolly jar / progress update in view as tasks are ticked */}

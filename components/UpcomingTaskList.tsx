@@ -110,10 +110,6 @@ export default function UpcomingTaskList({
         </div>
       )}
 
-      {singleChildId && (
-        <p className="text-[11px] text-center text-gray-400">Tap DONE to tick a task off</p>
-      )}
-
       {showPastWindow && pastWindow < 3 && (
         <button onClick={() => setPastWindow(w => Math.min(3, w + 3))}
           className="w-full text-[11px] font-bold text-gray-400 py-0.5 active:scale-95 transition">
