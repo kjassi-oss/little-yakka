@@ -238,7 +238,8 @@ export default function SettingsPage() {
     if (created && newChildPhoto) {
       const photo = await compressImage(newChildPhoto)
       const ext = photo.name.split('.').pop()
-      const path = `${familyId}/${created.id}/avatar.${ext}`
+      // Unique filename per upload (cache-busting URL — see uploadChildPhoto)
+      const path = `${familyId}/${created.id}/avatar-${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, photo, { upsert: true })
       if (!upErr) {
         const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
@@ -335,11 +336,22 @@ export default function SettingsPage() {
     const supabase = createClient()
     const file = await compressImage(rawFile)
     const ext = file.name.split('.').pop()
-    const path = `${familyId}/${childId}/avatar.${ext}`
+    // Unique filename per upload: the old code reused `avatar.{ext}`, so the
+    // public URL never changed and the browser/CDN kept serving the OLD photo
+    // (uploads "worked" but the picture never updated). A fresh path busts
+    // every cache and updates everywhere instantly.
+    const path = `${familyId}/${childId}/avatar-${Date.now()}.${ext}`
     const { error: uploadError } = await supabase.storage.from('kid-avatars').upload(path, file, { upsert: true })
-    if (!uploadError) {
+    if (uploadError) {
+      alert(`Photo upload failed: ${uploadError.message}`)
+    } else {
       const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
       await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', childId)
+      // Best-effort cleanup of the child's older avatar files
+      supabase.storage.from('kid-avatars').list(`${familyId}/${childId}`).then(({ data }) => {
+        const old = (data || []).map(f => `${familyId}/${childId}/${f.name}`).filter(p => p !== path)
+        if (old.length) supabase.storage.from('kid-avatars').remove(old)
+      })
       loadData()
     }
     setUploadingPhotoId(null)

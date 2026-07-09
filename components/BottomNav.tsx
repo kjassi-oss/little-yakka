@@ -40,40 +40,40 @@ export default function BottomNav() {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="flex items-end justify-around px-2 pt-3 pb-5 max-w-sm mx-auto">
+      <div className="flex items-end justify-around px-2 pt-2.5 pb-4 max-w-sm mx-auto">
         <Link href="/dashboard"
           className={`flex flex-col items-center gap-1 transition ${active('/dashboard', true) ? '' : 'text-gray-400'}`}
           style={active('/dashboard', true) ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">🏠</span>
-          <span className="text-[10px] font-semibold">Home</span>
+          <span className="text-3xl">🏠</span>
+          <span className="text-[11px] font-semibold">Home</span>
         </Link>
 
         <Link href="/dashboard/chores"
           className={`flex flex-col items-center gap-1 transition ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/chores') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">📋</span>
-          <span className="text-[10px] font-semibold">Tasks</span>
+          <span className="text-3xl">📋</span>
+          <span className="text-[11px] font-semibold">Tasks</span>
         </Link>
 
         <Link href="/dashboard/rewards"
           className={`flex flex-col items-center gap-1 transition relative ${active('/dashboard/rewards') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/rewards') ? { color: 'var(--theme-from)' } : {}}>
           <div className="relative">
-            <span className="text-2xl">🎁</span>
+            <span className="text-3xl">🎁</span>
             {pendingCount > 0 && (
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-[9px] font-black">{pendingCount > 9 ? '9+' : pendingCount}</span>
               </div>
             )}
           </div>
-          <span className="text-[10px] font-semibold">Rewards</span>
+          <span className="text-[11px] font-semibold">Rewards</span>
         </Link>
 
         <Link href="/dashboard/report"
           className={`flex flex-col items-center gap-1 transition ${active('/dashboard/report') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/report') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-2xl">🏆</span>
-          <span className="text-[10px] font-semibold">Summary</span>
+          <span className="text-3xl">🏆</span>
+          <span className="text-[11px] font-semibold">Summary</span>
         </Link>
       </div>
     </nav>
