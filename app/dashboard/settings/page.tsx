@@ -391,6 +391,145 @@ export default function SettingsPage() {
 
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-6">
 
+        {/* Children */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-gray-800">Children</h2>
+            <button onClick={() => { setShowAddForm(!showAddForm); setEditingChild(null) }}
+              className="font-semibold px-3 py-1.5 rounded-xl text-sm active:scale-95 transition"
+              style={{ backgroundColor: 'var(--theme-from)22', color: 'var(--theme-from)' }}>
+              {showAddForm ? '✕ Cancel' : '+ Add Child'}
+            </button>
+          </div>
+
+          {showAddForm && (
+            <div className="border border-gray-100 rounded-2xl p-4 mb-4 space-y-3">
+              {/* Photo + name */}
+              <div className="flex items-center gap-3">
+                <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
+                  {newChildPhoto
+                    ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
+                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: newChild.colour + '33' }}>{newChild.avatar}</div>}
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
+                </button>
+                <input type="file" accept="image/*" className="hidden" ref={newChildPhotoRef}
+                  onChange={e => e.target.files?.[0] && setNewChildPhoto(e.target.files[0])}/>
+                <input type="text" value={newChild.name} onChange={e => setNewChild({ ...newChild, name: e.target.value })}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
+              </div>
+              <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
+                <div className="grid grid-cols-6 gap-1">
+                  {AVATARS.map(a => (
+                    <button key={a} onClick={() => setNewChild({ ...newChild, avatar: a })}
+                      className={`text-2xl p-1 rounded-xl ${newChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">Colour</p>
+                <div className="flex gap-2 flex-wrap">
+                  {COLOURS.map(c => (
+                    <button key={c} onClick={() => setNewChild({ ...newChild, colour: c })}
+                      className={`w-8 h-8 rounded-full transition ${newChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
+                      style={{ backgroundColor: c }}/>
+                  ))}
+                </div>
+              </div>
+              <button onClick={addChild} disabled={saving || !newChild.name.trim()}
+                className="w-full text-white font-bold py-2.5 rounded-xl disabled:opacity-60 active:scale-95 transition text-sm"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                {saving ? 'Adding...' : `Add ${newChild.name || 'Child'}`}
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            {children.map(child => (
+              <div key={child.id} className={editingChild?.id === child.id ? 'col-span-3' : ''}>
+                {editingChild?.id === child.id ? (
+                  <div className="border border-purple-200 rounded-2xl p-4 space-y-3">
+                    <input type="text" value={editingChild.name} onChange={e => setEditingChild({ ...editingChild, name: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
+                      <div className="grid grid-cols-6 gap-1">
+                        {AVATARS.map(a => (
+                          <button key={a} onClick={() => setEditingChild({ ...editingChild, avatar: a })}
+                            className={`text-2xl p-1 rounded-xl ${editingChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1.5">Colour</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {COLOURS.map(c => (
+                          <button key={c} onClick={() => setEditingChild({ ...editingChild, colour: c })}
+                            className={`w-8 h-8 rounded-full transition ${editingChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
+                            style={{ backgroundColor: c }}/>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Savings goal — shown as a filling star jar in the kid zone */}
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-xs font-bold text-gray-600 mb-0.5">🏦 Savings goal <span className="text-gray-300 font-normal">(optional)</span></p>
+                      <p className="text-[11px] text-gray-400 mb-2">Something to save stars for — e.g. 🛴 Scooter, 200 ⭐</p>
+                      <div className="flex gap-2">
+                        <input type="text" value={editingChild.goal_emoji || ''} maxLength={4}
+                          onChange={e => setEditingChild({ ...editingChild, goal_emoji: e.target.value })}
+                          className="w-14 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="🛴"/>
+                        <input type="text" value={editingChild.goal_title || ''}
+                          onChange={e => setEditingChild({ ...editingChild, goal_title: e.target.value })}
+                          className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Goal name"/>
+                        <input type="number" inputMode="numeric" min={1} value={editingChild.goal_target || ''}
+                          onChange={e => setEditingChild({ ...editingChild, goal_target: Number(e.target.value) || null })}
+                          className="w-20 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="⭐"/>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditingChild(null)} className="flex-1 border border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm">Cancel</button>
+                      <button onClick={saveEditChild} disabled={saving}
+                        className="flex-1 text-white font-bold py-2 rounded-xl text-sm disabled:opacity-60"
+                        style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                        {saving ? '...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* Thumbnail with photo upload */}
+                    <div className="relative">
+                      {child.avatar_url ? (
+                        <img src={child.avatar_url} alt={child.name} className="w-20 h-20 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
+                      ) : (
+                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl" style={{ backgroundColor: child.colour + '22', border: '3px solid var(--theme-from)' }}>{child.avatar}</div>
+                      )}
+                      <button onClick={() => photoInputRefs.current[child.id]?.click()}
+                        className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
+                        {uploadingPhotoId === child.id ? '⏳' : '📷'}
+                      </button>
+                      <input type="file" accept="image/*" className="hidden"
+                        ref={el => { photoInputRefs.current[child.id] = el }}
+                        onChange={e => e.target.files?.[0] && uploadChildPhoto(child.id, e.target.files[0])}/>
+                    </div>
+                    <p className="font-bold text-gray-800 text-sm truncate max-w-full">{child.name.split(' ')[0]}</p>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setAdjustChild(child); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustError('') }}
+                        aria-label="Adjust stars" className="text-xs font-bold w-8 h-8 rounded-xl bg-yellow-50 text-yellow-600 active:scale-90 transition">⭐</button>
+                      <button onClick={() => { setEditingChild(child); setShowAddForm(false) }} aria-label="Edit"
+                        className="text-xs w-8 h-8 rounded-xl active:scale-90 transition" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>✏️</button>
+                      <button onClick={() => deleteChild(child.id)} aria-label="Remove"
+                        className="text-red-400 text-xs font-semibold w-8 h-8 bg-red-50 rounded-xl active:scale-90 transition">✕</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* How it works — collapsible visual guide */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <button onClick={() => setGuideOpen(o => !o)} className="w-full flex items-center justify-between">
@@ -624,145 +763,6 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
-        </div>
-
-        {/* Children */}
-        <div className="bg-white rounded-3xl shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-gray-800">Children</h2>
-            <button onClick={() => { setShowAddForm(!showAddForm); setEditingChild(null) }}
-              className="font-semibold px-3 py-1.5 rounded-xl text-sm active:scale-95 transition"
-              style={{ backgroundColor: 'var(--theme-from)22', color: 'var(--theme-from)' }}>
-              {showAddForm ? '✕ Cancel' : '+ Add Child'}
-            </button>
-          </div>
-
-          {showAddForm && (
-            <div className="border border-gray-100 rounded-2xl p-4 mb-4 space-y-3">
-              {/* Photo + name */}
-              <div className="flex items-center gap-3">
-                <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
-                  {newChildPhoto
-                    ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
-                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: newChild.colour + '33' }}>{newChild.avatar}</div>}
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
-                </button>
-                <input type="file" accept="image/*" className="hidden" ref={newChildPhotoRef}
-                  onChange={e => e.target.files?.[0] && setNewChildPhoto(e.target.files[0])}/>
-                <input type="text" value={newChild.name} onChange={e => setNewChild({ ...newChild, name: e.target.value })}
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
-              </div>
-              <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
-              <div>
-                <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
-                <div className="grid grid-cols-6 gap-1">
-                  {AVATARS.map(a => (
-                    <button key={a} onClick={() => setNewChild({ ...newChild, avatar: a })}
-                      className={`text-2xl p-1 rounded-xl ${newChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1.5">Colour</p>
-                <div className="flex gap-2 flex-wrap">
-                  {COLOURS.map(c => (
-                    <button key={c} onClick={() => setNewChild({ ...newChild, colour: c })}
-                      className={`w-8 h-8 rounded-full transition ${newChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
-                      style={{ backgroundColor: c }}/>
-                  ))}
-                </div>
-              </div>
-              <button onClick={addChild} disabled={saving || !newChild.name.trim()}
-                className="w-full text-white font-bold py-2.5 rounded-xl disabled:opacity-60 active:scale-95 transition text-sm"
-                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-                {saving ? 'Adding...' : `Add ${newChild.name || 'Child'}`}
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-3">
-            {children.map(child => (
-              <div key={child.id} className={editingChild?.id === child.id ? 'col-span-3' : ''}>
-                {editingChild?.id === child.id ? (
-                  <div className="border border-purple-200 rounded-2xl p-4 space-y-3">
-                    <input type="text" value={editingChild.name} onChange={e => setEditingChild({ ...editingChild, name: e.target.value })}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
-                      <div className="grid grid-cols-6 gap-1">
-                        {AVATARS.map(a => (
-                          <button key={a} onClick={() => setEditingChild({ ...editingChild, avatar: a })}
-                            className={`text-2xl p-1 rounded-xl ${editingChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1.5">Colour</p>
-                      <div className="flex gap-2 flex-wrap">
-                        {COLOURS.map(c => (
-                          <button key={c} onClick={() => setEditingChild({ ...editingChild, colour: c })}
-                            className={`w-8 h-8 rounded-full transition ${editingChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
-                            style={{ backgroundColor: c }}/>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Savings goal — shown as a filling star jar in the kid zone */}
-                    <div className="bg-gray-50 rounded-2xl p-3">
-                      <p className="text-xs font-bold text-gray-600 mb-0.5">🏦 Savings goal <span className="text-gray-300 font-normal">(optional)</span></p>
-                      <p className="text-[11px] text-gray-400 mb-2">Something to save stars for — e.g. 🛴 Scooter, 200 ⭐</p>
-                      <div className="flex gap-2">
-                        <input type="text" value={editingChild.goal_emoji || ''} maxLength={4}
-                          onChange={e => setEditingChild({ ...editingChild, goal_emoji: e.target.value })}
-                          className="w-14 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="🛴"/>
-                        <input type="text" value={editingChild.goal_title || ''}
-                          onChange={e => setEditingChild({ ...editingChild, goal_title: e.target.value })}
-                          className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Goal name"/>
-                        <input type="number" inputMode="numeric" min={1} value={editingChild.goal_target || ''}
-                          onChange={e => setEditingChild({ ...editingChild, goal_target: Number(e.target.value) || null })}
-                          className="w-20 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="⭐"/>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button onClick={() => setEditingChild(null)} className="flex-1 border border-gray-200 text-gray-500 font-semibold py-2 rounded-xl text-sm">Cancel</button>
-                      <button onClick={saveEditChild} disabled={saving}
-                        className="flex-1 text-white font-bold py-2 rounded-xl text-sm disabled:opacity-60"
-                        style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-                        {saving ? '...' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-1.5">
-                    {/* Thumbnail with photo upload */}
-                    <div className="relative">
-                      {child.avatar_url ? (
-                        <img src={child.avatar_url} alt={child.name} className="w-20 h-20 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
-                      ) : (
-                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl" style={{ backgroundColor: child.colour + '22', border: '3px solid var(--theme-from)' }}>{child.avatar}</div>
-                      )}
-                      <button onClick={() => photoInputRefs.current[child.id]?.click()}
-                        className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
-                        {uploadingPhotoId === child.id ? '⏳' : '📷'}
-                      </button>
-                      <input type="file" accept="image/*" className="hidden"
-                        ref={el => { photoInputRefs.current[child.id] = el }}
-                        onChange={e => e.target.files?.[0] && uploadChildPhoto(child.id, e.target.files[0])}/>
-                    </div>
-                    <p className="font-bold text-gray-800 text-sm truncate max-w-full">{child.name.split(' ')[0]}</p>
-                    <div className="flex gap-1">
-                      <button onClick={() => { setAdjustChild(child); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustError('') }}
-                        aria-label="Adjust stars" className="text-xs font-bold w-8 h-8 rounded-xl bg-yellow-50 text-yellow-600 active:scale-90 transition">⭐</button>
-                      <button onClick={() => { setEditingChild(child); setShowAddForm(false) }} aria-label="Edit"
-                        className="text-xs w-8 h-8 rounded-xl active:scale-90 transition" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>✏️</button>
-                      <button onClick={() => deleteChild(child.id)} aria-label="Remove"
-                        className="text-red-400 text-xs font-semibold w-8 h-8 bg-red-50 rounded-xl active:scale-90 transition">✕</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Manual star history (audit) */}

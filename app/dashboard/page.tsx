@@ -6,6 +6,7 @@ import PraiseButton from '@/components/PraiseButton'
 import ProfileButton from '@/components/ProfileButton'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import HomeTaskPreview from '@/components/HomeTaskPreview'
+import GetStartedHero from '@/components/GetStartedHero'
 import { occursOn } from '@/lib/recurrence'
 import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
 
@@ -233,7 +234,7 @@ export default async function DashboardPage() {
                     </div>
 
                     <p className="font-black text-gray-800 text-sm leading-tight truncate">{firstName}</p>
-                    <p className="text-base font-black text-yellow-500 leading-none my-1">⭐ {balance}</p>
+                    <p className="text-xl font-black text-yellow-500 leading-none my-1">⭐ {balance}</p>
 
                     {/* Week progress (Mon–Sun task completion) */}
                     <div className="mb-1.5">
@@ -274,13 +275,7 @@ export default async function DashboardPage() {
             })}
           </div>
         ) : (
-          <div className="bg-white rounded-3xl p-8 text-center shadow-sm">
-            <div className="text-5xl mb-3">👶</div>
-            <p className="font-bold text-gray-700 mb-1">No kids added yet</p>
-            <Link href="/dashboard/settings" className="text-sm font-semibold" style={{ color: 'var(--theme-from)' }}>
-              Add children in Settings →
-            </Link>
-          </div>
+          <GetStartedHero/>
         )}
       </div>
       </div>
