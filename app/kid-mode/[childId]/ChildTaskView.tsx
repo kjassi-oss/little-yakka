@@ -75,6 +75,19 @@ function fmtTimestamp(iso: string): string {
   } catch { return iso }
 }
 
+// Which local calendar day a completion landed on (device tz), YYYY-MM-DD
+function localDayOf(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Short label for a task's scheduled day, e.g. "Fri 10 Jul"
+function occDayLabel(ds: string): string {
+  try {
+    return new Date(ds + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+  } catch { return ds }
+}
+
 export default function ChildTaskView({
   child, tasks, assignments, windowComps, ufgClaims, claimableTotal, claimableDoneInit,
   weekEndStr, mondayStr, todayStr,
@@ -367,22 +380,24 @@ export default function ChildTaskView({
           </div>
         </div>
 
-        {/* Stats row — avatar + stars/tasks/streak · lolly jar · trophy shelf */}
+        {/* Stats row — avatar · stars/tasks/streak · lolly jar · trophy shelf,
+            each separated by a faint line and evenly spaced (design mock) */}
         <div className="px-4 pb-2">
-          <div className="max-w-sm mx-auto bg-gray-50 rounded-2xl border border-gray-100 px-3 py-2.5 flex items-center gap-2.5">
+          <div className="max-w-sm mx-auto bg-gray-50 rounded-2xl border border-gray-100 px-3 py-3 flex items-center gap-2.5">
             <div className="flex-shrink-0">
-              <DecoratedAvatar child={child} size={56}/>
+              <DecoratedAvatar child={child} size={68}/>
             </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <p className="text-xl font-black text-yellow-500 leading-none">⭐ {starBalance}</p>
-              <p className="text-[13px] font-bold text-gray-600 leading-none">📋 {claimableDone}/{claimableTotal}</p>
-              {streakDays > 0 && <p className="text-[13px] font-bold text-orange-500 leading-none">🔥 {streakDays}d streak</p>}
-            </div>
-            <div className="flex-shrink-0">
-              <StarJar done={claimableDone} total={claimableTotal} size={52}/>
+            <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
+              <p className="flex items-center gap-1 font-black text-yellow-500 leading-none"><span className="w-6 text-center text-xl">⭐</span><span className="text-xl">{starBalance}</span></p>
+              <p className="flex items-center gap-1 font-black text-gray-700 leading-none"><span className="w-6 text-center text-lg">📋</span><span className="text-[15px]">{claimableDone}/{claimableTotal}</span></p>
+              {streakDays > 0 && <p className="flex items-center gap-1 font-black text-orange-500 leading-none"><span className="w-6 text-center text-lg">🔥</span><span className="text-[14px] whitespace-nowrap">{streakDays}d streak</span></p>}
             </div>
             <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
-            <div className="flex-shrink-0 w-[92px]">
+            <div className="flex-shrink-0">
+              <StarJar done={claimableDone} total={claimableTotal} size={56}/>
+            </div>
+            <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
+            <div className="flex-shrink-0 w-[104px]">
               <TrophyShelf compact stars={starBalance} streak={streakDays} completions={totalCompletions}/>
             </div>
           </div>
@@ -476,7 +491,12 @@ export default function ChildTaskView({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-base text-gray-800 truncate">{item.title}</p>
-                    <p className="text-xs text-gray-400">{fmtTimestamp(item.createdAt)}</p>
+                    <p className="text-xs text-gray-400">
+                      {fmtTimestamp(item.createdAt)}
+                      {item.date && item.date !== localDayOf(item.createdAt) && (
+                        <span className="text-gray-300 font-semibold"> · for {occDayLabel(item.date)}</span>
+                      )}
+                    </p>
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <p className="text-sm font-black text-yellow-500">+{item.starValue} ⭐</p>

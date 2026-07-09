@@ -12,7 +12,7 @@
 | **Name** (30 max) | `Little Yakka` |
 | **Subtitle** (30 max) | `Kids chores, stars & rewards` (28) |
 | **Bundle ID** | `com.littleyakka.app` (locked) |
-| **Primary category** | Lifestyle |
+| **Primary category** | Lifestyle — confirmed over Education: Education is for apps that teach content (courses, languages, maths); a chore/habit app there invites reviewer skepticism. Lifestyle + Productivity is where comparable family chore apps sit. |
 | **Secondary category** | Productivity |
 | **Content rights** | Does not contain third-party content |
 | **Age rating** | Complete questionnaire — all content types "None" → expect **4+**. Do **NOT** opt into the Kids Category (see §6). |
@@ -117,7 +117,7 @@ Diagnostics, Analytics, Advertising Data…) → **Not collected**.
 |---|---|
 | Sign-in required | **Yes** — provide demo account |
 | Demo account | `kjtest@gmail.com` / `kjtest` |
-| Contact | Kiran Jassi · kjassi@gmail.com · +61 (your phone) |
+| Contact | Kiran Jassi · kjassi@gmail.com · +61 434 567 804 |
 
 **Notes for the reviewer** (paste):
 

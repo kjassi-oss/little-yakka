@@ -232,10 +232,10 @@ export default function RewardsPage() {
         {/* Create form — full-screen (nothing behind it) */}
         {showForm && (
           <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
-          <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-6 pb-28 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black text-gray-800">{editingRewardId ? 'Edit Reward' : 'Create Reward'}</h2>
-              <button onClick={() => { setShowForm(false); resetForm() }} aria-label="Close" className="w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
+          <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-14 pb-28 space-y-4">
+            <div className="relative flex items-center justify-center min-h-[44px]">
+              <h2 className="text-4xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{editingRewardId ? 'Edit Reward' : 'Create Reward'}</h2>
+              <button onClick={() => { setShowForm(false); resetForm() }} aria-label="Close" className="absolute right-0 w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
             </div>
 
             {/* Templates — hidden until requested */}

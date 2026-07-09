@@ -122,6 +122,7 @@ export default function ChoresPage() {
   const [showPresets, setShowPresets] = useState(false)
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(false)
+  const [infoTip, setInfoTip] = useState<null | 'carry' | 'early'>(null)
   const [starValue, setStarValue] = useState(3)
   const [requiresPhoto, setRequiresPhoto] = useState(false)
   const [requiresBenchmarkPhoto, setRequiresBenchmarkPhoto] = useState(false)
@@ -509,10 +510,10 @@ export default function ChoresPage() {
         {/* Add/Edit Form — full-screen (nothing behind it) */}
         {showForm && (
           <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
-          <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-6 pb-28 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black text-gray-800">{editingTaskId ? 'Edit Task' : 'Create Task'}</h2>
-              <button onClick={closeForm} aria-label="Close" className="w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
+          <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-14 pb-28 space-y-4">
+            <div className="relative flex items-center justify-center min-h-[44px]">
+              <h2 className="text-4xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{editingTaskId ? 'Edit Task' : 'Create Task'}</h2>
+              <button onClick={closeForm} aria-label="Close" className="absolute right-0 w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
             </div>
 
             {/* Templates — collapsed by default; round icon + name, 4 per row */}
@@ -584,13 +585,6 @@ export default function ChoresPage() {
                   <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${upForGrabs ? 'translate-x-6' : 'translate-x-0.5'}`}/>
                 </button>
               </div>
-              {upForGrabs && (
-                <div>
-                  <p className="text-xs text-amber-600 mb-1">Expiry date <span className="opacity-60">(optional — leave blank to keep it open)</span></p>
-                  <input type="date" value={expiresOn} onChange={e => setExpiresOn(e.target.value)}
-                    className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"/>
-                </div>
-              )}
             </div>
 
             {!upForGrabs && (<>
@@ -635,46 +629,79 @@ export default function ChoresPage() {
             })()}
             </>)}
 
-            {/* Time of day + start date on one row */}
+            {/* Time of day + start date (+ up-for-grabs expiry) on one row */}
             <div className="flex gap-2">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500 mb-2">Time of day</p>
                 <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}
-                  className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                  className={`w-full border border-gray-200 rounded-2xl ${upForGrabs ? 'px-2' : 'px-3'} py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400`}>
                   {TIME_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500 mb-2">Start date</p>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+                  className={`w-full border border-gray-200 rounded-2xl ${upForGrabs ? 'px-2' : 'px-3'} py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400`}/>
               </div>
+              {upForGrabs && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 mb-2">Expiry <span className="text-gray-300">(optional)</span></p>
+                  <input type="date" value={expiresOn} onChange={e => setExpiresOn(e.target.value)}
+                    className="w-full border border-gray-200 rounded-2xl px-2 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-300"/>
+                </div>
+              )}
             </div>
 
-            {!upForGrabs && (<>
-            <div className="flex items-center justify-between py-1">
-              <div><p className="text-sm font-medium text-gray-700">Carry over if missed ↩️</p><p className="text-xs text-gray-400">{carryOver ? 'Shows as overdue' : 'Marked expired'}</p></div>
-              <button onClick={() => setCarryOver(!carryOver)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${carryOver ? '' : 'bg-gray-200'}`}
-                style={carryOver ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${carryOver ? 'translate-x-6' : 'translate-x-0.5'}`}/>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <p className="text-sm font-medium text-gray-700">Can be done early 🗓️</p>
-                <p className="text-xs text-gray-400">{canDoEarly ? 'Kids can do future days now' : 'Only on the scheduled day'}</p>
+            {!upForGrabs && (
+            <div className="flex gap-2">
+              {/* Carry Over */}
+              <div className="flex-1 bg-gray-50 rounded-2xl p-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-sm font-medium text-gray-700 truncate">Carry Over ↩️</p>
+                  <button onClick={() => setInfoTip('carry')} aria-label="What is Carry Over?"
+                    className="w-4 h-4 rounded-full bg-gray-300 text-white text-[10px] font-black flex items-center justify-center leading-none flex-shrink-0 active:scale-90 transition">i</button>
+                </div>
+                <button onClick={() => setCarryOver(!carryOver)}
+                  className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${carryOver ? '' : 'bg-gray-200'}`}
+                  style={carryOver ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${carryOver ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+                </button>
               </div>
-              <button onClick={() => setCanDoEarly(!canDoEarly)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${canDoEarly ? '' : 'bg-gray-200'}`}
-                style={canDoEarly ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
-                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${canDoEarly ? 'translate-x-6' : 'translate-x-0.5'}`}/>
-              </button>
+              {/* Done Early */}
+              <div className="flex-1 bg-gray-50 rounded-2xl p-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-sm font-medium text-gray-700 truncate">Done Early 🗓️</p>
+                  <button onClick={() => setInfoTip('early')} aria-label="What is Done Early?"
+                    className="w-4 h-4 rounded-full bg-gray-300 text-white text-[10px] font-black flex items-center justify-center leading-none flex-shrink-0 active:scale-90 transition">i</button>
+                </div>
+                <button onClick={() => setCanDoEarly(!canDoEarly)}
+                  className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${canDoEarly ? '' : 'bg-gray-200'}`}
+                  style={canDoEarly ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${canDoEarly ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+                </button>
+              </div>
             </div>
-            </>)}
+            )}
+
+            {/* Info popup for Carry Over / Done Early */}
+            {infoTip && (
+              <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6" onClick={() => setInfoTip(null)}>
+                <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in" onClick={e => e.stopPropagation()}>
+                  <div className="text-4xl mb-2">{infoTip === 'carry' ? '↩️' : '🗓️'}</div>
+                  <h3 className="text-lg font-black text-gray-800 mb-1">{infoTip === 'carry' ? 'Carry Over' : 'Done Early'}</h3>
+                  <p className="text-sm font-semibold text-gray-500 leading-snug">
+                    {infoTip === 'carry'
+                      ? 'Allows Task to be completed up to 3 days past its due date.'
+                      : 'Allows Task to be done prior to due date.'}
+                  </p>
+                  <button onClick={() => setInfoTip(null)}
+                    className="mt-4 w-full py-2.5 rounded-2xl text-white font-black active:scale-95 transition"
+                    style={{ background: 'var(--theme-gradient)' }}>Got it!</button>
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-2">

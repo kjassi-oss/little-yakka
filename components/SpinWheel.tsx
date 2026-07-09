@@ -80,11 +80,23 @@ interface Props {
   onClose: () => void
 }
 
+const CONFETTI_COLOURS = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', '#F97316', '#14B8A6']
+
 export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, maxPrize, onWin, onClose }: Props) {
   const PRIZES = useMemo(() => buildPrizes(maxPrize), [maxPrize])
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [result, setResult] = useState<{ stars: number; label: string; color: string } | null>(null)
+
+  // Confetti burst once the wheel lands (extra pieces for a jackpot)
+  const confetti = useMemo(() => {
+    if (!result) return []
+    const jackpot = result.stars === maxPrize && maxPrize > 5
+    return Array.from({ length: jackpot ? 60 : 36 }, (_, i) => ({
+      key: i, left: Math.random() * 100, bg: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+      dur: 1.2 + Math.random() * 1.4, delay: Math.random() * 0.3, rot: Math.random() * 360,
+    }))
+  }, [result, maxPrize])
 
   function spin() {
     if (spinning || result) return
@@ -115,8 +127,19 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
         ×
       </button>
 
-      {/* Header */}
-      <div className="text-center mb-5 relative z-10">
+      {/* Confetti when the wheel lands */}
+      {result && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {confetti.map(p => (
+            <span key={p.key} className="confetti-piece"
+              style={{ left: `${p.left}%`, backgroundColor: p.bg, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s`, transform: `rotate(${p.rot}deg)` }}/>
+          ))}
+        </div>
+      )}
+
+      {/* Header — logo on top, then the title */}
+      <div className="text-center mt-6 mb-5 relative z-10">
+        <img src="/logo.png" alt="Little Yakka" className="h-24 w-auto mx-auto mb-4"/>
         <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
           Bonus Spin
         </h2>
@@ -157,6 +180,12 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
               </g>
             )
           })}
+          {/* Carnival lights around the rim — they spin with the wheel */}
+          {Array.from({ length: 18 }, (_, i) => {
+            const [lx, ly] = toXY(i * 20, R + 12)
+            return <circle key={`l${i}`} cx={lx} cy={ly} r="4"
+              fill={i % 2 === 0 ? '#FDE047' : '#FFFFFF'} stroke="#E5E7EB" strokeWidth="1"/>
+          })}
         </svg>
 
         {/* Centre — child photo / avatar in a circle frame (does not spin) */}
@@ -174,7 +203,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
 
       {!result ? (
         <button onClick={spin} disabled={spinning}
-          className="font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-50 text-white relative z-10"
+          className={`font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-50 text-white relative z-10 ${spinning ? '' : 'demo-pulse'}`}
           style={{ background: spinning ? '#9CA3AF' : 'var(--theme-gradient)' }}>
           {spinning ? '🌀 Spinning...' : '🎯 SPIN!'}
         </button>

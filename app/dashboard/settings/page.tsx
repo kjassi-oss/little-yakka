@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 import LoadingLogo from '@/components/LoadingLogo'
+import GuideContent from '@/components/GuideContent'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
@@ -384,39 +385,14 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <span className="text-2xl">📖</span>
               <div className="text-left">
-                <h2 className="font-bold text-gray-800 leading-tight">How Little Yakka works</h2>
-                <p className="text-xs text-gray-400">A quick visual guide</p>
+                <h2 className="font-bold text-gray-800 leading-tight">How Little Yakka Works</h2>
+                <p className="text-xs text-gray-400">The full visual guide</p>
               </div>
             </div>
             <span className={`text-gray-300 text-xl transition-transform ${guideOpen ? 'rotate-90' : ''}`}>›</span>
           </button>
 
-          {guideOpen && (
-            <div className="mt-4 space-y-3">
-              {[
-                { e: '👶', t: 'Add your kids', d: 'Create a profile and photo for each child below.' },
-                { e: '📋', t: 'Create tasks', d: 'Add chores & routines, set stars and how often. Tap + on the Tasks page.' },
-                { e: '🙌', t: 'Up For Grabs', d: 'Make a task a bounty anyone can claim — first one done wins the stars!' },
-                { e: '⭐', t: 'Kids earn stars', d: 'Tap a child on Home to open their Kid Zone — they tick tasks off, watch their lolly jar fill, and collect trophies.' },
-                { e: '🎁', t: 'Spend on rewards', d: 'Set up rewards on the Rewards tab; kids redeem them with stars and see their history in My Rewards.' },
-                { e: '🏦', t: 'Savings goals', d: 'Give each child something to save for (edit a child below) — they\'ll see a jar filling toward it.' },
-                { e: '🎰', t: 'Bonus Wheel', d: 'A weekly or monthly prize spin — the prize scales with how much of their work is done.' },
-                { e: '🔥', t: 'Streaks & freezes', d: 'Daily streaks build motivation — and one missed day a week is forgiven automatically.' },
-                { e: '🔔', t: 'Notifications', d: 'Turn on notifications below to get nudges when tasks are done or still waiting.' },
-                { e: '📊', t: 'Track progress', d: 'The Summary tab shows completion %, streaks and stars — weekly or monthly, per kid.' },
-                { e: '🎨', t: 'Make it yours', d: 'Pick a colour theme below to restyle the whole app.' },
-              ].map(s => (
-                <div key={s.t} className="flex gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ backgroundColor: 'color-mix(in srgb, var(--theme-from) 14%, white)' }}>{s.e}</div>
-                  <div>
-                    <p className="font-bold text-gray-800 text-sm">{s.t}</p>
-                    <p className="text-xs text-gray-400 leading-snug">{s.d}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {guideOpen && <GuideContent/>}
         </div>
 
         {/* Bonus wheel */}

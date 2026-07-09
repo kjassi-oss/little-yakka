@@ -204,7 +204,7 @@ export default function UpcomingTaskList({
                       ) : lockedDay ? (
                         <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
                       ) : (ds > todayL && !((task as any).can_do_early ?? true)) ? (
-                        <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">not<br/>yet</div>
+                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">🔒</div>
                       ) : (ds < todayL && (!((task as any).carry_over ?? true) || ds < carryCutoff)) ? (
                         <div className="flex-shrink-0 text-[11px] font-semibold text-gray-300 text-center leading-tight px-1">{((task as any).carry_over ?? true) ? 'expired' : 'missed'}</div>
                       ) : (
