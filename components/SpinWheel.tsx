@@ -10,24 +10,27 @@ const R = 135
 const CX = 160
 const CY = 160
 
-// Playful floating decoration — packed around the edges so nothing overlaps the
-// wheel in the centre. Gentle drift (float-drift) makes the whole page feel alive.
-const DECOR = [
-  // left edge
-  { e: '⭐', top: '5%', left: '3%', size: 40 },   { e: '✨', top: '20%', left: '9%', size: 30 },
-  { e: '🎁', top: '35%', left: '2%', size: 46 },  { e: '🍦', top: '52%', left: '9%', size: 38 },
-  { e: '🎮', top: '68%', left: '3%', size: 40 },  { e: '🌈', top: '84%', left: '8%', size: 44 },
-  { e: '💫', top: '92%', left: '2%', size: 30 },
-  // right edge
-  { e: '🎉', top: '6%', left: '89%', size: 42 },  { e: '🌟', top: '22%', left: '94%', size: 30 },
-  { e: '🏆', top: '37%', left: '88%', size: 46 }, { e: '⚽', top: '53%', left: '95%', size: 34 },
-  { e: '🍭', top: '69%', left: '88%', size: 40 }, { e: '🧸', top: '84%', left: '93%', size: 42 },
-  { e: '🎈', top: '93%', left: '90%', size: 32 },
-  // top & bottom bands (behind header / button)
-  { e: '💫', top: '2%', left: '30%', size: 30 },  { e: '✨', top: '3%', left: '66%', size: 26 },
-  { e: '🎊', top: '93%', left: '30%', size: 34 }, { e: '🥳', top: '94%', left: '64%', size: 32 },
-  { e: '🎯', top: '90%', left: '50%', size: 28 }, { e: '🚀', top: '1%', left: '50%', size: 26 },
+// Night-carnival colours: brand indigo sky + the logo's star yellow
+const SKY = 'linear-gradient(180deg, #232a5c 0%, #334487 55%, #5b4a9e 100%)'
+const GOLD = '#FDE047'
+const GOLD_TEXT = '#412402'
+
+// Twinkling starfield packed around the edges so nothing overlaps the wheel.
+const STARS = [
+  { top: '5%', left: '4%', size: 20, c: GOLD },   { top: '20%', left: '9%', size: 13, c: '#fff' },
+  { top: '35%', left: '3%', size: 16, c: '#fff' }, { top: '52%', left: '8%', size: 12, c: GOLD },
+  { top: '68%', left: '4%', size: 18, c: '#fff' }, { top: '84%', left: '8%', size: 14, c: GOLD },
+  { top: '93%', left: '3%', size: 11, c: '#fff' },
+  { top: '6%', left: '91%', size: 17, c: '#fff' }, { top: '22%', left: '94%', size: 12, c: GOLD },
+  { top: '37%', left: '90%', size: 19, c: GOLD },  { top: '53%', left: '95%', size: 12, c: '#fff' },
+  { top: '69%', left: '90%', size: 15, c: '#fff' },{ top: '84%', left: '93%', size: 17, c: GOLD },
+  { top: '93%', left: '89%', size: 11, c: '#fff' },
+  { top: '2%', left: '30%', size: 12, c: '#fff' }, { top: '3%', left: '66%', size: 14, c: GOLD },
+  { top: '93%', left: '30%', size: 13, c: GOLD },  { top: '94%', left: '64%', size: 12, c: '#fff' },
+  { top: '90%', left: '50%', size: 10, c: '#fff' },
 ]
+
+const CONFETTI_COLOURS = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#EC4899', '#F97316', '#14B8A6', '#FFFFFF']
 
 function toXY(deg: number, r: number): [number, number] {
   const rad = (deg - 90) * Math.PI / 180
@@ -80,8 +83,6 @@ interface Props {
   onClose: () => void
 }
 
-const CONFETTI_COLOURS = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', '#F97316', '#14B8A6']
-
 export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, maxPrize, onWin, onClose }: Props) {
   const PRIZES = useMemo(() => buildPrizes(maxPrize), [maxPrize])
   const [rotation, setRotation] = useState(0)
@@ -114,18 +115,12 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
   const isJackpot = result !== null && result.stars === maxPrize && maxPrize > 5
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-white overflow-y-auto">
-      {/* Playful floating task/reward decoration (drifts gently) */}
-      {DECOR.map((d, i) => (
-        <span key={i} className="absolute pointer-events-none select-none float-drift"
-          style={{ top: d.top, left: d.left, fontSize: d.size, opacity: 0.12, animationDelay: `${(i % 6) * 0.5}s` }}>{d.e}</span>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 overflow-y-auto" style={{ background: SKY }}>
+      {/* Twinkling starfield */}
+      {STARS.map((s, i) => (
+        <span key={i} className="absolute pointer-events-none select-none twinkle leading-none"
+          style={{ top: s.top, left: s.left, fontSize: s.size, color: s.c, animationDelay: `${(i % 7) * 0.35}s` }}>✦</span>
       ))}
-
-      {/* Close */}
-      <button onClick={onClose}
-        className="absolute top-12 right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition z-10">
-        ×
-      </button>
 
       {/* Confetti when the wheel lands */}
       {result && (
@@ -137,15 +132,23 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
         </div>
       )}
 
+      {/* Close */}
+      <button onClick={onClose}
+        className="absolute top-12 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl font-bold active:scale-90 transition z-10">
+        ×
+      </button>
+
       {/* Header — logo on top, then the title */}
       <div className="text-center mt-6 mb-5 relative z-10">
-        <img src="/logo.png" alt="Little Yakka" className="h-24 w-auto mx-auto mb-4"/>
-        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+        <div className="inline-block bg-white rounded-2xl px-3 py-1.5 shadow-lg mb-4">
+          <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto"/>
+        </div>
+        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD }}>
           Bonus Spin
         </h2>
-        <p className="text-gray-400 text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif' }}>Spin to win bonus stars!</p>
-        <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
-          style={{ background: 'var(--theme-gradient)' }}>
+        <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#c7cdf0' }}>Spin to win bonus stars!</p>
+        <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold"
+          style={{ background: GOLD, color: GOLD_TEXT }}>
           Max prize: ⭐ {maxPrize}
         </div>
       </div>
@@ -154,7 +157,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
         {/* Pointer */}
         <div className="absolute top-0 left-1/2 z-20" style={{ transform: 'translateX(-50%) translateY(-10px)' }}>
           <div className="w-0 h-0"
-            style={{ borderLeft: '14px solid transparent', borderRight: '14px solid transparent', borderTop: '24px solid #1F2937' }}/>
+            style={{ borderLeft: '14px solid transparent', borderRight: '14px solid transparent', borderTop: `24px solid ${GOLD}`, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}/>
         </div>
 
         {/* Wheel SVG */}
@@ -163,7 +166,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
             transform: `rotate(${rotation}deg)`,
             transition: spinning ? 'transform 4.5s cubic-bezier(0.17, 0.67, 0.12, 1.0)' : 'none',
             transformOrigin: '160px 160px',
-            filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))',
+            filter: 'drop-shadow(0 0 26px rgba(253,224,71,0.45))',
           }}>
           {PRIZES.map((prize, i) => {
             const mid = (i + 0.5) * ANGLE
@@ -180,42 +183,43 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
               </g>
             )
           })}
-          {/* Carnival lights around the rim — they spin with the wheel */}
+          {/* Chasing marquee bulbs — they spin with the wheel and blink */}
           {Array.from({ length: 18 }, (_, i) => {
             const [lx, ly] = toXY(i * 20, R + 12)
-            return <circle key={`l${i}`} cx={lx} cy={ly} r="4"
-              fill={i % 2 === 0 ? '#FDE047' : '#FFFFFF'} stroke="#E5E7EB" strokeWidth="1"/>
+            return <circle key={`l${i}`} cx={lx} cy={ly} r="4.5"
+              fill={i % 2 === 0 ? GOLD : '#FFFFFF'}
+              style={{ animation: `bulbBlink 1s ease-in-out ${(i % 3) * 0.33}s infinite` }}/>
           })}
         </svg>
 
-        {/* Centre — child photo / avatar in a circle frame (does not spin) */}
+        {/* Centre — child photo / avatar in a gold circle frame (does not spin) */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
           {childAvatarUrl
-            ? <img src={childAvatarUrl} className="w-[72px] h-[72px] rounded-full object-cover border-4 border-white shadow-lg" alt=""/>
-            : <div className="w-[72px] h-[72px] rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl"
-                style={{ backgroundColor: childColour + '33' }}>{childAvatar}</div>}
+            ? <img src={childAvatarUrl} className="w-[72px] h-[72px] rounded-full object-cover shadow-lg" style={{ border: `4px solid ${GOLD}` }} alt=""/>
+            : <div className="w-[72px] h-[72px] rounded-full shadow-lg flex items-center justify-center text-4xl bg-white"
+                style={{ border: `4px solid ${GOLD}` }}>{childAvatar}</div>}
         </div>
 
-        {/* Outer ring */}
+        {/* Outer ring — dark navy rim so the wheel pops off the sky */}
         <div className="absolute inset-0 rounded-full pointer-events-none"
-          style={{ boxShadow: '0 0 0 3px #E5E7EB' }}/>
+          style={{ boxShadow: '0 0 0 4px #1d2450' }}/>
       </div>
 
       {!result ? (
         <button onClick={spin} disabled={spinning}
-          className={`font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-50 text-white relative z-10 ${spinning ? '' : 'demo-pulse'}`}
-          style={{ background: spinning ? '#9CA3AF' : 'var(--theme-gradient)' }}>
+          className={`font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-70 relative z-10 ${spinning ? 'text-white' : 'demo-pulse'}`}
+          style={{ background: spinning ? '#4a5399' : GOLD, color: spinning ? '#fff' : GOLD_TEXT }}>
           {spinning ? '🌀 Spinning...' : '🎯 SPIN!'}
         </button>
       ) : (
         <div className="text-center pop-in relative z-10">
           <div className="text-7xl mb-3">{isJackpot ? '🏆' : '🎉'}</div>
-          <p className="text-gray-500 text-lg">You won</p>
-          <p className="font-black text-5xl my-1" style={{ color: childColour }}>+{result.stars} ⭐</p>
-          {isJackpot && <p className="font-bold text-lg mb-2" style={{ color: childColour }}>JACKPOT!! 🎊</p>}
+          <p className="text-lg" style={{ color: '#c7cdf0' }}>You won</p>
+          <p className="font-black text-5xl my-1" style={{ color: GOLD }}>+{result.stars} ⭐</p>
+          {isJackpot && <p className="font-bold text-lg mb-2" style={{ color: GOLD }}>JACKPOT!! 🎊</p>}
           <button onClick={onClose}
-            className="mt-4 font-black text-lg py-4 px-10 rounded-3xl active:scale-95 transition shadow-lg text-white"
-            style={{ background: 'var(--theme-gradient)' }}>
+            className="mt-4 font-black text-lg py-4 px-10 rounded-3xl active:scale-95 transition shadow-lg"
+            style={{ background: GOLD, color: GOLD_TEXT }}>
             Awesome! 🚀
           </button>
         </div>

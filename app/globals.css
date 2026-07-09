@@ -150,3 +150,15 @@ body {
   50%      { transform: translateY(-12px); }
 }
 .float-drift { animation: floatDrift 5.5s ease-in-out infinite; }
+
+/* Bonus wheel — night-carnival twinkling stars + chasing marquee bulbs */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50%      { opacity: 0.25; transform: scale(0.72); }
+}
+.twinkle { display: inline-block; animation: twinkle 2.2s ease-in-out infinite; }
+
+@keyframes bulbBlink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.2; }
+}
