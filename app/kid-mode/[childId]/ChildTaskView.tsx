@@ -383,21 +383,21 @@ export default function ChildTaskView({
         {/* Stats row — avatar · stars/tasks/streak · lolly jar · trophy shelf,
             each separated by a faint line and evenly spaced (design mock) */}
         <div className="px-4 pb-2">
-          <div className="max-w-sm mx-auto bg-gray-50 rounded-2xl border border-gray-100 px-3 py-3 flex items-center gap-2.5">
-            <div className="flex-shrink-0 flex flex-col items-start gap-1.5">
-              <DecoratedAvatar child={child} size={68}/>
-              {streakDays > 0 && <p className="flex items-center gap-1 font-black text-orange-500 leading-none"><span className="text-sm">🔥</span><span className="text-[13px] whitespace-nowrap">{streakDays}d streak</span></p>}
+          <div className="max-w-sm mx-auto bg-gray-50 rounded-2xl border border-gray-100 px-3 py-3 flex items-center gap-2">
+            <div className="w-16 flex-shrink-0 flex flex-col items-start gap-1.5">
+              <DecoratedAvatar child={child} size={64}/>
+              {streakDays > 0 && <p className="flex items-center gap-0.5 font-black text-orange-500 leading-none"><span className="text-xs">🔥</span><span className="text-[11px] whitespace-nowrap">{streakDays}d streak</span></p>}
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
-              <p className="flex items-center gap-1 font-black text-yellow-500 leading-none"><span className="w-6 text-center text-xl">⭐</span><span className="text-xl">{starBalance}</span></p>
-              <p className="flex items-center gap-1 font-black text-gray-700 leading-none"><span className="w-6 text-center text-lg">📋</span><span className="text-[15px]">{claimableDone}/{claimableTotal}</span></p>
+              <p className="flex items-center gap-1 font-black text-yellow-500 leading-none"><span className="w-5 text-center text-lg">⭐</span><span className="text-lg">{starBalance}</span></p>
+              <p className="flex items-center gap-1 font-black text-gray-700 leading-none"><span className="w-5 text-center text-base">📋</span><span className="text-[14px]">{claimableDone}/{claimableTotal}</span></p>
             </div>
             <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
             <div className="flex-shrink-0">
-              <StarJar done={claimableDone} total={claimableTotal} size={56}/>
+              <StarJar done={claimableDone} total={claimableTotal} size={54}/>
             </div>
             <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
-            <div className="flex-shrink-0 w-[104px]">
+            <div className="flex-shrink-0 w-[96px]">
               <TrophyShelf compact stars={starBalance} streak={streakDays} completions={totalCompletions}/>
             </div>
           </div>
