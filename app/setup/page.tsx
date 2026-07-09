@@ -35,6 +35,8 @@ interface TaskDraft {
   title: string; emoji: string; type: string; star_value: number; frequency: string
   time_of_day: string; start_date: string; carry_over: boolean
   can_do_early: boolean; days_of_week: number[]
+  up_for_grabs: boolean
+  assignedIdx: number[] // indices into the children drafts (no ids yet)
 }
 interface RewardDraft { title: string; emoji: string; star_cost: number }
 
@@ -42,6 +44,7 @@ const blankTask = (): TaskDraft => ({
   title: '', emoji: '⭐', type: 'chore', star_value: 3, frequency: 'daily',
   time_of_day: 'anytime', start_date: '', carry_over: false,
   can_do_early: false, days_of_week: [0, 1, 2, 3, 4, 5, 6], // daily, every day on by default
+  up_for_grabs: false, assignedIdx: [],
 })
 
 // Full-bleed white page with the logo centred at the top, consistent on every step.
@@ -136,11 +139,13 @@ export default function SetupPage() {
   }
 
   function startTask(preset?: { title: string; emoji: string }) {
-    setTask({ ...blankTask(), title: preset?.title || '', emoji: preset?.emoji || '⭐' })
+    // default: assigned to every child added so far
+    setTask({ ...blankTask(), title: preset?.title || '', emoji: preset?.emoji || '⭐', assignedIdx: children.map((_, i) => i) })
     setTaskFormOpen(true)
   }
   function saveTask() {
     if (!task.title.trim()) { setError('Please give the task a name.'); return }
+    if (!task.up_for_grabs && children.length > 0 && task.assignedIdx.length === 0) { setError('Please assign to at least one child.'); return }
     setTasks([...tasks, { ...task, title: task.title.trim() }])
     setTask(blankTask()); setTaskFormOpen(false); setError('')
   }
@@ -193,7 +198,8 @@ export default function SetupPage() {
     if (!ctx) { setLoading(false); return }
     const { supabase, familyId } = ctx
 
-    const childIds: string[] = []
+    // Index-aligned with the `children` drafts so per-task assignments resolve
+    const childIdByIdx: (string | null)[] = []
     for (const c of children) {
       const baseChild: any = { name: c.name, avatar: c.avatar, colour: c.colour, family_id: familyId }
       let { data: created } = await supabase.from('children')
@@ -202,12 +208,13 @@ export default function SetupPage() {
         const retry = await supabase.from('children').insert(baseChild).select('id').single()
         created = retry.data
       }
+      childIdByIdx.push(created?.id ?? null)
       if (!created) continue
-      childIds.push(created.id)
       if (c.photo) {
         const photo = await compressImage(c.photo)
         const ext = photo.name.split('.').pop()
-        const path = `${familyId}/${created.id}/avatar.${ext}`
+        // Unique filename per upload (cache-busting URL — matches Settings)
+        const path = `${familyId}/${created.id}/avatar-${Date.now()}.${ext}`
         const { error: upErr } = await supabase.storage.from('kid-avatars').upload(path, photo, { upsert: true })
         if (!upErr) {
           const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
@@ -215,25 +222,33 @@ export default function SetupPage() {
         }
       }
     }
+    const allChildIds = childIdByIdx.filter((id): id is string => !!id)
 
     for (const t of tasks) {
+      // Up-for-grabs is a one-off bounty: no recurrence rules, no assignments
       const taskPayload: any = {
         family_id: familyId, title: t.title, emoji: t.emoji, star_value: t.star_value,
         type: t.type, time_of_day: t.time_of_day === 'anytime' ? null : t.time_of_day,
-        frequency: t.frequency, recurrence: t.frequency,
-        carry_over: t.carry_over,
+        frequency: t.up_for_grabs ? 'daily' : t.frequency, recurrence: t.up_for_grabs ? 'daily' : t.frequency,
+        carry_over: t.up_for_grabs ? false : t.carry_over,
         start_date: t.start_date || null,
-        days_of_week: t.frequency === 'daily' && t.days_of_week.length > 0 && t.days_of_week.length < 7
+        days_of_week: !t.up_for_grabs && t.frequency === 'daily' && t.days_of_week.length > 0 && t.days_of_week.length < 7
           ? [...t.days_of_week].sort() : null,
       }
-      // Try with can_do_early; fall back gracefully if the column doesn't exist yet
-      const { data: createdTask, error: taskErr } = await supabase.from('tasks')
-        .insert({ ...taskPayload, can_do_early: t.can_do_early }).select('id').single()
-      const finalTask = createdTask || (taskErr?.message?.includes('can_do_early')
-        ? (await supabase.from('tasks').insert(taskPayload).select('id').single()).data
-        : null)
-      if (finalTask && childIds.length) {
-        await supabase.from('task_assignments').insert(childIds.map(cid => ({ task_id: finalTask.id, child_id: cid })))
+      // Try with newer columns; fall back gracefully if they don't exist yet
+      const withEarly = { ...taskPayload, can_do_early: t.up_for_grabs ? true : t.can_do_early }
+      const full = { ...withEarly, up_for_grabs: t.up_for_grabs }
+      let res = await supabase.from('tasks').insert(full).select('id').single()
+      if (res.error?.message?.includes('up_for_grabs')) res = await supabase.from('tasks').insert(withEarly).select('id').single()
+      if (res.error?.message?.includes('can_do_early')) res = await supabase.from('tasks').insert(taskPayload).select('id').single()
+      const finalTask = res.data
+      if (finalTask && !t.up_for_grabs) {
+        const assignIds = t.assignedIdx.length
+          ? t.assignedIdx.map(i => childIdByIdx[i]).filter((id): id is string => !!id)
+          : allChildIds
+        if (assignIds.length) {
+          await supabase.from('task_assignments').insert(assignIds.map(cid => ({ task_id: finalTask.id, child_id: cid })))
+        }
       }
     }
 
@@ -416,7 +431,7 @@ export default function SetupPage() {
           </button>
         </>
       ) : (
-        <TaskForm task={task} setTask={setTask} onSave={saveTask} onCancel={() => { setTaskFormOpen(false); setError('') }} error={error}/>
+        <TaskForm task={task} setTask={setTask} childrenList={children} onSave={saveTask} onCancel={() => { setTaskFormOpen(false); setError('') }} error={error}/>
       )}
     </Page>
   )
@@ -568,10 +583,13 @@ export default function SetupPage() {
 }
 
 // ── Full task form (mirrors the Tasks page options) ───────────────────────────
-function TaskForm({ task, setTask, onSave, onCancel, error }: {
-  task: TaskDraft; setTask: (t: TaskDraft) => void; onSave: () => void; onCancel: () => void; error: string
+function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
+  task: TaskDraft; setTask: (t: TaskDraft) => void; childrenList: ChildDraft[]; onSave: () => void; onCancel: () => void; error: string
 }) {
   const [emojiSearch, setEmojiSearch] = useState('')
+  // Free-typing star box: keep the raw text so "1" can be deleted before typing "5"
+  const [starText, setStarText] = useState(String(task.star_value))
+  function setStars(v: number) { setTask({ ...task, star_value: v }); setStarText(String(v)) }
   return (
     <div className="border border-gray-100 rounded-3xl p-4 space-y-4 shadow-sm">
       <div className="flex bg-gray-100 rounded-2xl p-1">
@@ -601,6 +619,21 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
         </div>
       </div>
 
+      {/* Up For Grabs — a bounty any child can claim, first done wins */}
+      <div className="rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-amber-700">🙌 Up For Grabs</p>
+            <p className="text-xs text-amber-600">{task.up_for_grabs ? 'Anyone can claim it — first done wins the stars!' : 'No child assigned — any child can do it'}</p>
+          </div>
+          <button onClick={() => setTask({ ...task, up_for_grabs: !task.up_for_grabs })}
+            className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${task.up_for_grabs ? 'bg-amber-400' : 'bg-gray-200'}`}>
+            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${task.up_for_grabs ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+          </button>
+        </div>
+      </div>
+
+      {!task.up_for_grabs && (<>
       <div>
         <p className="text-xs text-gray-500 mb-1">How often?</p>
         <div className="flex gap-2">
@@ -630,6 +663,7 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
           </div>
         </div>
       )}
+      </>)}
 
       {/* Time of day + start date on one row */}
       <div className="flex gap-2">
@@ -647,27 +681,57 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
         </div>
       </div>
 
-      <Toggle label="Carry over if missed ↩️"
-        sub={task.carry_over ? 'Shows as overdue if not done' : 'Expires — no carry over'}
+      {!task.up_for_grabs && (<>
+      <Toggle label="Carry Over ↩️"
+        sub={task.carry_over ? 'Can be done up to 3 days late' : 'Expires — no carry over'}
         on={task.carry_over} onToggle={() => setTask({ ...task, carry_over: !task.carry_over })}/>
 
-      <Toggle label="Can be done early 🗓️"
+      <Toggle label="Done Early 🗓️"
         sub={task.can_do_early ? 'Kids can do future days now' : 'Only on the scheduled day'}
         on={task.can_do_early} onToggle={() => setTask({ ...task, can_do_early: !task.can_do_early })}/>
+      </>)}
 
       <div>
         <p className="text-xs text-gray-500 mb-1">Stars to earn ⭐</p>
         <div className="flex items-center gap-3">
           <input type="range" min={1} max={50} value={Math.min(task.star_value, 50)}
-            onChange={e => setTask({ ...task, star_value: Number(e.target.value) })} className="flex-1"/>
-          <input type="number" inputMode="numeric" min={1} value={task.star_value}
-            onChange={e => setTask({ ...task, star_value: Math.max(1, Number(e.target.value) || 1) })}
+            onChange={e => setStars(Number(e.target.value))} className="flex-1"/>
+          <input type="number" inputMode="numeric" min={1} value={starText}
+            onChange={e => {
+              const raw = e.target.value
+              setStarText(raw)
+              const n = parseInt(raw, 10)
+              if (!isNaN(n) && n >= 1) setTask({ ...task, star_value: n })
+            }}
+            onBlur={() => { if (!starText || parseInt(starText, 10) < 1 || isNaN(parseInt(starText, 10))) setStars(task.star_value || 1) }}
             className="w-20 border border-gray-200 rounded-xl px-2 py-2 text-center font-black text-yellow-500 focus:outline-none focus:ring-2 focus:ring-pink-300"/>
         </div>
         <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>25</span><span>50 · or type any number →</span></div>
       </div>
 
-      <p className="text-[11px] text-gray-400 text-center">Tasks are assigned to all your kids — adjust later in the Tasks tab.</p>
+      {/* Assign to — kid thumbnails, default all (hidden for Up For Grabs) */}
+      {!task.up_for_grabs && childrenList.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-500 mb-1.5">Assign to</p>
+          <div className="flex justify-center gap-4 flex-wrap">
+            {childrenList.map((c, i) => {
+              const on = task.assignedIdx.includes(i)
+              return (
+                <button key={i} onClick={() => setTask({
+                  ...task,
+                  assignedIdx: on ? task.assignedIdx.filter(x => x !== i) : [...task.assignedIdx, i],
+                })}
+                  className={`flex flex-col items-center gap-1 active:scale-95 transition ${on ? '' : 'opacity-40 grayscale'}`}>
+                  {c.photo
+                    ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-full object-cover" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
+                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: c.colour + '33', border: `3px solid ${on ? c.colour : '#D1D5DB'}` }}>{c.avatar}</div>}
+                  <span className="text-[11px] font-bold text-gray-600 max-w-[56px] truncate">{c.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       <div className="flex gap-2">
         <button onClick={onCancel} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold">Cancel</button>
@@ -683,6 +747,9 @@ function TaskForm({ task, setTask, onSave, onCancel, error }: {
 function RewardForm({ reward, setReward, onSave, onCancel, error }: {
   reward: RewardDraft; setReward: (r: RewardDraft) => void; onSave: () => void; onCancel: () => void; error: string
 }) {
+  // Free-typing cost box: keep the raw text so the default can be cleared
+  const [costText, setCostText] = useState(String(reward.star_cost))
+  function setCost(v: number) { setReward({ ...reward, star_cost: v }); setCostText(String(v)) }
   return (
     <div className="border border-gray-100 rounded-3xl p-4 space-y-4 shadow-sm">
       <input type="text" value={reward.title} onChange={e => setReward({ ...reward, title: e.target.value })}
@@ -695,10 +762,21 @@ function RewardForm({ reward, setReward, onSave, onCancel, error }: {
         ))}
       </div>
       <div>
-        <p className="text-xs text-gray-500 mb-1">Cost: <span className="font-bold text-yellow-500">⭐ {reward.star_cost}</span></p>
-        <input type="range" min={1} max={500} value={reward.star_cost}
-          onChange={e => setReward({ ...reward, star_cost: Number(e.target.value) })} className="w-full"/>
-        <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>100</span><span>250</span><span>500</span></div>
+        <p className="text-xs text-gray-500 mb-1">Cost ⭐</p>
+        <div className="flex items-center gap-3">
+          <input type="range" min={1} max={50} value={Math.min(reward.star_cost, 50)}
+            onChange={e => setCost(Number(e.target.value))} className="flex-1"/>
+          <input type="number" inputMode="numeric" min={1} value={costText}
+            onChange={e => {
+              const raw = e.target.value
+              setCostText(raw)
+              const n = parseInt(raw, 10)
+              if (!isNaN(n) && n >= 1) setReward({ ...reward, star_cost: n })
+            }}
+            onBlur={() => { if (!costText || parseInt(costText, 10) < 1 || isNaN(parseInt(costText, 10))) setCost(reward.star_cost || 1) }}
+            className="w-20 border border-gray-200 rounded-xl px-2 py-2 text-center font-black text-yellow-500 focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>25</span><span>50 · or type any number →</span></div>
       </div>
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       <div className="flex gap-2">

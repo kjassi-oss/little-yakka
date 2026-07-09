@@ -223,25 +223,24 @@ export default function AnalyticsPage() {
               <text x="65" y="80" textAnchor="middle" fontSize="11" fill="#9ca3af" fontWeight="600">done</text>
             </svg>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Task completion {label}</p>
             <p className="text-3xl font-black text-gray-800 mt-1">{stats.done}<span className="text-lg text-gray-300"> / {stats.expected}</span></p>
             <p className="text-xs text-gray-400 mt-0.5">tasks completed</p>
-          </div>
-        </div>
-
-        {/* Stat tiles */}
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { v: `⭐ ${stats.periodStars}`, l: 'stars earned' },
-            { v: `✅ ${stats.done}`, l: 'tasks done' },
-            { v: `🔥 ${stats.topStreak}`, l: 'best streak' },
-          ].map(s => (
-            <div key={s.l} className="bg-white rounded-2xl p-3 text-center shadow-sm">
-              <p className="text-lg font-black text-gray-800">{s.v}</p>
-              <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{s.l}</p>
+            {/* Stars / done / streak — inside the hero card, under the count */}
+            <div className="flex gap-4 mt-3">
+              {[
+                { v: `⭐ ${stats.periodStars}`, l: 'stars earned' },
+                { v: `✅ ${stats.done}`, l: 'tasks done' },
+                { v: `🔥 ${stats.topStreak}`, l: 'best streak' },
+              ].map(s => (
+                <div key={s.l} className="text-center">
+                  <p className="text-base font-black text-gray-800 whitespace-nowrap leading-none">{s.v}</p>
+                  <p className="text-[9px] text-gray-400 font-semibold mt-1 whitespace-nowrap">{s.l}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
 
         {/* Completion champions */}

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import ChildTaskView from './ChildTaskView'
+import RealtimeRefresh from '@/components/RealtimeRefresh'
 import { occursOn, mondayOf, ymd } from '@/lib/recurrence'
 import { localNow, localDateStr, parseTzCookie } from '@/lib/localDate'
 
@@ -215,7 +216,9 @@ export default async function ChildPage({ params, searchParams }: {
   const claimableTotal = claimableOccs.length
   const claimableDoneInit = claimableOccs.filter((o: any) => completedKeys.includes(o.id)).length
 
-  return (
+  return (<>
+    {/* Live sync: refresh this page when completions/stars change elsewhere */}
+    <RealtimeRefresh />
     <ChildTaskView
       child={child}
       tasks={tasksForList}
@@ -244,5 +247,5 @@ export default async function ChildPage({ params, searchParams }: {
       unlockedIds={unlockedIds}
       myRewards={myRewards}
     />
-  )
+  </>)
 }

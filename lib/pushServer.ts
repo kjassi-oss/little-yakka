@@ -10,7 +10,7 @@ function configure(): boolean {
   if (configured) return true
   const priv = process.env.VAPID_PRIVATE_KEY
   if (!priv) return false
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:kjassi@gmail.com', VAPID_PUBLIC_KEY, priv)
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:contact@littleyakka.com', VAPID_PUBLIC_KEY, priv)
   configured = true
   return true
 }

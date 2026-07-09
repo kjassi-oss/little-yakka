@@ -97,7 +97,7 @@ export default function PrivacyPolicy() {
         <Section title="Contact us">
           <p>
             If you have any questions about this policy or your data, contact us at{' '}
-            <a href="mailto:kjassi@gmail.com" className="text-pink-600 font-semibold underline">kjassi@gmail.com</a>.
+            <a href="mailto:contact@littleyakka.com" className="text-pink-600 font-semibold underline">contact@littleyakka.com</a>.
           </p>
         </Section>
       </div>

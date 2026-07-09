@@ -117,7 +117,7 @@ Diagnostics, Analytics, Advertising Data…) → **Not collected**.
 |---|---|
 | Sign-in required | **Yes** — provide demo account |
 | Demo account | `kjtest@gmail.com` / `kjtest` |
-| Contact | Kiran Jassi · kjassi@gmail.com · +61 434 567 804 |
+| Contact | Kiran Jassi · contact@littleyakka.com · +61 434 567 804 |
 
 **Notes for the reviewer** (paste):
 

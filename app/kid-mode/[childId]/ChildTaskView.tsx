@@ -180,6 +180,16 @@ export default function ChildTaskView({
     if (ds < todayStr && !(task.carry_over ?? true) && !isUfg) return // missed, non-carry-over
     completionFeedback()
     const supabase = createClient()
+    // Idempotency guard: if a stale router-cache render hid an existing tick,
+    // don't insert a duplicate completion (and double stars) — just sync the UI.
+    const { data: existing } = await supabase.from('completions').select('id')
+      .eq('task_id', task.id).eq('child_id', child.id).eq('date', ds).limit(1)
+    if (existing && existing.length > 0) {
+      setComps(prev => prev.some(c => c.task_id === task.id && c.date === ds && c.child_id === child.id)
+        ? prev : [...prev, { id: existing[0].id, task_id: task.id, child_id: child.id, date: ds }])
+      router.refresh()
+      return
+    }
     const { data: completion } = await supabase.from('completions').insert({
       task_id: task.id, child_id: child.id, date: ds, status: 'approved',
     }).select('id').single()
@@ -187,6 +197,9 @@ export default function ChildTaskView({
       child_id: child.id, delta: task.star_value,
       reason: `Completed: ${task.title}`, source_type: 'completion', source_id: completion?.id,
     })
+    // Purge the client router cache so Home/kid pages show this immediately
+    // (staleTimes would otherwise serve a pre-completion page for up to 30s)
+    router.refresh()
     // Nudge the family's subscribed devices (fire-and-forget)
     fetch('/api/push/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -247,6 +260,7 @@ export default function ChildTaskView({
     if (!task.up_for_grabs && comp.date >= mondayStr && comp.date <= weekEndStr) {
       setClaimableDone(prev => Math.max(0, prev - 1))
     }
+    router.refresh()
   }
 
   async function handleSpinWin(stars: number) {
@@ -258,6 +272,7 @@ export default function ChildTaskView({
     })
     setStarBalance(prev => prev + stars)
     setCanSpin(false)
+    router.refresh()
   }
 
   // Redeem immediately: stars come off now, and it lands in My Rewards + the
@@ -290,6 +305,7 @@ export default function ChildTaskView({
     setJustRequestedId(reward.id)
     setTimeout(() => setJustRequestedId(null), 2000)
     setRequestingId(null)
+    router.refresh()
   }
 
   // ── Praise overlay ──

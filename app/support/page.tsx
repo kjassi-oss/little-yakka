@@ -17,7 +17,7 @@ export default function SupportPage() {
         <section className="mt-6 space-y-3 text-[15px] leading-relaxed">
           <p>
             Need a hand with Little Yakka? Email us at{' '}
-            <a href="mailto:kjassi@gmail.com" className="text-pink-600 font-semibold underline">kjassi@gmail.com</a>{' '}
+            <a href="mailto:contact@littleyakka.com" className="text-pink-600 font-semibold underline">contact@littleyakka.com</a>{' '}
             and include a short description of the problem, plus the device you&rsquo;re using.
           </p>
         </section>
