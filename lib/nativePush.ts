@@ -5,7 +5,9 @@ import { PushNotifications } from '@capacitor/push-notifications'
 
 const TOKEN_KEY = 'ly_apns_token'
 
-export const isNativePush = () => Capacitor.isNativePlatform()
+// iOS only for now: Android native push needs Firebase/FCM, which v1 ships
+// without (Android falls through to the web path, which reports unsupported).
+export const isNativePush = () => Capacitor.getPlatform() === 'ios'
 
 export async function nativePermissionState(): Promise<'on' | 'off' | 'denied'> {
   const perm = await PushNotifications.checkPermissions()

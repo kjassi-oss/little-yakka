@@ -50,3 +50,39 @@ workflows:
         # internal testers automatically; we don't auto-submit to external beta (that
         # needs Apple beta review and was causing the red post-processing step).
         submit_to_testflight: false
+
+  # Android AAB for Google Play. Signing uses our own upload keystore, provided
+  # as base64 env vars in the Codemagic variable group "android_signing":
+  #   KEYSTORE_B64      – base64 of the upload keystore (.jks)
+  #   KEYSTORE_PASSWORD – keystore password
+  #   KEY_ALIAS         – key alias (upload)
+  #   KEY_PASSWORD      – key password
+  # First Play upload is manual (download the .aab artifact and upload it in the
+  # Play Console); Play App Signing re-signs with Google's app signing key.
+  android-play:
+    name: Little Yakka Android — Play AAB
+    max_build_duration: 45
+    instance_type: linux_x2
+    environment:
+      groups:
+        - android_signing
+      vars:
+        JAVA_TOOL_OPTIONS: "-Xmx4g"
+      node: 22.17.0
+      java: 17
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+      - name: Sync Capacitor Android
+        script: npx cap sync android
+      - name: Decode upload keystore
+        script: |
+          echo "$KEYSTORE_B64" | base64 --decode > /tmp/upload.jks
+          echo "KEYSTORE_PATH=/tmp/upload.jks" >> $CM_ENV
+      - name: Build signed AAB
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
