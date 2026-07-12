@@ -14,7 +14,7 @@ const CY = 160
 // notch-safe on any phone height) fading into the brand indigo sky just below,
 // then the logo's star yellow. Pixel stops for the top so the white band always
 // clears the logo regardless of screen height.
-const SKY = 'linear-gradient(180deg, #ffffff 0px, #ffffff 190px, #334487 275px, #232a5c 55%, #5b4a9e 100%)'
+const SKY = 'linear-gradient(180deg, #ffffff 0px, #ffffff 215px, #334487 300px, #232a5c 55%, #5b4a9e 100%)'
 const GOLD = '#FDE047'
 const GOLD_TEXT = '#412402'
 
@@ -120,7 +120,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-start px-6 pb-10 overflow-y-auto"
-      style={{ background: SKY, paddingTop: 'calc(env(safe-area-inset-top) + 3rem)' }}>
+      style={{ background: SKY, paddingTop: 'calc(env(safe-area-inset-top) + 4.5rem)' }}>
       {/* Twinkling starfield */}
       {STARS.map((s, i) => (
         <span key={i} className="absolute pointer-events-none select-none twinkle leading-none"
@@ -148,7 +148,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
       <div className="text-center mb-5 relative z-10">
         <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto mx-auto mb-6"/>
         <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
-          {childName ? (<><span className="name-flash">{childName}</span>{"'s Bonus Spin"}</>) : 'Bonus Spin'}
+          {childName ? (<><span className="name-flash">{`${childName}'s`}</span>{' Bonus Spin'}</>) : 'Bonus Spin'}
         </h2>
         <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#e3e7ff', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>Spin to win bonus stars!</p>
         <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold"
