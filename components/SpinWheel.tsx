@@ -137,9 +137,9 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
         </div>
       )}
 
-      {/* Close — sits in the white band, so dark on light; clear of the notch */}
-      <button onClick={onClose}
-        className="absolute right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition z-10"
+      {/* Close — big + high-contrast so it's easy to see and tap; clear of the notch */}
+      <button onClick={onClose} aria-label="Close"
+        className="absolute right-4 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 text-3xl leading-none font-bold active:scale-90 transition z-20"
         style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}>
         ×
       </button>
@@ -150,11 +150,15 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
         <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
           {childName ? (<><span className="name-flash">{`${childName}'s`}</span>{' Bonus Spin'}</>) : 'Bonus Spin'}
         </h2>
-        <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#e3e7ff', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>Spin to win bonus stars!</p>
-        <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold"
-          style={{ background: GOLD, color: GOLD_TEXT }}>
-          Max prize: ⭐ {maxPrize}
-        </div>
+        {/* Subtitle + max-prize hide once a result shows, freeing space so the
+            result's close button stays in view */}
+        {!result && <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#e3e7ff', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>Spin to win bonus stars!</p>}
+        {!result && (
+          <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold"
+            style={{ background: GOLD, color: GOLD_TEXT }}>
+            Max prize: ⭐ {maxPrize}
+          </div>
+        )}
       </div>
 
       <div className="relative mb-6 z-10">
