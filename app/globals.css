@@ -151,6 +151,13 @@ body {
 }
 .float-drift { animation: floatDrift 5.5s ease-in-out infinite; }
 
+/* Bonus wheel — the child's name flashes + glows so it stands out */
+@keyframes nameFlash {
+  0%, 100% { transform: scale(1);    filter: brightness(1);    text-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+  50%      { transform: scale(1.09); filter: brightness(1.25); text-shadow: 0 0 20px rgba(253,224,71,0.95), 0 0 8px rgba(253,224,71,0.8), 0 2px 8px rgba(0,0,0,0.35); }
+}
+.name-flash { display: inline-block; animation: nameFlash 1.05s ease-in-out infinite; }
+
 /* Bonus wheel — night-carnival twinkling stars + chasing marquee bulbs */
 @keyframes twinkle {
   0%, 100% { opacity: 0.9; transform: scale(1); }

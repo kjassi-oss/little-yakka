@@ -10,9 +10,11 @@ const R = 135
 const CX = 160
 const CY = 160
 
-// Night-carnival colours: pure white at the very top (the logo sits on it),
-// fading into the brand indigo sky shortly after, then the logo's star yellow.
-const SKY = 'linear-gradient(180deg, #ffffff 0%, #ffffff 10%, #334487 24%, #232a5c 55%, #5b4a9e 100%)'
+// Night-carnival colours: a fixed pure-white band up top (the logo sits on it,
+// notch-safe on any phone height) fading into the brand indigo sky just below,
+// then the logo's star yellow. Pixel stops for the top so the white band always
+// clears the logo regardless of screen height.
+const SKY = 'linear-gradient(180deg, #ffffff 0px, #ffffff 190px, #334487 275px, #232a5c 55%, #5b4a9e 100%)'
 const GOLD = '#FDE047'
 const GOLD_TEXT = '#412402'
 
@@ -117,7 +119,8 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
   const isJackpot = result !== null && result.stars === maxPrize && maxPrize > 5
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-start px-6 pt-2 pb-10 overflow-y-auto" style={{ background: SKY }}>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-start px-6 pb-10 overflow-y-auto"
+      style={{ background: SKY, paddingTop: 'calc(env(safe-area-inset-top) + 3rem)' }}>
       {/* Twinkling starfield */}
       {STARS.map((s, i) => (
         <span key={i} className="absolute pointer-events-none select-none twinkle leading-none"
@@ -134,9 +137,10 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
         </div>
       )}
 
-      {/* Close — sits in the white band, so dark on light */}
+      {/* Close — sits in the white band, so dark on light; clear of the notch */}
       <button onClick={onClose}
-        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition z-10">
+        className="absolute right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition z-10"
+        style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}>
         ×
       </button>
 
@@ -144,7 +148,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
       <div className="text-center mb-5 relative z-10">
         <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto mx-auto mb-6"/>
         <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
-          {childName ? `${childName}'s Bonus Spin` : 'Bonus Spin'}
+          {childName ? (<><span className="name-flash">{childName}</span>{"'s Bonus Spin"}</>) : 'Bonus Spin'}
         </h2>
         <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#e3e7ff', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>Spin to win bonus stars!</p>
         <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold"

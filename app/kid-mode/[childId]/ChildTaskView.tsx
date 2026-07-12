@@ -380,10 +380,10 @@ export default function ChildTaskView({
       {/* Pinned header — top bar, stats row AND tabs stay locked while the list
           scrolls, so the lolly jar / progress update in view as tasks are ticked */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <div className="pt-11 pb-2 px-4">
+        <div className="pt-14 pb-2 px-4">
           <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
-            <img src="/logo.png" alt="Little Yakka" className="h-12 w-auto flex-shrink-0"/>
-            <span className="flex-1 min-w-0 truncate text-2xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto flex-shrink-0"/>
+            <span className="flex-1 min-w-0 truncate text-5xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               {child.name.split(' ')[0]}
             </span>
             <button onClick={() => router.push('/dashboard')}
