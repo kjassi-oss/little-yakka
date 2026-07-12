@@ -61,7 +61,7 @@ export default function AvatarPicker({ value, onChange, accent = 'purple' }: {
             <button key={a} type="button"
               onPointerDown={() => press(a)} onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
               onClick={() => tap(a)} onContextMenu={e => e.preventDefault()}
-              className={`aspect-square rounded-xl flex items-center justify-center text-4xl leading-none select-none transition ${sel ? `ring-2 ${ring} bg-white` : 'bg-gray-50 hover:bg-gray-100'}`}>
+              className={`aspect-square rounded-xl flex items-center justify-center text-5xl leading-none select-none overflow-hidden transition ${sel ? `ring-2 ${ring} bg-white` : 'bg-gray-50 hover:bg-gray-100'}`}>
               {sel ? value : a}
             </button>
           )
@@ -78,7 +78,7 @@ export default function AvatarPicker({ value, onChange, accent = 'purple' }: {
               {TONES.map(t => (
                 <button key={t || 'default'} type="button"
                   onClick={() => { onChange(applyTone(tonePick, t)); setTonePick(null) }}
-                  className="aspect-square rounded-xl bg-gray-50 flex items-center justify-center text-2xl leading-none active:scale-90 transition">
+                  className="aspect-square rounded-xl bg-gray-50 flex items-center justify-center text-4xl leading-none overflow-hidden active:scale-90 transition">
                   {applyTone(tonePick, t)}
                 </button>
               ))}
