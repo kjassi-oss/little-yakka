@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1500px; height: 500px; overflow: hidden; }
+  body {
+    background: #ffffff;
+    font-family: "Segoe UI", Arial, sans-serif;
+    position: relative;
+  }
+  /* pure white so the logo's own white background blends seamlessly — no box */
+  .logo-plain {
+    position: absolute;
+    left: 115px; top: 30px;
+    width: 440px; height: 440px;
+    object-fit: contain;
+  }
+  .text {
+    position: absolute;
+    left: 610px; top: 104px; width: 780px;
+  }
+  h1 {
+    font-size: 50px; line-height: 1.14; font-weight: 800;
+    color: #334487; letter-spacing: -0.5px; white-space: nowrap;
+  }
+  h1 .pop { color: #F59E0B; }
+  .sub {
+    margin-top: 18px; font-size: 25px; font-weight: 500;
+    color: #5A628C; white-space: nowrap;
+  }
+  .pills { margin-top: 30px; display: flex; gap: 15px; }
+  .pill {
+    font-size: 21px; font-weight: 700; color: #334487;
+    padding: 11px 22px; border-radius: 999px;
+    background: #fff; border: 3px solid #334487;
+    display: flex; align-items: center; gap: 10px;
+    white-space: nowrap;
+  }
+  .pill.yellow { background: #FDE047; border-color: #FDE047; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+  .dot.indigo { background: #334487; }
+  .dot.pink { background: #EC4899; }
+  .dot.green { background: #22C55E; }
+  svg.confetti { position: absolute; overflow: visible; }
+</style>
+</head>
+<body>
+  <img class="logo-plain" src="logo-white.png" alt="Little Yakka">
+
+  <div class="text">
+    <h1>The chore app your kids<br>will <span class="pop">ask</span> to open</h1>
+    <div class="sub">Stars, streaks &amp; a weekly Bonus Wheel — chores, but fun.</div>
+    <div class="pills">
+      <div class="pill yellow"><span class="dot indigo"></span>100% free</div>
+      <div class="pill"><span class="dot pink"></span>No ads</div>
+      <div class="pill"><span class="dot green"></span>Kids never sign in</div>
+    </div>
+  </div>
+
+  <svg class="confetti" width="1500" height="500" viewBox="0 0 1500 500" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <path d="M 585 62 l 6 14 15 2 -11 10 3 15 -13 -8 -13 8 3 -15 -11 -10 15 -2 z" fill="#FDE047"/>
+      <path d="M 1400 105 l 5 12 13 2 -9 9 2 13 -11 -7 -11 7 2 -13 -9 -9 13 -2 z" fill="#EC4899" opacity="0.8"/>
+      <path d="M 1425 355 l 6 14 15 2 -11 10 3 15 -13 -8 -13 8 3 -15 -11 -10 15 -2 z" fill="#FDE047"/>
+      <path d="M 1340 440 l 4 10 11 1 -8 8 2 11 -9 -6 -9 6 2 -11 -8 -8 11 -1 z" fill="#22C55E" opacity="0.75"/>
+      <path d="M 75 90 l 5 12 13 2 -9 9 2 13 -11 -7 -11 7 2 -13 -9 -9 13 -2 z" fill="#3B82F6" opacity="0.75"/>
+      <path d="M 60 390 l 4 10 11 1 -8 8 2 11 -9 -6 -9 6 2 -11 -8 -8 11 -1 z" fill="#F97316" opacity="0.8"/>
+      <path d="M 1140 48 l 4 10 11 1 -8 8 2 11 -9 -6 -9 6 2 -11 -8 -8 11 -1 z" fill="#8B5CF6" opacity="0.8"/>
+      <path d="M 860 452 l 4 10 11 1 -8 8 2 11 -9 -6 -9 6 2 -11 -8 -8 11 -1 z" fill="#EC4899" opacity="0.7"/>
+      <circle cx="1460" cy="235" r="6" fill="#FDE047"/>
+      <circle cx="105" cy="245" r="5" fill="#22C55E" opacity="0.6"/>
+      <circle cx="590" cy="450" r="5" fill="#3B82F6" opacity="0.6"/>
+      <circle cx="1245" cy="468" r="5" fill="#F59E0B" opacity="0.7"/>
+    </g>
+  </svg>
+</body>
+</html>

@@ -198,8 +198,8 @@ export default function AnalyticsPage() {
                     {child.avatar_url
                       ? <img src={child.avatar_url} className="w-12 h-12 rounded-full object-cover" alt=""
                           style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
-                      : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                          style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
+                      : <div className="w-12 h-12 rounded-full flex items-center justify-center text-[30px] leading-none overflow-hidden bg-white"
+                          style={{ border: `2px solid ${child.colour}`, boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
                     <span className="text-[10px] font-bold truncate max-w-[60px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
                   </button>
                 )
@@ -253,7 +253,7 @@ export default function AnalyticsPage() {
                   <div className="relative w-7 h-7 flex-shrink-0">
                     {k.child.avatar_url
                       ? <img src={k.child.avatar_url} className="w-7 h-7 rounded-full object-cover" alt=""/>
-                      : <div className="w-7 h-7 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: k.child.colour + '33' }}>{k.child.avatar}</div>}
+                      : <div className="w-7 h-7 rounded-full flex items-center justify-center text-[18px] leading-none overflow-hidden bg-white" style={{ border: `2px solid ${k.child.colour}` }}>{k.child.avatar}</div>}
                     {i < 3 && <span className="absolute -bottom-1.5 -right-1.5 text-xs leading-none">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>}
                   </div>
                   <span className="text-sm font-bold text-gray-700 w-14 truncate">{k.child.name.split(' ')[0]}</span>

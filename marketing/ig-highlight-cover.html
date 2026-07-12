@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1080px; overflow: hidden; }
+  body {
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .badge {
+    width: 640px; height: 640px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .badge svg { width: 380px; height: 380px; }
+  svg.confetti { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+  <!-- confetti dashes, echoing the logo's sparkle marks -->
+  <svg class="confetti" width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+    <g stroke-linecap="round" stroke-width="16" fill="none">
+      <line x1="180" y1="200" x2="215" y2="165" stroke="#F9C513"/>
+      <line x1="130" y1="290" x2="175" y2="270" stroke="#2BB3C0"/>
+      <line x1="880" y1="175" x2="912" y2="212" stroke="#E9527D"/>
+      <line x1="930" y1="280" x2="975" y2="265" stroke="#F9C513"/>
+      <line x1="160" y1="850" x2="200" y2="880" stroke="#7B52C7"/>
+      <line x1="890" y1="870" x2="925" y2="838" stroke="#43A047"/>
+    </g>
+    <path d="M 540 105 l 8 19 20 3 -15 14 4 20 -17 -11 -17 11 4 -20 -15 -14 20 -3 z" fill="#F9C513"/>
+    <path d="M 95 545 l 6 15 16 2 -12 11 3 16 -13 -8 -13 8 3 -16 -12 -11 16 -2 z" fill="#F9C513" opacity="0.85"/>
+    <path d="M 970 560 l 6 15 16 2 -12 11 3 16 -13 -8 -13 8 3 -16 -12 -11 16 -2 z" fill="#F9C513" opacity="0.85"/>
+  </svg>
+
+  <div class="badge" id="badge"></div>
+
+  <script>
+    const icons = {
+      // white star with a tick, lifted from the "Y" in Yakka
+      star: { colour: '#43A047', svg:
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M50 6 L61 37 L94 38 L68 58 L77 91 L50 71 L23 91 L32 58 L6 38 L39 37 Z" fill="#fff" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>' +
+        '<path d="M36 54 L47 65 L67 41" fill="none" stroke="#43A047" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>' },
+      // ferris wheel — purple lives here and only here
+      wheel: { colour: '#7B52C7', svg:
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+        '<g stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round">' +
+        '<circle cx="50" cy="42" r="26"/>' +
+        '<line x1="50" y1="42" x2="50" y2="16"/><line x1="50" y1="42" x2="72.5" y2="29"/>' +
+        '<line x1="50" y1="42" x2="72.5" y2="55"/><line x1="50" y1="42" x2="50" y2="68"/>' +
+        '<line x1="50" y1="42" x2="27.5" y2="55"/><line x1="50" y1="42" x2="27.5" y2="29"/>' +
+        '<line x1="50" y1="46" x2="30" y2="88"/><line x1="50" y1="46" x2="70" y2="88"/>' +
+        '<line x1="22" y1="90" x2="78" y2="90"/>' +
+        '</g>' +
+        '<circle cx="50" cy="42" r="7" fill="#fff"/>' +
+        '<circle cx="50" cy="16" r="6" fill="#fff"/><circle cx="72.5" cy="29" r="6" fill="#fff"/>' +
+        '<circle cx="72.5" cy="55" r="6" fill="#fff"/><circle cx="50" cy="68" r="6" fill="#fff"/>' +
+        '<circle cx="27.5" cy="55" r="6" fill="#fff"/><circle cx="27.5" cy="29" r="6" fill="#fff"/>' +
+        '</svg>' },
+      // padlock
+      lock: { colour: '#2B6FD4', svg:
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M33 46 V32 a17 17 0 0 1 34 0 V46" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>' +
+        '<rect x="22" y="46" width="56" height="42" rx="11" fill="#fff"/>' +
+        '<circle cx="50" cy="62" r="6.5" fill="#2B6FD4"/>' +
+        '<rect x="46.5" y="64" width="7" height="13" rx="3.5" fill="#2B6FD4"/>' +
+        '</svg>' },
+      // heart, lifted from the "a" in Yakka
+      heart: { colour: '#E9527D', svg:
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M50 86 C22 62 10 42 24 28 C36 17 48 26 50 36 C52 26 64 17 76 28 C90 42 78 62 50 86 Z" fill="#fff"/>' +
+        '</svg>' }
+    };
+    const key = location.search.replace('?','') || 'star';
+    const spec = icons[key] || icons.star;
+    const badge = document.getElementById('badge');
+    badge.style.background = spec.colour;
+    badge.innerHTML = spec.svg;
+  </script>
+</body>
+</html>

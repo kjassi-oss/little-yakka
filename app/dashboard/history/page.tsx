@@ -107,8 +107,8 @@ export default function HistoryPage() {
             <div className="space-y-2">
               {grouped[date].map(c => (
                 <div key={c.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
-                    style={{ backgroundColor: c.children?.colour + '33' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[26px] leading-none overflow-hidden bg-white flex-shrink-0"
+                    style={{ border: `2px solid ${c.children?.colour || '#e5e7eb'}` }}>
                     {c.children?.avatar}
                   </div>
                   <div className="flex-1 min-w-0">

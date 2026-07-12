@@ -363,7 +363,7 @@ export default function ChildTaskView({
             <div className="mb-3">
               {child.avatar_url
                 ? <img src={child.avatar_url} className="w-20 h-20 rounded-full object-cover mx-auto" style={{ border: `4px solid ${child.colour}` }} alt=""/>
-                : <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl" style={{ backgroundColor: child.colour + '33', border: `4px solid ${child.colour}` }}>{child.avatar}</div>}
+                : <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-[52px] leading-none overflow-hidden bg-white" style={{ border: `4px solid ${child.colour}` }}>{child.avatar}</div>}
             </div>
             <p className="text-4xl mb-2">💌</p>
             <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-2">A message from your parent</p>

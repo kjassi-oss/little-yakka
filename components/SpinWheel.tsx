@@ -196,7 +196,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
           {childAvatarUrl
             ? <img src={childAvatarUrl} className="w-[72px] h-[72px] rounded-full object-cover shadow-lg" style={{ border: `4px solid ${GOLD}` }} alt=""/>
-            : <div className="w-[72px] h-[72px] rounded-full shadow-lg flex items-center justify-center text-4xl bg-white"
+            : <div className="w-[72px] h-[72px] rounded-full shadow-lg flex items-center justify-center text-[46px] leading-none overflow-hidden bg-white"
                 style={{ border: `4px solid ${GOLD}` }}>{childAvatar}</div>}
         </div>
 

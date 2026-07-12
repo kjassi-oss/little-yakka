@@ -35,8 +35,8 @@ export default function TaskLauncher({ taskId, kids, children }: {
                   className="flex flex-col items-center gap-1.5 p-2 rounded-2xl active:scale-95 transition">
                   {k.avatar_url
                     ? <img src={k.avatar_url} className="w-16 h-16 rounded-2xl object-cover" style={{ border: `3px solid ${k.colour}` }} alt=""/>
-                    : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-                        style={{ backgroundColor: k.colour + '25', border: `3px solid ${k.colour}40` }}>{k.avatar}</div>}
+                    : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-[42px] leading-none overflow-hidden bg-white"
+                        style={{ border: `3px solid ${k.colour}` }}>{k.avatar}</div>}
                   <span className="text-xs font-bold text-gray-700 truncate max-w-full">{k.name.split(' ')[0]}</span>
                 </button>
               ))}

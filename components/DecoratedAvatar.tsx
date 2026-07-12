@@ -22,9 +22,9 @@ export default function DecoratedAvatar({ child, size = 56, round = false }: {
     <img src={child.avatar_url} alt="" className="object-cover"
       style={{ width: inner, height: inner, borderRadius: radius, border: frame ? 'none' : `3px solid ${child.colour}` }}/>
   ) : (
-    <div className="flex items-center justify-center bg-white"
+    <div className="flex items-center justify-center bg-white overflow-hidden leading-none"
       style={{ width: inner, height: inner, borderRadius: radius,
-        border: frame ? 'none' : `3px solid ${child.colour}`, fontSize: inner * 0.55 }}>
+        border: frame ? 'none' : `3px solid ${child.colour}`, fontSize: inner * 0.7 }}>
       {child.avatar}
     </div>
   )

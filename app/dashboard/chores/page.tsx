@@ -490,8 +490,8 @@ export default function ChoresPage() {
                   {child.avatar_url
                     ? <img src={child.avatar_url} alt={child.name} className="w-14 h-14 rounded-full object-cover"
                         style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
-                    : <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-                        style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
+                    : <div className="w-14 h-14 rounded-full flex items-center justify-center text-[36px] leading-none overflow-hidden bg-white"
+                        style={{ border: `2px solid ${child.colour}`, boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
                         {child.avatar}
                       </div>
                   }
@@ -726,8 +726,8 @@ export default function ChoresPage() {
                       {child.avatar_url
                         ? <img src={child.avatar_url} alt={child.name} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
                             style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}/>
-                        : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition ${sel ? '' : 'opacity-40 grayscale'}`}
-                            style={{ backgroundColor: child.colour + '25', boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
+                        : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-[36px] leading-none overflow-hidden bg-white transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                            style={{ border: `2px solid ${child.colour}`, boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
                             {child.avatar}
                           </div>}
                       <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
@@ -802,8 +802,8 @@ export default function ChoresPage() {
                         {assignedKids.map(child => (
                           child.avatar_url
                             ? <img key={child.id} src={child.avatar_url} className="w-6 h-6 rounded-full object-cover border-2 border-white" alt=""/>
-                            : <div key={child.id} className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white"
-                                style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>
+                            : <div key={child.id} className="w-6 h-6 rounded-full flex items-center justify-center text-[15px] leading-none overflow-hidden bg-white"
+                                style={{ border: `1.5px solid ${child.colour}` }}>{child.avatar}</div>
                         ))}
                       </div>
                     </div>
@@ -853,8 +853,8 @@ export default function ChoresPage() {
                     className="w-full flex items-center gap-3 px-4 py-3 active:bg-gray-50 transition">
                     {child.avatar_url
                       ? <img src={child.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt=""/>
-                      : <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                          style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>}
+                      : <div className="w-9 h-9 rounded-full flex items-center justify-center text-[24px] leading-none overflow-hidden bg-white flex-shrink-0"
+                          style={{ border: `2px solid ${child.colour}` }}>{child.avatar}</div>}
                     <p className="font-bold text-gray-800 flex-1 text-left">{child.name.split(' ')[0]}</p>
                     <span className="text-xs font-semibold text-gray-400">{items.length} tasks done</span>
                     <span className={`text-gray-300 text-lg transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
@@ -942,8 +942,8 @@ export default function ChoresPage() {
                   className="flex flex-col items-center gap-1.5 p-2 rounded-2xl active:scale-95 transition">
                   {child.avatar_url
                     ? <img src={child.avatar_url} className="w-16 h-16 rounded-2xl object-cover" style={{ border: `3px solid ${child.colour}` }} alt=""/>
-                    : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-                        style={{ backgroundColor: child.colour + '25', border: `3px solid ${child.colour}40` }}>{child.avatar}</div>}
+                    : <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-[42px] leading-none overflow-hidden bg-white"
+                        style={{ border: `3px solid ${child.colour}` }}>{child.avatar}</div>}
                   <span className="text-xs font-bold text-gray-700 truncate max-w-full">{child.name.split(' ')[0]}</span>
                 </button>
               ))}

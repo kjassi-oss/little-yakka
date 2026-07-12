@@ -46,7 +46,7 @@ export default async function KidModePage() {
           >
             {child.avatar_url
               ? <img src={child.avatar_url} className="w-24 h-24 rounded-2xl object-cover border-4 border-white/70 drop-shadow" alt=""/>
-              : <div className="w-24 h-24 rounded-2xl bg-white/25 flex items-center justify-center text-6xl drop-shadow">{child.avatar}</div>}
+              : <div className="w-24 h-24 rounded-2xl bg-white flex items-center justify-center text-[66px] leading-none overflow-hidden drop-shadow">{child.avatar}</div>}
             <div className="text-center">
               <p className="font-bold text-white text-xl drop-shadow">{child.name}</p>
               <p className="text-white/90 text-sm font-semibold mt-0.5">⭐ {balances[child.id] || 0} Stars</p>

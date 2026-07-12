@@ -56,7 +56,7 @@ export default function HomeTaskPreview({ tasks, childrenList, assignments, wind
                     className="flex flex-col items-center gap-1.5 active:scale-95 transition">
                     {kid.avatar_url
                       ? <img src={kid.avatar_url} className="w-14 h-14 rounded-full object-cover" style={{ border: `3px solid ${kid.colour}` }} alt=""/>
-                      : <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl" style={{ backgroundColor: kid.colour + '33', border: `3px solid ${kid.colour}` }}>{kid.avatar}</div>}
+                      : <div className="w-14 h-14 rounded-full flex items-center justify-center text-[36px] leading-none overflow-hidden bg-white" style={{ border: `3px solid ${kid.colour}` }}>{kid.avatar}</div>}
                     <span className="text-xs font-bold text-gray-600">{kid.name.split(' ')[0]}</span>
                   </button>
                 )

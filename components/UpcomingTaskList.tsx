@@ -101,8 +101,8 @@ export default function UpcomingTaskList({
                 {child.avatar_url
                   ? <img src={child.avatar_url} className={`w-12 h-12 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
                       style={{ boxShadow: sel && !isAll ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }} alt=""/>
-                  : <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition ${sel ? '' : 'opacity-40 grayscale'}`}
-                      style={{ backgroundColor: child.colour + '25', boxShadow: sel && !isAll ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
+                  : <div className={`w-12 h-12 rounded-full flex items-center justify-center text-[30px] leading-none overflow-hidden bg-white transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                      style={{ border: `2px solid ${child.colour}`, boxShadow: sel && !isAll ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
                 <span className="text-[11px] font-bold truncate max-w-[64px]" style={{ color: sel && !isAll ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
               </button>
             )
@@ -216,8 +216,8 @@ export default function UpcomingTaskList({
                             <div key={child.id} className="relative flex-shrink-0" title={child.name.split(' ')[0]}>
                               {child.avatar_url
                                 ? <img src={child.avatar_url} className={`w-8 h-8 rounded-full object-cover ${done ? '' : 'opacity-50'}`} alt=""/>
-                                : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${done ? '' : 'opacity-50'}`}
-                                    style={{ backgroundColor: child.colour + '33' }}>{child.avatar}</div>}
+                                : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[20px] leading-none overflow-hidden bg-white ${done ? '' : 'opacity-50'}`}
+                                    style={{ border: `2px solid ${child.colour}` }}>{child.avatar}</div>}
                               <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${done ? 'bg-green-500' : 'bg-gray-200'}`}>
                                 {done && <span className="text-white text-[8px] font-bold">✓</span>}
                               </div>
