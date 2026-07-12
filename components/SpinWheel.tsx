@@ -210,14 +210,22 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
       </div>
 
       {!result ? (
-        <button onClick={spin} disabled={spinning}
-          className={`font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-70 relative z-10 ${spinning ? 'text-white' : 'demo-pulse'}`}
-          style={{ background: spinning ? '#4a5399' : GOLD, color: spinning ? '#fff' : GOLD_TEXT }}>
-          {spinning ? '🌀 Spinning...' : '🎯 SPIN!'}
-        </button>
+        <div className="flex flex-col items-center gap-3 relative z-10">
+          <button onClick={spin} disabled={spinning}
+            className={`font-black text-xl py-5 px-16 rounded-3xl shadow-lg active:scale-95 transition disabled:opacity-70 ${spinning ? 'text-white' : 'demo-pulse'}`}
+            style={{ background: spinning ? '#4a5399' : GOLD, color: spinning ? '#fff' : GOLD_TEXT }}>
+            {spinning ? '🌀 Spinning...' : '🎯 SPIN!'}
+          </button>
+          {/* Cancel — only before spinning; hidden once the wheel is turning */}
+          {!spinning && (
+            <button onClick={onClose}
+              className="px-8 py-2.5 rounded-2xl border border-white/25 text-white/80 font-bold text-sm active:scale-95 transition">
+              Cancel
+            </button>
+          )}
+        </div>
       ) : (
         <div className="text-center pop-in relative z-10">
-          <div className="text-7xl mb-3">{isJackpot ? '🏆' : '🎉'}</div>
           <p className="text-lg" style={{ color: '#c7cdf0' }}>You won</p>
           <p className="font-black text-5xl my-1" style={{ color: GOLD }}>+{result.stars} ⭐</p>
           {isJackpot && <p className="font-bold text-lg mb-2" style={{ color: GOLD }}>JACKPOT!! 🎊</p>}
