@@ -345,7 +345,7 @@ export default function ChildTaskView({
             </button>
           </div>
         </div>
-        {showSpin && <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} maxPrize={maxPrize} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>}
+        {showSpin && <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} childName={child.name.split(' ')[0]} maxPrize={maxPrize} onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>}
         {showRewards && <RewardsPanel rewards={rewards} starBalance={starBalance} pendingRewardIds={pendingRewardIds}
           requestingId={requestingId} justRequestedId={justRequestedId} onRequest={requestReward} onClose={() => setShowRewards(false)} colour={child.colour}/>}
       </div>
@@ -615,7 +615,7 @@ export default function ChildTaskView({
           onRequest={requestReward} onClose={() => setShowRewards(false)} colour={child.colour}/>
       )}
       {showSpin && (
-        <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} maxPrize={maxPrize}
+        <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} childName={child.name.split(' ')[0]} maxPrize={maxPrize}
           onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
       )}
     </div>

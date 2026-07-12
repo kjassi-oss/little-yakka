@@ -10,22 +10,23 @@ const R = 135
 const CX = 160
 const CY = 160
 
-// Night-carnival colours: brand indigo sky + the logo's star yellow
-const SKY = 'linear-gradient(180deg, #232a5c 0%, #334487 55%, #5b4a9e 100%)'
+// Night-carnival colours: pure white at the very top (the logo sits on it),
+// fading into the brand indigo sky shortly after, then the logo's star yellow.
+const SKY = 'linear-gradient(180deg, #ffffff 0%, #ffffff 10%, #334487 24%, #232a5c 55%, #5b4a9e 100%)'
 const GOLD = '#FDE047'
 const GOLD_TEXT = '#412402'
 
-// Twinkling starfield packed around the edges so nothing overlaps the wheel.
+// Twinkling starfield packed around the edges so nothing overlaps the wheel
+// (none in the top white band, where they'd be invisible).
 const STARS = [
-  { top: '5%', left: '4%', size: 20, c: GOLD },   { top: '20%', left: '9%', size: 13, c: '#fff' },
+  { top: '20%', left: '9%', size: 13, c: '#fff' },
   { top: '35%', left: '3%', size: 16, c: '#fff' }, { top: '52%', left: '8%', size: 12, c: GOLD },
   { top: '68%', left: '4%', size: 18, c: '#fff' }, { top: '84%', left: '8%', size: 14, c: GOLD },
   { top: '93%', left: '3%', size: 11, c: '#fff' },
-  { top: '6%', left: '91%', size: 17, c: '#fff' }, { top: '22%', left: '94%', size: 12, c: GOLD },
+  { top: '26%', left: '91%', size: 17, c: '#fff' }, { top: '22%', left: '94%', size: 12, c: GOLD },
   { top: '37%', left: '90%', size: 19, c: GOLD },  { top: '53%', left: '95%', size: 12, c: '#fff' },
   { top: '69%', left: '90%', size: 15, c: '#fff' },{ top: '84%', left: '93%', size: 17, c: GOLD },
   { top: '93%', left: '89%', size: 11, c: '#fff' },
-  { top: '2%', left: '30%', size: 12, c: '#fff' }, { top: '3%', left: '66%', size: 14, c: GOLD },
   { top: '93%', left: '30%', size: 13, c: GOLD },  { top: '94%', left: '64%', size: 12, c: '#fff' },
   { top: '90%', left: '50%', size: 10, c: '#fff' },
 ]
@@ -78,12 +79,13 @@ interface Props {
   childColour: string
   childAvatar: string
   childAvatarUrl?: string
+  childName?: string
   maxPrize: number
   onWin: (stars: number) => void
   onClose: () => void
 }
 
-export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, maxPrize, onWin, onClose }: Props) {
+export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, childName, maxPrize, onWin, onClose }: Props) {
   const PRIZES = useMemo(() => buildPrizes(maxPrize), [maxPrize])
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
@@ -115,7 +117,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
   const isJackpot = result !== null && result.stars === maxPrize && maxPrize > 5
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 overflow-y-auto" style={{ background: SKY }}>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-start px-6 pt-2 pb-10 overflow-y-auto" style={{ background: SKY }}>
       {/* Twinkling starfield */}
       {STARS.map((s, i) => (
         <span key={i} className="absolute pointer-events-none select-none twinkle leading-none"
@@ -132,21 +134,19 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ma
         </div>
       )}
 
-      {/* Close */}
+      {/* Close — sits in the white band, so dark on light */}
       <button onClick={onClose}
-        className="absolute top-12 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl font-bold active:scale-90 transition z-10">
+        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xl font-bold active:scale-90 transition z-10">
         ×
       </button>
 
-      {/* Header — logo on top, then the title */}
-      <div className="text-center mt-6 mb-5 relative z-10">
-        <div className="inline-block bg-white rounded-2xl px-3 py-1.5 shadow-lg mb-4">
-          <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto"/>
-        </div>
-        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD }}>
-          Bonus Spin
+      {/* Header — logo up top on pure white; the sky fade starts just below it */}
+      <div className="text-center mb-5 relative z-10">
+        <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto mx-auto mb-6"/>
+        <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
+          {childName ? `${childName}'s Bonus Spin` : 'Bonus Spin'}
         </h2>
-        <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#c7cdf0' }}>Spin to win bonus stars!</p>
+        <p className="text-base mt-1" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: '#e3e7ff', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>Spin to win bonus stars!</p>
         <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-xs font-bold"
           style={{ background: GOLD, color: GOLD_TEXT }}>
           Max prize: ⭐ {maxPrize}
