@@ -12,7 +12,7 @@ import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
 import AvatarPicker from '@/components/AvatarPicker'
-import { kidAvatarPath, isKidAvatar, DEFAULT_TONES } from '@/lib/kidAvatars'
+import { isKidAvatar } from '@/lib/kidAvatars'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -47,8 +47,7 @@ export default function SettingsPage() {
   const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  // newChild.avatar holds the picker selection — a cartoon path (/avatars/…)
-  const [newChild, setNewChild] = useState({ name: '', avatar: kidAvatarPath(1, DEFAULT_TONES[0]), colour: '#FF6B6B' })
+  const [newChild, setNewChild] = useState({ name: '', avatar: '👧', colour: '#FF6B6B' })
   const [newChildPhoto, setNewChildPhoto] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
@@ -229,15 +228,8 @@ export default function SettingsPage() {
     if (!newChild.name.trim()) return
     setSaving(true)
     const supabase = createClient()
-    // Cartoon selections live in avatar_url (rendered as an image app-wide);
-    // the avatar column keeps an emoji fallback.
-    const isCartoon = isKidAvatar(newChild.avatar)
     const { data: created } = await supabase.from('children')
-      .insert({
-        name: newChild.name.trim(), colour: newChild.colour, family_id: familyId,
-        avatar: isCartoon ? '🙂' : newChild.avatar,
-        ...(isCartoon ? { avatar_url: newChild.avatar } : {}),
-      })
+      .insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
       .select('id').single()
     if (created && newChildPhoto) {
       const photo = await compressImage(newChildPhoto)
@@ -250,7 +242,7 @@ export default function SettingsPage() {
         await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
       }
     }
-    setNewChild({ name: '', avatar: kidAvatarPath(1, DEFAULT_TONES[0]), colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
+    setNewChild({ name: '', avatar: '👧', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
   }
 
@@ -429,8 +421,6 @@ export default function SettingsPage() {
                 <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
                   {newChildPhoto
                     ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
-                    : isKidAvatar(newChild.avatar)
-                    ? <img src={newChild.avatar} className="w-14 h-14 rounded-2xl object-contain bg-white" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
                     : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[40px] leading-none overflow-hidden bg-white" style={{ border: `3px solid ${newChild.colour}` }}>{newChild.avatar}</div>}
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
                 </button>
@@ -471,8 +461,10 @@ export default function SettingsPage() {
                       className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
-                      <AvatarPicker value={isKidAvatar(editingChild.avatar_url) ? editingChild.avatar_url! : ''}
-                        onChange={a => setEditingChild({ ...editingChild, avatar_url: a })}/>
+                      <AvatarPicker value={editingChild.avatar}
+                        onChange={a => setEditingChild({ ...editingChild, avatar: a,
+                          // Picking an emoji clears a leftover cartoon avatar (kept for real photos)
+                          avatar_url: isKidAvatar(editingChild.avatar_url) ? undefined : editingChild.avatar_url })}/>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Colour</p>
