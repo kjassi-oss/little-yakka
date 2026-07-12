@@ -9,7 +9,12 @@ import { TASK_PRESETS as PREDEFINED_TASKS } from '@/lib/taskPresets'
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
 
-const AVATARS = ['🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦉']
+// 15 kid avatars — 7 girls, 7 boys + a clown; shown 5 per row (3 rows)
+const AVATARS = [
+  '👧', '👦', '🦸‍♀️', '🦸‍♂️', '🤡',
+  '👸', '🤴', '🧚‍♀️', '🥷', '🤠',
+  '🧜‍♀️', '🧙‍♀️', '🧙‍♂️', '👩‍🚀', '👨‍🚀',
+]
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF']
 const TASK_EMOJIS = [
   '⭐','🛏️','🧹','🍽️','🧺','📚','🐕','🪥','🚿','👕','🎒','🏃',
@@ -351,10 +356,10 @@ export default function SetupPage() {
           </div>
         )}
         <p className="text-xs text-gray-400 text-center mb-2">…or pick an avatar</p>
-        <div className="grid grid-cols-10 gap-1">
+        <div className="grid grid-cols-5 gap-1.5">
           {AVATARS.map(a => (
             <button key={a} onClick={() => pickAvatar(a)}
-              className={`aspect-square rounded-lg flex items-center justify-center text-base transition ${!child.photo && child.avatar === a ? 'ring-2 ring-pink-400 bg-pink-50' : 'bg-gray-50 hover:bg-gray-100'}`}>
+              className={`aspect-square rounded-xl flex items-center justify-center text-2xl transition ${!child.photo && child.avatar === a ? 'ring-2 ring-pink-400 bg-white' : 'bg-gray-50 hover:bg-gray-100'}`}>
               {a}
             </button>
           ))}

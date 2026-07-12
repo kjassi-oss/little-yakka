@@ -25,11 +25,11 @@ const COMMON_TIMEZONES = [
   { label: 'UTC', value: 'UTC' },
 ]
 
+// 15 kid avatars — 7 girls, 7 boys + a clown; shown 5 per row (3 rows)
 const AVATARS = [
-  '🐨','🦁','🐯','🦊','🐻','🐼','🐸','🦄','🐙','🦋','🐬','🦉',
-  '🐵','🐧','🦖','🐉','🦕','🦀','🐳','🐘','🦒','🐆','🦓','🦜',
-  '🧸','🦸','🦹','🧙','🧚','🧜','🧝','🏄','🤸','⭐','🌈','🚀',
-  '🎯','🏆','💎','🌺','🌻','🍀','🎸','🎨','🎮','🦋','🌙','🔥',
+  '👧', '👦', '🦸‍♀️', '🦸‍♂️', '🤡',
+  '👸', '🤴', '🧚‍♀️', '🥷', '🤠',
+  '🧜‍♀️', '🧙‍♀️', '🧙‍♂️', '👩‍🚀', '👨‍🚀',
 ]
 const COLOURS = [
   '#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF',
@@ -420,10 +420,10 @@ export default function SettingsPage() {
               <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
               <div>
                 <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
-                <div className="grid grid-cols-6 gap-1">
+                <div className="grid grid-cols-5 gap-1.5">
                   {AVATARS.map(a => (
                     <button key={a} onClick={() => setNewChild({ ...newChild, avatar: a })}
-                      className={`text-2xl p-1 rounded-xl ${newChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
+                      className={`text-2xl p-1.5 rounded-xl ${newChild.avatar === a ? 'ring-2 ring-purple-400 bg-white' : 'bg-gray-50 hover:bg-gray-100'}`}>{a}</button>
                   ))}
                 </div>
               </div>
@@ -454,10 +454,10 @@ export default function SettingsPage() {
                       className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
-                      <div className="grid grid-cols-6 gap-1">
+                      <div className="grid grid-cols-5 gap-1.5">
                         {AVATARS.map(a => (
                           <button key={a} onClick={() => setEditingChild({ ...editingChild, avatar: a })}
-                            className={`text-2xl p-1 rounded-xl ${editingChild.avatar === a ? 'ring-2 ring-purple-400 bg-purple-50' : 'hover:bg-gray-100'}`}>{a}</button>
+                            className={`text-2xl p-1.5 rounded-xl ${editingChild.avatar === a ? 'ring-2 ring-purple-400 bg-white' : 'bg-gray-50 hover:bg-gray-100'}`}>{a}</button>
                         ))}
                       </div>
                     </div>

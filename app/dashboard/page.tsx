@@ -223,9 +223,9 @@ export default async function DashboardPage() {
                   </div>
 
                   <Link href={`/kid-mode/${child.id}`} className="block p-2.5 text-center active:bg-gray-50 transition rounded-2xl">
-                    {/* Avatar (with any equipped style-shop hat/frame) */}
-                    <div className="relative w-14 h-14 mx-auto mb-1.5 mt-2">
-                      <DecoratedAvatar child={child} size={56}/>
+                    {/* Avatar (with any equipped style-shop hat/frame) — fills most of the tile */}
+                    <div className="relative w-[88px] h-[88px] mx-auto mb-1.5 mt-2">
+                      <DecoratedAvatar child={child} size={88}/>
                       {allDone && (
                         <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow z-10">
                           <span className="text-white text-[10px] font-black">✓</span>
