@@ -12,6 +12,7 @@ import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
 import AvatarPicker from '@/components/AvatarPicker'
+import { kidAvatarPath, isKidAvatar, DEFAULT_TONES } from '@/lib/kidAvatars'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -46,7 +47,8 @@ export default function SettingsPage() {
   const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newChild, setNewChild] = useState({ name: '', avatar: '👧', colour: '#FF6B6B' })
+  // newChild.avatar holds the picker selection — a cartoon path (/avatars/…)
+  const [newChild, setNewChild] = useState({ name: '', avatar: kidAvatarPath(1, DEFAULT_TONES[0]), colour: '#FF6B6B' })
   const [newChildPhoto, setNewChildPhoto] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
@@ -227,8 +229,15 @@ export default function SettingsPage() {
     if (!newChild.name.trim()) return
     setSaving(true)
     const supabase = createClient()
+    // Cartoon selections live in avatar_url (rendered as an image app-wide);
+    // the avatar column keeps an emoji fallback.
+    const isCartoon = isKidAvatar(newChild.avatar)
     const { data: created } = await supabase.from('children')
-      .insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
+      .insert({
+        name: newChild.name.trim(), colour: newChild.colour, family_id: familyId,
+        avatar: isCartoon ? '🙂' : newChild.avatar,
+        ...(isCartoon ? { avatar_url: newChild.avatar } : {}),
+      })
       .select('id').single()
     if (created && newChildPhoto) {
       const photo = await compressImage(newChildPhoto)
@@ -241,7 +250,7 @@ export default function SettingsPage() {
         await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
       }
     }
-    setNewChild({ name: '', avatar: '👧', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
+    setNewChild({ name: '', avatar: kidAvatarPath(1, DEFAULT_TONES[0]), colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
   }
 
@@ -308,7 +317,7 @@ export default function SettingsPage() {
     if (!editingChild) return
     setSaving(true)
     const supabase = createClient()
-    const base = { name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour }
+    const base = { name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour, avatar_url: editingChild.avatar_url ?? null }
     const goal = {
       goal_title: editingChild.goal_title?.trim() || null,
       goal_emoji: editingChild.goal_emoji?.trim() || null,
@@ -420,7 +429,9 @@ export default function SettingsPage() {
                 <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
                   {newChildPhoto
                     ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
-                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl bg-white" style={{ border: `3px solid ${newChild.colour}` }}>{newChild.avatar}</div>}
+                    : isKidAvatar(newChild.avatar)
+                    ? <img src={newChild.avatar} className="w-14 h-14 rounded-2xl object-contain bg-white" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
+                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[40px] leading-none overflow-hidden bg-white" style={{ border: `3px solid ${newChild.colour}` }}>{newChild.avatar}</div>}
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
                 </button>
                 <input type="file" accept="image/*" className="hidden" ref={newChildPhotoRef}
@@ -460,7 +471,8 @@ export default function SettingsPage() {
                       className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
-                      <AvatarPicker value={editingChild.avatar} onChange={a => setEditingChild({ ...editingChild, avatar: a })}/>
+                      <AvatarPicker value={isKidAvatar(editingChild.avatar_url) ? editingChild.avatar_url! : ''}
+                        onChange={a => setEditingChild({ ...editingChild, avatar_url: a })}/>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Colour</p>
@@ -505,7 +517,7 @@ export default function SettingsPage() {
                       {child.avatar_url ? (
                         <img src={child.avatar_url} alt={child.name} className="w-20 h-20 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
                       ) : (
-                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl bg-white" style={{ border: `3px solid ${child.colour}` }}>{child.avatar}</div>
+                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-[56px] leading-none overflow-hidden bg-white" style={{ border: `3px solid ${child.colour}` }}>{child.avatar}</div>
                       )}
                       <button onClick={() => photoInputRefs.current[child.id]?.click()}
                         className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
@@ -798,6 +810,11 @@ export default function SettingsPage() {
           className="w-full text-gray-400 font-semibold text-sm text-center py-2 active:scale-95 transition">
           Delete Account
         </button>
+
+        {/* Avatar art attribution (CC BY 4.0) */}
+        <p className="text-[10px] text-center text-gray-300 px-4">
+          Kid avatars remixed from <a href="https://www.figma.com/community/file/881358461963645496" className="underline">"Custom Avatar"</a> by Ashley Seo, licensed <a href="https://creativecommons.org/licenses/by/4.0/" className="underline">CC BY 4.0</a>.
+        </p>
       </div>
 
       {/* Manual star adjust — centred so the mobile keyboard never hides Apply */}

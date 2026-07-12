@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/imageCompress'
 import { TASK_PRESETS as PREDEFINED_TASKS } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
+import { kidAvatarPath, isKidAvatar, DEFAULT_TONES } from '@/lib/kidAvatars'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
@@ -109,7 +110,7 @@ export default function SetupPage() {
   const [tasks, setTasks] = useState<TaskDraft[]>([])
   const [rewards, setRewards] = useState<RewardDraft[]>([])
 
-  const [child, setChild] = useState<ChildDraft>({ name: '', age: '', avatar: '👧', colour: COLOURS[0] })
+  const [child, setChild] = useState<ChildDraft>({ name: '', age: '', avatar: kidAvatarPath(1, DEFAULT_TONES[0]), colour: COLOURS[0] })
   const [bonusOn, setBonusOn] = useState(false)
   const [bonusCadence, setBonusCadence] = useState<'weekly' | 'monthly'>('weekly')
   const [bonusDay, setBonusDay] = useState(0)      // weekly: day of week (0=Sun)
@@ -125,7 +126,7 @@ export default function SetupPage() {
   function addChild(): boolean {
     if (!child.name.trim()) { setError('Please enter your child\'s name.'); return false }
     setChildren(prev => [...prev, { ...child, name: child.name.trim(), colour: COLOURS[prev.length % COLOURS.length] }])
-    setChild({ name: '', age: '', avatar: '👧', colour: COLOURS[(children.length + 1) % COLOURS.length] })
+    setChild({ name: '', age: '', avatar: kidAvatarPath(1, DEFAULT_TONES[0]), colour: COLOURS[(children.length + 1) % COLOURS.length] })
     setError('')
     return true
   }
@@ -201,7 +202,13 @@ export default function SetupPage() {
     // Index-aligned with the `children` drafts so per-task assignments resolve
     const childIdByIdx: (string | null)[] = []
     for (const c of children) {
-      const baseChild: any = { name: c.name, avatar: c.avatar, colour: c.colour, family_id: familyId }
+      // Cartoon avatar selections live in avatar_url; the avatar column keeps an emoji fallback
+      const cartoon = isKidAvatar(c.avatar)
+      const baseChild: any = {
+        name: c.name, colour: c.colour, family_id: familyId,
+        avatar: cartoon ? '🙂' : c.avatar,
+        ...(cartoon ? { avatar_url: c.avatar } : {}),
+      }
       let { data: created } = await supabase.from('children')
         .insert({ ...baseChild, age: c.age ? Number(c.age) : null }).select('id').single()
       if (!created) { // age column may not exist yet — retry without it
@@ -303,7 +310,9 @@ export default function SetupPage() {
               <div className="relative">
                 {c.photo
                   ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-2xl object-cover" alt=""/>
-                  : <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: c.colour + '33' }}>{c.avatar}</div>}
+                  : isKidAvatar(c.avatar)
+                  ? <img src={c.avatar} className="w-12 h-12 rounded-2xl object-contain bg-white" style={{ border: `2px solid ${c.colour}` }} alt=""/>
+                  : <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-white" style={{ border: `2px solid ${c.colour}` }}>{c.avatar}</div>}
                 <button onClick={() => setChildren(children.filter((_, j) => j !== i))}
                   className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-200 text-gray-500 rounded-full text-xs font-bold flex items-center justify-center">×</button>
               </div>
@@ -717,7 +726,9 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
                   className={`flex flex-col items-center gap-1 active:scale-95 transition ${on ? '' : 'opacity-40 grayscale'}`}>
                   {c.photo
                     ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-full object-cover" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
-                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: c.colour + '33', border: `3px solid ${on ? c.colour : '#D1D5DB'}` }}>{c.avatar}</div>}
+                    : isKidAvatar(c.avatar)
+                    ? <img src={c.avatar} className="w-12 h-12 rounded-full object-contain bg-white" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
+                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-white" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }}>{c.avatar}</div>}
                   <span className="text-[11px] font-bold text-gray-600 max-w-[56px] truncate">{c.name}</span>
                 </button>
               )
