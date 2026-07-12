@@ -226,13 +226,13 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
         </div>
       ) : (
         <div className="text-center pop-in relative z-10">
-          <p className="text-lg" style={{ color: '#c7cdf0' }}>You won</p>
+          <p className="text-lg" style={{ color: '#c7cdf0' }}>{result.stars === 0 ? 'So close!' : 'You won'}</p>
           <p className="font-black text-5xl my-1" style={{ color: GOLD }}>+{result.stars} ⭐</p>
           {isJackpot && <p className="font-bold text-lg mb-2" style={{ color: GOLD }}>JACKPOT!! 🎊</p>}
           <button onClick={onClose}
             className="mt-4 font-black text-lg py-4 px-10 rounded-3xl active:scale-95 transition shadow-lg"
             style={{ background: GOLD, color: GOLD_TEXT }}>
-            Awesome! 🚀
+            {result.stars === 0 ? 'Better Luck Next Week!' : 'Awesome! 🚀'}
           </button>
         </div>
       )}
