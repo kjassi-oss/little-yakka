@@ -11,6 +11,7 @@ import { deleteMyAccount } from '@/app/actions/deleteAccount'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
+import AvatarPicker from '@/components/AvatarPicker'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -25,15 +26,9 @@ const COMMON_TIMEZONES = [
   { label: 'UTC', value: 'UTC' },
 ]
 
-// 15 kid avatars — 7 girls, 7 boys + a clown; shown 5 per row (3 rows)
-const AVATARS = [
-  '👧', '👦', '🦸‍♀️', '🦸‍♂️', '🤡',
-  '👸', '🤴', '🧚‍♀️', '🥷', '🤠',
-  '🧜‍♀️', '🧙‍♀️', '🧙‍♂️', '👩‍🚀', '👨‍🚀',
-]
+// 10 kid colours — one row of round swatches
 const COLOURS = [
-  '#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#1289A7','#9B59B6','#FDA7DF',
-  '#EE5A24','#C0392B','#6C5CE7','#00B894','#E17055','#74B9FF','#A29BFE','#55EFC4',
+  '#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#74B9FF','#6C5CE7','#9B59B6','#FDA7DF','#E17055',
 ]
 
 interface Child {
@@ -51,7 +46,7 @@ export default function SettingsPage() {
   const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newChild, setNewChild] = useState({ name: '', avatar: '🐨', colour: '#FF6B6B' })
+  const [newChild, setNewChild] = useState({ name: '', avatar: '👧', colour: '#FF6B6B' })
   const [newChildPhoto, setNewChildPhoto] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
@@ -246,7 +241,7 @@ export default function SettingsPage() {
         await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
       }
     }
-    setNewChild({ name: '', avatar: '🐨', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
+    setNewChild({ name: '', avatar: '👧', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
   }
 
@@ -391,6 +386,22 @@ export default function SettingsPage() {
 
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 mt-4 space-y-6">
 
+        {/* How it works — collapsible visual guide (kept at the top) */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <button onClick={() => setGuideOpen(o => !o)} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📖</span>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-800 leading-tight">How Little Yakka Works</h2>
+                <p className="text-xs text-gray-400">The full visual guide</p>
+              </div>
+            </div>
+            <span className={`text-gray-300 text-xl transition-transform ${guideOpen ? 'rotate-90' : ''}`}>›</span>
+          </button>
+
+          {guideOpen && <GuideContent/>}
+        </div>
+
         {/* Children */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
@@ -409,7 +420,7 @@ export default function SettingsPage() {
                 <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
                   {newChildPhoto
                     ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
-                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: newChild.colour + '33' }}>{newChild.avatar}</div>}
+                    : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl bg-white" style={{ border: `3px solid ${newChild.colour}` }}>{newChild.avatar}</div>}
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
                 </button>
                 <input type="file" accept="image/*" className="hidden" ref={newChildPhotoRef}
@@ -420,19 +431,14 @@ export default function SettingsPage() {
               <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
               <div>
                 <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {AVATARS.map(a => (
-                    <button key={a} onClick={() => setNewChild({ ...newChild, avatar: a })}
-                      className={`text-2xl p-1.5 rounded-xl ${newChild.avatar === a ? 'ring-2 ring-purple-400 bg-white' : 'bg-gray-50 hover:bg-gray-100'}`}>{a}</button>
-                  ))}
-                </div>
+                <AvatarPicker value={newChild.avatar} onChange={a => setNewChild({ ...newChild, avatar: a })}/>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1.5">Colour</p>
-                <div className="flex gap-2 flex-wrap">
+                <div className="grid grid-cols-10 gap-1.5">
                   {COLOURS.map(c => (
                     <button key={c} onClick={() => setNewChild({ ...newChild, colour: c })}
-                      className={`w-8 h-8 rounded-full transition ${newChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
+                      className={`aspect-square w-full rounded-full transition ${newChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
                       style={{ backgroundColor: c }}/>
                   ))}
                 </div>
@@ -454,19 +460,14 @@ export default function SettingsPage() {
                       className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {AVATARS.map(a => (
-                          <button key={a} onClick={() => setEditingChild({ ...editingChild, avatar: a })}
-                            className={`text-2xl p-1.5 rounded-xl ${editingChild.avatar === a ? 'ring-2 ring-purple-400 bg-white' : 'bg-gray-50 hover:bg-gray-100'}`}>{a}</button>
-                        ))}
-                      </div>
+                      <AvatarPicker value={editingChild.avatar} onChange={a => setEditingChild({ ...editingChild, avatar: a })}/>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Colour</p>
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="grid grid-cols-10 gap-1.5">
                         {COLOURS.map(c => (
                           <button key={c} onClick={() => setEditingChild({ ...editingChild, colour: c })}
-                            className={`w-8 h-8 rounded-full transition ${editingChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
+                            className={`aspect-square w-full rounded-full transition ${editingChild.colour === c ? 'ring-2 ring-offset-2 ring-gray-500 scale-110' : ''}`}
                             style={{ backgroundColor: c }}/>
                         ))}
                       </div>
@@ -504,7 +505,7 @@ export default function SettingsPage() {
                       {child.avatar_url ? (
                         <img src={child.avatar_url} alt={child.name} className="w-20 h-20 rounded-2xl object-cover" style={{ border: '3px solid var(--theme-from)' }}/>
                       ) : (
-                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl" style={{ backgroundColor: child.colour + '22', border: '3px solid var(--theme-from)' }}>{child.avatar}</div>
+                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl bg-white" style={{ border: `3px solid ${child.colour}` }}>{child.avatar}</div>
                       )}
                       <button onClick={() => photoInputRefs.current[child.id]?.click()}
                         className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow-sm active:scale-90 transition">
@@ -528,22 +529,6 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* How it works — collapsible visual guide */}
-        <div className="bg-white rounded-3xl shadow-sm p-5">
-          <button onClick={() => setGuideOpen(o => !o)} className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">📖</span>
-              <div className="text-left">
-                <h2 className="font-bold text-gray-800 leading-tight">How Little Yakka Works</h2>
-                <p className="text-xs text-gray-400">The full visual guide</p>
-              </div>
-            </div>
-            <span className={`text-gray-300 text-xl transition-transform ${guideOpen ? 'rotate-90' : ''}`}>›</span>
-          </button>
-
-          {guideOpen && <GuideContent/>}
         </div>
 
         {/* Bonus wheel */}
