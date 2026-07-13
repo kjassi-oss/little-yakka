@@ -148,7 +148,7 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
       <div className="text-center mb-5 relative z-10">
         <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto mx-auto mb-6"/>
         <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
-          {childName ? (<><span className="name-flash">{`${childName}'s`}</span>{' Bonus Spin'}</>) : 'Bonus Spin'}
+          {childName ? (<><span className="name-flash" style={{ color: '#EC4899' }}>{`${childName}'s`}</span>{' Bonus Spin'}</>) : 'Bonus Spin'}
         </h2>
         {/* Subtitle + max-prize hide once a result shows, freeing space so the
             result's close button stays in view */}
