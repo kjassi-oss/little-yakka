@@ -408,7 +408,7 @@ export default function ChildTaskView({
             </div>
             <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
             <div className="flex-shrink-0">
-              <StarJar done={claimableDone} total={claimableTotal} size={54}/>
+              <StarJar done={claimableDone} total={claimableTotal} size={54} label="Week's Progress"/>
             </div>
             <div className="w-px self-stretch my-1 bg-gray-200 flex-shrink-0"/>
             <div className="flex-shrink-0 w-[96px]">
