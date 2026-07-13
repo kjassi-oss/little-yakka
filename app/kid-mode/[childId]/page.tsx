@@ -45,7 +45,7 @@ export default async function ChildPage({ params, searchParams }: {
     supabase.from('families').select('*').eq('id', guardian?.family_id).maybeSingle(),
     supabase.from('task_assignments').select('task_id, tasks(*)').eq('child_id', childId),
     supabase.from('completions').select('id, task_id, child_id, date, created_at').eq('child_id', childId)
-      .gte('date', mondayStr).lte('date', ymd(horizonEnd)),
+      .gte('date', ymd(thirtyAgo)).lte('date', ymd(horizonEnd)),
     supabase.from('completions')
       .select('task_id, date, created_at, tasks(title, emoji, star_value)')
       .eq('child_id', childId).eq('status', 'approved')
@@ -154,26 +154,23 @@ export default async function ChildPage({ params, searchParams }: {
     else break
   }
 
-  // Bonus wheel cadence + award value (weekly = Mon–Sun; monthly = calendar month)
+  // Bonus wheel cadence + award value. The prize is based on performance over a
+  // ROLLING window ending today: the previous 7 days (weekly) or 28 days (monthly).
   const cadence = family?.bonus_cadence === 'monthly' ? 'monthly' : 'weekly'
   const isMonthly = cadence === 'monthly'
-  // Award ceiling = this % of the period's available stars (slider in Settings, default 50%)
+  // Award ceiling = this % of the window's available stars (slider in Settings, default 50%)
   const awardPct = ((family as any)?.bonus_award_pct ?? 50) / 100
 
-  const prizeStart = isMonthly ? new Date(now.getFullYear(), now.getMonth(), 1, 12) : new Date(monday)
-  const prizeEnd = isMonthly ? new Date(now.getFullYear(), now.getMonth() + 1, 0, 12) : new Date(sunday)
+  const windowDays = isMonthly ? 28 : 7
+  const prizeStart = new Date(now); prizeStart.setDate(now.getDate() - (windowDays - 1)) // inclusive of today
   const prizeStartStr = ymd(prizeStart)
 
+  // Total stars available + tasks expected across the rolling window (through today)
   let periodTotalStars = 0
-  for (let d = new Date(prizeStart); ymd(d) <= ymd(prizeEnd); d.setDate(d.getDate() + 1)) {
-    for (const t of allTasks) {
-      if (occursOn(t, d)) periodTotalStars += t.star_value
-    }
-  }
   let tierExpected = 0
   for (let d = new Date(prizeStart); ymd(d) <= todayStr; d.setDate(d.getDate() + 1)) {
     for (const t of allTasks) {
-      if (occursOn(t, d)) tierExpected++
+      if (occursOn(t, d)) { periodTotalStars += t.star_value; tierExpected++ }
     }
   }
   const tierDone = (completions || []).filter(c => c.date >= prizeStartStr && c.date <= todayStr).length

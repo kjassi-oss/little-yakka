@@ -4,17 +4,13 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/imageCompress'
-import { TASK_PRESETS as PREDEFINED_TASKS } from '@/lib/taskPresets'
+import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_EMOJIS } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
 
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#74B9FF','#6C5CE7','#9B59B6','#FDA7DF','#E17055']
-const TASK_EMOJIS = [
-  '⭐','🛏️','🧹','🍽️','🧺','📚','🐕','🪥','🚿','👕','🎒','🏃',
-  '🎨','📖','📝','🌿','🗑️','♻️','🍳','🧽','🥤','🍎','🥕','💊',
-]
 const REWARD_EMOJIS = ['🎁','🍦','🎬','🍔','🎮','📱','🍿','🎨','🍫','🍭','🏆','⚽','🛍️','🎡','🍰','🎠']
 
 const PREDEFINED_REWARDS: { title: string; emoji: string }[] = [
@@ -35,7 +31,7 @@ interface TaskDraft {
   title: string; emoji: string; type: string; star_value: number; frequency: string
   time_of_day: string; start_date: string; carry_over: boolean
   can_do_early: boolean; days_of_week: number[]
-  up_for_grabs: boolean
+  up_for_grabs: boolean; expires_on: string
   assignedIdx: number[] // indices into the children drafts (no ids yet)
 }
 interface RewardDraft { title: string; emoji: string; star_cost: number }
@@ -44,7 +40,7 @@ const blankTask = (): TaskDraft => ({
   title: '', emoji: '⭐', type: 'chore', star_value: 3, frequency: 'daily',
   time_of_day: 'anytime', start_date: '', carry_over: false,
   can_do_early: false, days_of_week: [0, 1, 2, 3, 4, 5, 6], // daily, every day on by default
-  up_for_grabs: false, assignedIdx: [],
+  up_for_grabs: false, expires_on: '', assignedIdx: [],
 })
 
 // Full-bleed white page with the logo centred at the top, consistent on every step.
@@ -237,9 +233,9 @@ export default function SetupPage() {
       }
       // Try with newer columns; fall back gracefully if they don't exist yet
       const withEarly = { ...taskPayload, can_do_early: t.up_for_grabs ? true : t.can_do_early }
-      const full = { ...withEarly, up_for_grabs: t.up_for_grabs }
+      const full = { ...withEarly, up_for_grabs: t.up_for_grabs, expires_on: t.up_for_grabs && t.expires_on ? t.expires_on : null }
       let res = await supabase.from('tasks').insert(full).select('id').single()
-      if (res.error?.message?.includes('up_for_grabs')) res = await supabase.from('tasks').insert(withEarly).select('id').single()
+      if (res.error?.message?.includes('up_for_grabs') || res.error?.message?.includes('expires_on')) res = await supabase.from('tasks').insert(withEarly).select('id').single()
       if (res.error?.message?.includes('can_do_early')) res = await supabase.from('tasks').insert(taskPayload).select('id').single()
       const finalTask = res.data
       if (finalTask && !t.up_for_grabs) {
@@ -317,7 +313,7 @@ export default function SetupPage() {
         <Label>Family Name</Label>
         <input type="text" value={familyName} onChange={e => setFamilyName(e.target.value)}
           className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-300"
-          placeholder="e.g. The Jassi Family"/>
+          placeholder="e.g. The Taylor Family"/>
       </div>
 
       {/* Child's name (wide) + age (narrow) on one row */}
@@ -517,7 +513,7 @@ export default function SetupPage() {
             <div>
               <p className="text-xs text-gray-500 mb-1.5">On which day?</p>
               <div className="flex gap-1.5">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((lbl, dow) => (
+                {([['M', 1], ['T', 2], ['W', 3], ['T', 4], ['F', 5], ['S', 6], ['S', 0]] as const).map(([lbl, dow]) => (
                   <button key={dow} onClick={() => setBonusDay(dow)}
                     className={`flex-1 h-9 rounded-xl text-xs font-bold transition ${bonusDay === dow ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
                     style={bonusDay === dow ? { background: RAINBOW } : {}}>{lbl}</button>
@@ -561,7 +557,7 @@ export default function SetupPage() {
 
       {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
       <button onClick={() => handleFinish()} disabled={loading}
-        className="w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-60 leading-tight font-black text-xl"
+        className={`w-full bg-white py-4 rounded-2xl shadow-lg active:scale-95 transition disabled:opacity-100 leading-tight font-black text-xl ${loading ? 'animate-pulse' : ''}`}
         style={{ border: '2px solid var(--theme-from)' }}>
         <span style={{ fontFamily: DISPLAY, background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
           {loading ? 'Setting up…' : 'ALL DONE'}
@@ -604,16 +600,19 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
             className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
             placeholder="🔍 Search icons"/>
         </div>
-        <div className="grid grid-cols-8 gap-1 p-1 bg-gray-50 rounded-2xl">
-          {TASK_EMOJIS.map((e, i) => (
+        <div className="grid grid-cols-5 gap-1.5 p-1.5 bg-gray-50 rounded-2xl">
+          {(emojiSearch.trim()
+            ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
+            : DEFAULT_TASK_EMOJIS
+          ).map((e, i) => (
             <button key={`${e}-${i}`} onClick={() => setTask({ ...task, emoji: e })}
-              className={`text-2xl p-1 rounded-xl ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'hover:bg-white'}`}>{e}</button>
+              className={`text-2xl p-2 rounded-xl transition ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>{e}</button>
           ))}
         </div>
       </div>
 
       {/* Up For Grabs — a bounty any child can claim, first done wins */}
-      <div className="rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50">
+      <div className="rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-amber-700">🙌 Up For Grabs</p>
@@ -624,6 +623,13 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
             <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${task.up_for_grabs ? 'translate-x-6' : 'translate-x-0.5'}`}/>
           </button>
         </div>
+        {task.up_for_grabs && (
+          <div>
+            <p className="text-xs text-amber-600 mb-1">Expiry date <span className="opacity-60">(optional — leave blank to keep it open)</span></p>
+            <input type="date" value={task.expires_on} onChange={e => setTask({ ...task, expires_on: e.target.value })}
+              className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"/>
+          </div>
+        )}
       </div>
 
       {!task.up_for_grabs && (<>

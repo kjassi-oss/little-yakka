@@ -47,7 +47,7 @@ export default function SettingsPage() {
   const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newChild, setNewChild] = useState({ name: '', avatar: '👧', colour: '#FF6B6B' })
+  const [newChild, setNewChild] = useState({ name: '', age: '', avatar: '👧', colour: '#FF6B6B' })
   const [newChildPhoto, setNewChildPhoto] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
@@ -63,6 +63,7 @@ export default function SettingsPage() {
   const [bonusAwardPct, setBonusAwardPct] = useState(50)
   const [savingBonus, setSavingBonus] = useState(false)
   const [bonusSaved, setBonusSaved] = useState(false)
+  const [bonusInfoOpen, setBonusInfoOpen] = useState(false)
   const [curPw, setCurPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confPw, setConfPw] = useState('')
@@ -228,9 +229,14 @@ export default function SettingsPage() {
     if (!newChild.name.trim()) return
     setSaving(true)
     const supabase = createClient()
-    const { data: created } = await supabase.from('children')
-      .insert({ ...newChild, name: newChild.name.trim(), family_id: familyId })
-      .select('id').single()
+    const { age, ...rest } = newChild
+    const base = { ...rest, name: newChild.name.trim(), family_id: familyId }
+    let { data: created } = await supabase.from('children')
+      .insert({ ...base, age: age ? Number(age) : null }).select('id').single()
+    if (!created) { // age column may not exist yet — retry without it
+      const retry = await supabase.from('children').insert(base).select('id').single()
+      created = retry.data
+    }
     if (created && newChildPhoto) {
       const photo = await compressImage(newChildPhoto)
       const ext = photo.name.split('.').pop()
@@ -242,7 +248,7 @@ export default function SettingsPage() {
         await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
       }
     }
-    setNewChild({ name: '', avatar: '👧', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
+    setNewChild({ name: '', age: '', avatar: '👧', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
   }
 
@@ -427,7 +433,10 @@ export default function SettingsPage() {
                 <input type="file" accept="image/*" className="hidden" ref={newChildPhotoRef}
                   onChange={e => e.target.files?.[0] && setNewChildPhoto(e.target.files[0])}/>
                 <input type="text" value={newChild.name} onChange={e => setNewChild({ ...newChild, name: e.target.value })}
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
+                  className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Child's name"/>
+                <input type="number" inputMode="numeric" min={1} max={18} value={newChild.age}
+                  onChange={e => setNewChild({ ...newChild, age: e.target.value })}
+                  className="w-16 flex-shrink-0 border border-gray-200 rounded-xl px-2 py-2.5 text-center text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm" placeholder="Age"/>
               </div>
               <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
               <div>
@@ -537,8 +546,11 @@ export default function SettingsPage() {
 
         {/* Bonus wheel */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
-          <h2 className="font-bold text-gray-800 mb-1">🎰 Bonus Wheel</h2>
-          <p className="text-xs text-gray-400 mb-3">Awards bonus stars based on the {bonusCadence === 'monthly' ? 'month' : 'week'}'s performance. The prize scales with how much of their work is done by spin time.</p>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-bold text-gray-800">🎰 Bonus Wheel</h2>
+            <button onClick={() => setBonusInfoOpen(true)} aria-label="How the bonus wheel works"
+              className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-[11px] font-black italic flex items-center justify-center active:scale-90 transition">i</button>
+          </div>
 
           <div className="flex bg-gray-100 rounded-2xl p-1 mb-3">
             {(['weekly', 'monthly'] as const).map(c => (
@@ -808,6 +820,21 @@ export default function SettingsPage() {
           Kid avatars remixed from <a href="https://www.figma.com/community/file/881358461963645496" className="underline">"Custom Avatar"</a> by Ashley Seo, licensed <a href="https://creativecommons.org/licenses/by/4.0/" className="underline">CC BY 4.0</a>.
         </p>
       </div>
+
+      {/* Bonus wheel info popup */}
+      {bonusInfoOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={() => setBonusInfoOpen(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in" onClick={e => e.stopPropagation()}>
+            <div className="text-4xl mb-2">🎰</div>
+            <p className="text-sm font-semibold text-gray-600 leading-snug">
+              Bonus stars are awarded based on how well they have performed over the previous 7 days if set to Weekly, or the previous 28 days if set to Monthly.
+            </p>
+            <button onClick={() => setBonusInfoOpen(false)}
+              className="mt-4 w-full py-2.5 rounded-2xl text-white font-black active:scale-95 transition"
+              style={{ background: 'var(--theme-gradient)' }}>Got it!</button>
+          </div>
+        </div>
+      )}
 
       {/* Manual star adjust — centred so the mobile keyboard never hides Apply */}
       {adjustChild && (
