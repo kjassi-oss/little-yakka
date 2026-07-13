@@ -446,7 +446,7 @@ export default function ChoresPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* Frozen header + sub-bars — stay pinned while the list scrolls */}
-      <div className="sticky top-0 z-30 bg-white shadow-sm">
+      <div id="tasks-header" className="sticky top-0 z-30 bg-white shadow-sm">
       {/* Compact header — logo left, centred title, settings right */}
       <div className="pt-14 pb-2.5 px-4 bg-white border-b border-gray-100">
         <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
@@ -918,7 +918,18 @@ export default function ChoresPage() {
       {/* Jump-to-today FAB (Upcoming tab) — calendar showing today's date */}
       {!showForm && mainTab === 'upcoming' && (
         <button aria-label="Jump to today"
-          onClick={() => { const el = document.getElementById(`up-${ymdLocal(new Date())}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+          onClick={() => {
+            const today = ymdLocal(new Date())
+            let el = document.getElementById(`up-${today}`)
+            if (!el) {
+              const days = Array.from(document.querySelectorAll<HTMLElement>('[id^="up-"]'))
+              el = days.find(d => d.id.slice(3) >= today) || days[0] || null
+            }
+            if (!el) return
+            const header = document.getElementById('tasks-header')
+            const offset = (header?.offsetHeight ?? 0) + 8
+            window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' })
+          }}
           className="fixed bottom-24 left-5 w-14 h-14 rounded-full bg-white shadow-xl border-2 flex flex-col items-center justify-center active:scale-90 transition z-40"
           style={{ borderColor: 'var(--theme-from)' }}>
           <span className="text-[8px] font-black leading-none mt-1" style={{ color: 'var(--theme-from)' }}>{new Date().toLocaleDateString('en-AU', { month: 'short' }).toUpperCase()}</span>

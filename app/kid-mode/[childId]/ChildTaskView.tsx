@@ -139,8 +139,19 @@ export default function ChildTaskView({
   }, [bonusCadence, bonusDay, bonusTime, hasSpunToday, autoSpin])
 
   function scrollToToday() {
-    const el = document.getElementById(`up-${todayStr}`)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Match the day-div ids, which use the device-local date (en-CA)
+    const today = new Intl.DateTimeFormat('en-CA').format(new Date())
+    let el = document.getElementById(`up-${today}`)
+    if (!el) {
+      // Today has no tasks — fall back to the nearest day on/after today
+      const days = Array.from(document.querySelectorAll<HTMLElement>('[id^="up-"]'))
+      el = days.find(d => d.id.slice(3) >= today) || days[0] || null
+    }
+    if (!el) return
+    // Offset by the frozen header so "Today" lands just below it, not behind it
+    const header = document.getElementById('kz-header')
+    const offset = (header?.offsetHeight ?? 0) + 8
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' })
   }
 
   // Pulse scroll to highlighted task
@@ -379,7 +390,7 @@ export default function ChildTaskView({
 
       {/* Pinned header — top bar, stats row AND tabs stay locked while the list
           scrolls, so the lolly jar / progress update in view as tasks are ticked */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
+      <div id="kz-header" className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="pt-14 pb-2 px-4">
           <div className="max-w-sm mx-auto flex items-center justify-between gap-2">
             <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto flex-shrink-0"/>
