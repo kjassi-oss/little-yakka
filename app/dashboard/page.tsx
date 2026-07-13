@@ -7,6 +7,7 @@ import ProfileButton from '@/components/ProfileButton'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import HomeTaskPreview from '@/components/HomeTaskPreview'
 import GetStartedHero from '@/components/GetStartedHero'
+import SpinReadyBadge from '@/components/SpinReadyBadge'
 import { occursOn } from '@/lib/recurrence'
 import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
 
@@ -203,7 +204,7 @@ export default async function DashboardPage() {
         {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
         {childData.length > 0 ? (
           <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'}>
-            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, canSpin, weekPct }) => {
+            {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, weekPct }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
@@ -262,14 +263,12 @@ export default async function DashboardPage() {
                     )}
                   </Link>
 
-                  {/* Bonus spin — taps straight into the wheel */}
-                  {canSpin && (
-                    <Link href={`/kid-mode/${child.id}?spin=1`}
-                      className="block mx-2.5 mb-2.5 text-center text-[10px] font-black text-white rounded-full px-2 py-1 animate-pulse active:scale-95 transition"
-                      style={{ background: 'var(--theme-gradient)' }}>
-                      🎰 SPIN READY!
-                    </Link>
-                  )}
+                  {/* Bonus spin — availability decided client-side against the real
+                      current time (family tz), so it lights up the moment the set
+                      time passes on the next load/navigation. "Already spun this
+                      window" stays server-computed (spunSet). */}
+                  <SpinReadyBadge childId={child.id} cadence={bonusCadence} day={bonusDay}
+                    time={bonusTime} tz={tz} spun={spunSet.has(child.id)}/>
                 </div>
               )
             })}

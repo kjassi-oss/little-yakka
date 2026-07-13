@@ -118,24 +118,30 @@ export default function ChildTaskView({
   const [praiseQueue, setPraiseQueue] = useState<Praise[]>(unseenPraises)
   const [currentPraise, setCurrentPraise] = useState<Praise | null>(unseenPraises[0] ?? null)
 
-  // canSpin uses LOCAL device time (avoids UTC mismatch on server)
+  // canSpin uses LOCAL device time (avoids UTC mismatch on server) and re-checks
+  // every minute, so the wheel lights up the moment the scheduled time passes.
   useEffect(() => {
-    const now = new Date()
-    const h = now.getHours(), m = now.getMinutes()
-    const nowHHMM = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-    const start = new Date(now); start.setHours(0, 0, 0, 0)
-    if (bonusCadence === 'monthly') {
-      if (now.getDate() < bonusDay) start.setMonth(start.getMonth() - 1)
-      start.setDate(bonusDay)
-    } else {
-      start.setDate(start.getDate() - ((now.getDay() - bonusDay + 7) % 7))
+    function eligibleNow() {
+      const now = new Date()
+      const h = now.getHours(), m = now.getMinutes()
+      const nowHHMM = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      const start = new Date(now); start.setHours(0, 0, 0, 0)
+      if (bonusCadence === 'monthly') {
+        if (now.getDate() < bonusDay) start.setMonth(start.getMonth() - 1)
+        start.setDate(bonusDay)
+      } else {
+        start.setDate(start.getDate() - ((now.getDay() - bonusDay + 7) % 7))
+      }
+      const onStartDay = now.toDateString() === start.toDateString()
+      const withinWindow = now.getTime() < start.getTime() + 3 * 24 * 3600 * 1000 && (!onStartDay || nowHHMM >= bonusTime)
+      return withinWindow && !hasSpunToday
     }
-    const onStartDay = now.toDateString() === start.toDateString()
-    const withinWindow = now.getTime() < start.getTime() + 3 * 24 * 3600 * 1000 && (!onStartDay || nowHHMM >= bonusTime)
-    const eligible = withinWindow && !hasSpunToday
-    setCanSpin(eligible)
-    // Deep-link from the home "SPIN READY" badge opens the wheel straight away
-    if (eligible && autoSpin) setShowSpin(true)
+    const first = eligibleNow()
+    setCanSpin(first)
+    // Deep-link from the home "SPIN READY" badge opens the wheel straight away (once)
+    if (first && autoSpin) setShowSpin(true)
+    const id = setInterval(() => setCanSpin(eligibleNow()), 60000)
+    return () => clearInterval(id)
   }, [bonusCadence, bonusDay, bonusTime, hasSpunToday, autoSpin])
 
   function scrollToToday() {
