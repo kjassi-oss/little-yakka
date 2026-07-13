@@ -9,8 +9,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import UpcomingTaskList, { type UChild, type UComp } from './UpcomingTaskList'
 
-export default function HomeTaskPreview({ tasks, childrenList, assignments, windowComps }: {
-  tasks: any[]; childrenList: UChild[]; assignments: Record<string, string[]>; windowComps: UComp[]
+export default function HomeTaskPreview({ tasks, childrenList, assignments, windowComps, ufgClaims = [] }: {
+  tasks: any[]; childrenList: UChild[]; assignments: Record<string, string[]>; windowComps: UComp[]; ufgClaims?: UComp[]
 }) {
   const router = useRouter()
   const childMap: Record<string, UChild> = Object.fromEntries(childrenList.map(c => [c.id, c]))
@@ -29,10 +29,10 @@ export default function HomeTaskPreview({ tasks, childrenList, assignments, wind
     <div className="space-y-3">
       <UpcomingTaskList
         tasks={tasks} childrenList={childrenList} childMap={childMap} assignments={assignments}
-        windowComps={windowComps} ufgClaims={[]}
+        windowComps={windowComps} ufgClaims={ufgClaims}
         upcomingFilter={new Set()} setUpcomingFilter={noop} toggleUpcomingChild={noop}
         pastWindow={0} setPastWindow={noop}
-        daysAhead={2} showChildFilter={false} showPastWindow={false} showUpForGrabs={false}
+        daysAhead={2} showChildFilter={false} showPastWindow={false} showUpForGrabs={true}
         onOpenTask={openTask} onComplete={noop} onUndo={noop}
       />
       <Link href="/dashboard/chores"

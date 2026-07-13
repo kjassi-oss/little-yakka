@@ -185,6 +185,13 @@ export default async function DashboardPage() {
     .filter((c: any) => c.status === 'approved' || c.status === 'pending')
     .map((c: any) => ({ id: c.id, task_id: c.task_id, child_id: c.child_id, date: c.date }))
 
+  // Up-for-grabs claims — which bounty each child has already taken (any date),
+  // so the Home preview shows claimed ones correctly (id/date unused for display).
+  const ufgTaskIds = new Set((tasks || []).filter((t: any) => t.up_for_grabs).map(t => t.id))
+  const ufgClaims = (allCompletions || [])
+    .filter((c: any) => ufgTaskIds.has(c.task_id))
+    .map((c: any) => ({ id: '', task_id: c.task_id, child_id: c.child_id, date: '' }))
+
   return (
     <div className="min-h-screen pb-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%)' }}>
 
@@ -282,7 +289,7 @@ export default async function DashboardPage() {
       <div className="max-w-sm lg:max-w-3xl mx-auto px-4 pt-4 space-y-4">
         {/* Task view — the SAME shared UpcomingTaskList as the Tasks page, next 2 days */}
         {childData.length > 0 && (
-          <HomeTaskPreview tasks={tasks || []} childrenList={children || []} assignments={assignmentMap} windowComps={windowComps} />
+          <HomeTaskPreview tasks={tasks || []} childrenList={children || []} assignments={assignmentMap} windowComps={windowComps} ufgClaims={ufgClaims} />
         )}
       </div>
     </div>
