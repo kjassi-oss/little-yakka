@@ -131,11 +131,11 @@ export default function UpcomingTaskList({
                 return (
                   <div key={task.id}
                     onClick={() => { if (!claim && !singleChildId) onOpenTask(task) }}
-                    className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border-2 border-dashed border-amber-300 bg-amber-50 ${!claim && !singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${claim ? 'opacity-75' : ''}`}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white" style={{ border: '1.5px solid #F59E0B' }}>{task.emoji}</div>
+                    className={`rounded-2xl px-3 py-2 shadow-sm flex items-center gap-2.5 border-2 border-dashed border-amber-300 bg-amber-50 ${!claim && !singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${claim ? 'opacity-75' : ''}`}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-white" style={{ border: '1.5px solid #F59E0B' }}>{task.emoji}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-base truncate ${claim ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                      <p className="text-sm font-semibold text-amber-600">
+                      <p className={`font-bold text-base leading-tight truncate ${claim ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                      <p className="text-xs font-semibold text-amber-600">
                         {claim
                           ? `Claimed by ${claimer?.name.split(' ')[0] || '—'}`
                           : `Anyone can claim · ⭐ ${task.star_value}${(task as any).expires_on ? ` · ends ${new Date((task as any).expires_on + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}` : ''}`}
@@ -184,13 +184,13 @@ export default function UpcomingTaskList({
                   <div key={task.id}
                     id={singleChildId ? `occ-${task.id}|${ds}` : undefined}
                     onClick={() => { if (!singleChildId) onOpenTask(task) }}
-                    className={`rounded-2xl p-3 shadow-sm flex items-center gap-3 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${highlit ? 'bounce-in' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}
+                    className={`rounded-2xl px-3 py-2 shadow-sm flex items-center gap-2.5 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${highlit ? 'bounce-in' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}
                     style={highlit ? { boxShadow: '0 0 0 3px var(--theme-from)' } : undefined}>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-white ${missed || lockedDay ? 'grayscale opacity-50' : ''}`}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-white ${missed || lockedDay ? 'grayscale opacity-50' : ''}`}
                       style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-base truncate ${struck ? 'line-through text-gray-400' : missed || lockedDay ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                      <p className="text-sm text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
+                      <p className={`font-bold text-base leading-tight truncate ${struck ? 'line-through text-gray-400' : missed || lockedDay ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
+                      <p className="text-xs text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
                     </div>
 
                     {singleChildId ? (
