@@ -130,3 +130,67 @@ drop policy if exists child_unlocks_family on child_unlocks;
 create policy child_unlocks_family on child_unlocks for all
   using (child_id in (select id from children where family_id in (select family_id from guardians where auth_user_id = auth.uid())))
   with check (child_id in (select id from children where family_id in (select family_id from guardians where auth_user_id = auth.uid())));
+
+-- ===========================================================================
+-- Storage hardening (2026-07-15)
+--
+-- Found by audit: the "Public read kid-avatars" policy granted SELECT to the
+-- `public` role — which in Postgres means EVERY role, including `anon`. With
+-- the anon key (it ships in the JS bundle) a stranger could enumerate the whole
+-- bucket and download every child's photo. That policy is now dropped and
+-- replaced with owner-scoped listing.
+--
+-- The write policies had the same shape of bug: they only checked bucket_id,
+-- so any signed-up user could write into ANY family's folder, or fill the
+-- bucket (Any MIME type, 50 MB limit). And with no DELETE policy at all, the
+-- old-avatar cleanup in Settings silently failed — every photo ever uploaded
+-- was retained forever.
+-- ===========================================================================
+
+-- Listing: a guardian sees only their own family's folder.
+drop policy if exists "Public read kid-avatars" on storage.objects;
+drop policy if exists "avatars: guardians list own family only" on storage.objects;
+create policy "avatars: guardians list own family only"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'kid-avatars'
+  and (storage.foldername(name))[1] in (
+    select family_id::text from guardians where auth_user_id = auth.uid()
+  )
+);
+
+-- Writes: scoped to the caller's own family folder.
+drop policy if exists "Authenticated upload kid-avatars" on storage.objects;
+create policy "avatars: owner insert" on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'kid-avatars'
+  and (storage.foldername(name))[1] in (
+    select family_id::text from guardians where auth_user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Authenticated update kid-avatars" on storage.objects;
+create policy "avatars: owner update" on storage.objects for update to authenticated
+using (
+  bucket_id = 'kid-avatars'
+  and (storage.foldername(name))[1] in (
+    select family_id::text from guardians where auth_user_id = auth.uid()
+  )
+)
+with check (
+  bucket_id = 'kid-avatars'
+  and (storage.foldername(name))[1] in (
+    select family_id::text from guardians where auth_user_id = auth.uid()
+  )
+);
+
+-- DELETE was missing entirely, which is why superseded avatars never got
+-- cleaned up (Settings does this under the user's session, not service role).
+drop policy if exists "avatars: owner delete" on storage.objects;
+create policy "avatars: owner delete" on storage.objects for delete to authenticated
+using (
+  bucket_id = 'kid-avatars'
+  and (storage.foldername(name))[1] in (
+    select family_id::text from guardians where auth_user_id = auth.uid()
+  )
+);

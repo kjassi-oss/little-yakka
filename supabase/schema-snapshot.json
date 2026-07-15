@@ -1,0 +1,4815 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "",
+    "title": "standard public schema",
+    "version": "14.5"
+  },
+  "host": "nzhjrfcpoxgukfkdrake.supabase.co:443",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json",
+    "application/vnd.pgrst.object+json;nulls=stripped",
+    "application/vnd.pgrst.object+json",
+    "text/csv"
+  ],
+  "produces": [
+    "application/json",
+    "application/vnd.pgrst.object+json;nulls=stripped",
+    "application/vnd.pgrst.object+json",
+    "text/csv"
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "produces": [
+          "application/openapi+json",
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "OpenAPI description (this document)",
+        "tags": [
+          "Introspection"
+        ]
+      }
+    },
+    "/families": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.families.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.settings"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_cadence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_day"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_award_pct"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/families"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "families"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.families"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "families"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.families.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.settings"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_cadence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_day"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_award_pct"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "families"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.families.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.settings"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_cadence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_day"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.families.bonus_award_pct"
+          },
+          {
+            "$ref": "#/parameters/body.families"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "families"
+        ]
+      }
+    },
+    "/guardian_invitations": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.invited_email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.token"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/guardian_invitations"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "guardian_invitations"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.guardian_invitations"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "guardian_invitations"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.invited_email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.token"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "guardian_invitations"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.invited_email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.token"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardian_invitations.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.guardian_invitations"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "guardian_invitations"
+        ]
+      }
+    },
+    "/push_subscriptions": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.endpoint"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.p256dh"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.auth"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.platform"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/push_subscriptions"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "push_subscriptions"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.push_subscriptions"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "push_subscriptions"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.endpoint"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.p256dh"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.auth"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.platform"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "push_subscriptions"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.endpoint"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.p256dh"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.auth"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.push_subscriptions.platform"
+          },
+          {
+            "$ref": "#/parameters/body.push_subscriptions"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "push_subscriptions"
+        ]
+      }
+    },
+    "/task_assignments": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.task_assignments.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_assignments.child_id"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/task_assignments"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "task_assignments"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.task_assignments"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "task_assignments"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.task_assignments.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_assignments.child_id"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "task_assignments"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.task_assignments.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_assignments.child_id"
+          },
+          {
+            "$ref": "#/parameters/body.task_assignments"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "task_assignments"
+        ]
+      }
+    },
+    "/spin_results": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.stars_won"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/spin_results"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "spin_results"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.spin_results"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "spin_results"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.stars_won"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "spin_results"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.stars_won"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.spin_results.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.spin_results"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "spin_results"
+        ]
+      }
+    },
+    "/children": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.children.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.avatar"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.colour"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.birthdate"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.kid_pin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.avatar_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.age"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.equipped_hat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.equipped_frame"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/children"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "children"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.children"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "children"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.children.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.avatar"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.colour"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.birthdate"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.kid_pin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.avatar_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.age"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.equipped_hat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.equipped_frame"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "children"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.children.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.avatar"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.colour"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.birthdate"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.kid_pin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.avatar_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.age"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.goal_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.equipped_hat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.children.equipped_frame"
+          },
+          {
+            "$ref": "#/parameters/body.children"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "children"
+        ]
+      }
+    },
+    "/tasks": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tasks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.time_of_day"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.recurrence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.star_value"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_photo"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.frequency"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.carry_over"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_benchmark_photo"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.benchmark_differs_per_child"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.difficulty"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_approval"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.start_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.days_of_week"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.can_do_early"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.up_for_grabs"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.expires_on"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/tasks"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.tasks"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tasks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.time_of_day"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.recurrence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.star_value"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_photo"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.frequency"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.carry_over"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_benchmark_photo"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.benchmark_differs_per_child"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.difficulty"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_approval"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.start_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.days_of_week"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.can_do_early"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.up_for_grabs"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.expires_on"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tasks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.time_of_day"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.recurrence"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.star_value"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_photo"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.frequency"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.carry_over"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_benchmark_photo"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.benchmark_differs_per_child"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.difficulty"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.requires_approval"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.start_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.days_of_week"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.can_do_early"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.up_for_grabs"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.expires_on"
+          },
+          {
+            "$ref": "#/parameters/body.tasks"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/child_unlocks": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.item_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/child_unlocks"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "child_unlocks"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.child_unlocks"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "child_unlocks"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.item_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "child_unlocks"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.item_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.child_unlocks.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.child_unlocks"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "child_unlocks"
+        ]
+      }
+    },
+    "/rewards": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.rewards.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.star_cost"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.scope"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.redemption_limit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/rewards"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "rewards"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.rewards"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "rewards"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.rewards.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.star_cost"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.scope"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.redemption_limit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "rewards"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.rewards.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.emoji"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.star_cost"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.scope"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.redemption_limit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.rewards.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.rewards"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "rewards"
+        ]
+      }
+    },
+    "/task_benchmark_photos": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.media_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.sort_order"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/task_benchmark_photos"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "task_benchmark_photos"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.task_benchmark_photos"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "task_benchmark_photos"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.media_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.sort_order"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "task_benchmark_photos"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.media_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.sort_order"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.task_benchmark_photos.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.task_benchmark_photos"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "task_benchmark_photos"
+        ]
+      }
+    },
+    "/guardians": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.guardians.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.auth_user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.parent_pin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/guardians"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "guardians"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.guardians"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "guardians"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.guardians.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.auth_user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.parent_pin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "guardians"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.guardians.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.auth_user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.parent_pin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.guardians.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.guardians"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "guardians"
+        ]
+      }
+    },
+    "/completions": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.completions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.ai_verdict"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.ai_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.approved_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/completions"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "completions"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.completions"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "completions"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.completions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.ai_verdict"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.ai_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.approved_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "completions"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.completions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.task_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.ai_verdict"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.ai_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.approved_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completions.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.completions"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "completions"
+        ]
+      }
+    },
+    "/completion_photos": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.completion_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/completion_photos"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "completion_photos"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.completion_photos"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "completion_photos"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.completion_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "completion_photos"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.completion_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.completion_photos.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.completion_photos"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "completion_photos"
+        ]
+      }
+    },
+    "/star_ledger": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.delta"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.source_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.source_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/star_ledger"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "star_ledger"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.star_ledger"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "star_ledger"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.delta"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.source_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.source_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "star_ledger"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.delta"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.source_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.source_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.star_ledger.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.star_ledger"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "star_ledger"
+        ]
+      }
+    },
+    "/redemptions": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.reward_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/redemptions"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "redemptions"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.redemptions"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "redemptions"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.reward_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "redemptions"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.reward_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.redemptions.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.redemptions"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "redemptions"
+        ]
+      }
+    },
+    "/family_goals": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.progress"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.reward_text"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/family_goals"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "family_goals"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.family_goals"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "family_goals"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.progress"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.reward_text"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "family_goals"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.family_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.progress"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.reward_text"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.family_goals.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.family_goals"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "family_goals"
+        ]
+      }
+    },
+    "/praises": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.praises.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.message"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.seen"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/praises"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "praises"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.praises"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "praises"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.praises.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.message"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.seen"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "praises"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.praises.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.child_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.message"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.seen"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.praises.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.praises"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "praises"
+        ]
+      }
+    },
+    "/rpc/accept_invitation": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "guardian_name": {
+                  "format": "text",
+                  "type": "string"
+                },
+                "invite_token": {
+                  "format": "text",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "invite_token"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) accept_invitation"
+        ]
+      }
+    },
+    "/rpc/get_invitation": {
+      "get": {
+        "parameters": [
+          {
+            "format": "text",
+            "in": "query",
+            "name": "invite_token",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_invitation"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "invite_token": {
+                  "format": "text",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "invite_token"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_invitation"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "families": {
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "settings": {
+          "format": "jsonb"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "bonus_cadence": {
+          "default": "weekly",
+          "format": "text",
+          "type": "string"
+        },
+        "bonus_day": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "bonus_time": {
+          "default": "16:00",
+          "format": "text",
+          "type": "string"
+        },
+        "bonus_award_pct": {
+          "default": 50,
+          "format": "integer",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "guardian_invitations": {
+      "required": [
+        "id",
+        "invited_email",
+        "token"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "invited_email": {
+          "format": "text",
+          "type": "string"
+        },
+        "token": {
+          "default": "gen_random_uuid()",
+          "format": "uuid",
+          "type": "string"
+        },
+        "used": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "push_subscriptions": {
+      "required": [
+        "id",
+        "family_id",
+        "endpoint",
+        "platform"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "endpoint": {
+          "format": "text",
+          "type": "string"
+        },
+        "p256dh": {
+          "format": "text",
+          "type": "string"
+        },
+        "auth": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "platform": {
+          "default": "web",
+          "format": "text",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "task_assignments": {
+      "required": [
+        "task_id",
+        "child_id"
+      ],
+      "properties": {
+        "task_id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>\nThis is a Foreign Key to `tasks.id`.<fk table='tasks' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "spin_results": {
+      "required": [
+        "id",
+        "stars_won",
+        "date"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "stars_won": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "date": {
+          "default": "CURRENT_DATE",
+          "format": "date",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "children": {
+      "required": [
+        "id",
+        "family_id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "avatar": {
+          "default": "🐨",
+          "format": "text",
+          "type": "string"
+        },
+        "colour": {
+          "default": "#FF6B6B",
+          "format": "text",
+          "type": "string"
+        },
+        "birthdate": {
+          "format": "date",
+          "type": "string"
+        },
+        "kid_pin": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "avatar_url": {
+          "format": "text",
+          "type": "string"
+        },
+        "age": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "goal_title": {
+          "format": "text",
+          "type": "string"
+        },
+        "goal_emoji": {
+          "format": "text",
+          "type": "string"
+        },
+        "goal_target": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "equipped_hat": {
+          "format": "text",
+          "type": "string"
+        },
+        "equipped_frame": {
+          "format": "text",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "tasks": {
+      "required": [
+        "id",
+        "family_id",
+        "title",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "title": {
+          "format": "text",
+          "type": "string"
+        },
+        "emoji": {
+          "default": "⭐",
+          "format": "text",
+          "type": "string"
+        },
+        "type": {
+          "format": "text",
+          "type": "string"
+        },
+        "time_of_day": {
+          "format": "text",
+          "type": "string"
+        },
+        "recurrence": {
+          "default": "daily",
+          "format": "text",
+          "type": "string"
+        },
+        "star_value": {
+          "default": 1,
+          "format": "integer",
+          "type": "integer"
+        },
+        "requires_photo": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "frequency": {
+          "default": "daily",
+          "format": "text",
+          "type": "string"
+        },
+        "carry_over": {
+          "default": true,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "requires_benchmark_photo": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "benchmark_differs_per_child": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "difficulty": {
+          "default": "medium",
+          "format": "text",
+          "type": "string"
+        },
+        "requires_approval": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "start_date": {
+          "format": "date",
+          "type": "string"
+        },
+        "days_of_week": {
+          "format": "integer[]",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "can_do_early": {
+          "default": true,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "up_for_grabs": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "expires_on": {
+          "format": "date",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "child_unlocks": {
+      "required": [
+        "id",
+        "child_id",
+        "item_id"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "item_id": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "rewards": {
+      "required": [
+        "id",
+        "family_id",
+        "title",
+        "star_cost"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "title": {
+          "format": "text",
+          "type": "string"
+        },
+        "emoji": {
+          "default": "🎁",
+          "format": "text",
+          "type": "string"
+        },
+        "star_cost": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "scope": {
+          "default": "family",
+          "format": "text",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "redemption_limit": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "task_benchmark_photos": {
+      "required": [
+        "id",
+        "url"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "task_id": {
+          "description": "Note:\nThis is a Foreign Key to `tasks.id`.<fk table='tasks' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "url": {
+          "format": "text",
+          "type": "string"
+        },
+        "media_type": {
+          "default": "photo",
+          "format": "text",
+          "type": "string"
+        },
+        "sort_order": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "guardians": {
+      "required": [
+        "id",
+        "family_id",
+        "auth_user_id",
+        "name",
+        "email"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "auth_user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "email": {
+          "format": "text",
+          "type": "string"
+        },
+        "parent_pin": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "completions": {
+      "required": [
+        "id",
+        "task_id",
+        "child_id"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "task_id": {
+          "description": "Note:\nThis is a Foreign Key to `tasks.id`.<fk table='tasks' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "date": {
+          "default": "CURRENT_DATE",
+          "format": "date",
+          "type": "string"
+        },
+        "status": {
+          "default": "pending",
+          "format": "text",
+          "type": "string"
+        },
+        "photo_url": {
+          "format": "text",
+          "type": "string"
+        },
+        "ai_verdict": {
+          "format": "text",
+          "type": "string"
+        },
+        "ai_reason": {
+          "format": "text",
+          "type": "string"
+        },
+        "approved_by": {
+          "description": "Note:\nThis is a Foreign Key to `guardians.id`.<fk table='guardians' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "completion_photos": {
+      "required": [
+        "id",
+        "url"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "completion_id": {
+          "description": "Note:\nThis is a Foreign Key to `completions.id`.<fk table='completions' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "url": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "star_ledger": {
+      "required": [
+        "id",
+        "child_id",
+        "delta"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "delta": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "reason": {
+          "format": "text",
+          "type": "string"
+        },
+        "source_type": {
+          "format": "text",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "redemptions": {
+      "required": [
+        "id",
+        "reward_id",
+        "child_id"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "reward_id": {
+          "description": "Note:\nThis is a Foreign Key to `rewards.id`.<fk table='rewards' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "date": {
+          "default": "CURRENT_DATE",
+          "format": "date",
+          "type": "string"
+        },
+        "status": {
+          "default": "requested",
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "family_goals": {
+      "required": [
+        "id",
+        "family_id",
+        "title",
+        "target"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "family_id": {
+          "description": "Note:\nThis is a Foreign Key to `families.id`.<fk table='families' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "title": {
+          "format": "text",
+          "type": "string"
+        },
+        "target": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "progress": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "reward_text": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "praises": {
+      "required": [
+        "id",
+        "message"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "child_id": {
+          "description": "Note:\nThis is a Foreign Key to `children.id`.<fk table='children' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "message": {
+          "format": "text",
+          "type": "string"
+        },
+        "seen": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "parameters": {
+    "preferParams": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "in": "header",
+      "type": "string"
+    },
+    "preferReturn": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "return=representation",
+        "return=minimal",
+        "return=none"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "preferCount": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "count=none"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "preferPost": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "return=representation",
+        "return=minimal",
+        "return=none",
+        "resolution=ignore-duplicates",
+        "resolution=merge-duplicates"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "select": {
+      "name": "select",
+      "description": "Filtering Columns",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "on_conflict": {
+      "name": "on_conflict",
+      "description": "On Conflict",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "order": {
+      "name": "order",
+      "description": "Ordering",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "range": {
+      "name": "Range",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "header",
+      "type": "string"
+    },
+    "rangeUnit": {
+      "name": "Range-Unit",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "default": "items",
+      "in": "header",
+      "type": "string"
+    },
+    "offset": {
+      "name": "offset",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "limit": {
+      "name": "limit",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.families": {
+      "name": "families",
+      "description": "families",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/families"
+      }
+    },
+    "rowFilter.families.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.settings": {
+      "name": "settings",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.bonus_cadence": {
+      "name": "bonus_cadence",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.bonus_day": {
+      "name": "bonus_day",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.bonus_time": {
+      "name": "bonus_time",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.families.bonus_award_pct": {
+      "name": "bonus_award_pct",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.guardian_invitations": {
+      "name": "guardian_invitations",
+      "description": "guardian_invitations",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/guardian_invitations"
+      }
+    },
+    "rowFilter.guardian_invitations.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardian_invitations.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardian_invitations.invited_email": {
+      "name": "invited_email",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardian_invitations.token": {
+      "name": "token",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardian_invitations.used": {
+      "name": "used",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardian_invitations.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.push_subscriptions": {
+      "name": "push_subscriptions",
+      "description": "push_subscriptions",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/push_subscriptions"
+      }
+    },
+    "rowFilter.push_subscriptions.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.push_subscriptions.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.push_subscriptions.endpoint": {
+      "name": "endpoint",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.push_subscriptions.p256dh": {
+      "name": "p256dh",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.push_subscriptions.auth": {
+      "name": "auth",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.push_subscriptions.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.push_subscriptions.platform": {
+      "name": "platform",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.task_assignments": {
+      "name": "task_assignments",
+      "description": "task_assignments",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/task_assignments"
+      }
+    },
+    "rowFilter.task_assignments.task_id": {
+      "name": "task_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.task_assignments.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.spin_results": {
+      "name": "spin_results",
+      "description": "spin_results",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/spin_results"
+      }
+    },
+    "rowFilter.spin_results.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.spin_results.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.spin_results.stars_won": {
+      "name": "stars_won",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.spin_results.date": {
+      "name": "date",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.spin_results.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.children": {
+      "name": "children",
+      "description": "children",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/children"
+      }
+    },
+    "rowFilter.children.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.avatar": {
+      "name": "avatar",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.colour": {
+      "name": "colour",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.birthdate": {
+      "name": "birthdate",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.kid_pin": {
+      "name": "kid_pin",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.avatar_url": {
+      "name": "avatar_url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.age": {
+      "name": "age",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.goal_title": {
+      "name": "goal_title",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.goal_emoji": {
+      "name": "goal_emoji",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.goal_target": {
+      "name": "goal_target",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.equipped_hat": {
+      "name": "equipped_hat",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.children.equipped_frame": {
+      "name": "equipped_frame",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.tasks": {
+      "name": "tasks",
+      "description": "tasks",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/tasks"
+      }
+    },
+    "rowFilter.tasks.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.title": {
+      "name": "title",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.emoji": {
+      "name": "emoji",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.type": {
+      "name": "type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.time_of_day": {
+      "name": "time_of_day",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.recurrence": {
+      "name": "recurrence",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.star_value": {
+      "name": "star_value",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.requires_photo": {
+      "name": "requires_photo",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.frequency": {
+      "name": "frequency",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.carry_over": {
+      "name": "carry_over",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.requires_benchmark_photo": {
+      "name": "requires_benchmark_photo",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.benchmark_differs_per_child": {
+      "name": "benchmark_differs_per_child",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.difficulty": {
+      "name": "difficulty",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.requires_approval": {
+      "name": "requires_approval",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.start_date": {
+      "name": "start_date",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.days_of_week": {
+      "name": "days_of_week",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.can_do_early": {
+      "name": "can_do_early",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.up_for_grabs": {
+      "name": "up_for_grabs",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.expires_on": {
+      "name": "expires_on",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.child_unlocks": {
+      "name": "child_unlocks",
+      "description": "child_unlocks",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/child_unlocks"
+      }
+    },
+    "rowFilter.child_unlocks.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.child_unlocks.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.child_unlocks.item_id": {
+      "name": "item_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.child_unlocks.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.rewards": {
+      "name": "rewards",
+      "description": "rewards",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/rewards"
+      }
+    },
+    "rowFilter.rewards.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.title": {
+      "name": "title",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.emoji": {
+      "name": "emoji",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.star_cost": {
+      "name": "star_cost",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.scope": {
+      "name": "scope",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.redemption_limit": {
+      "name": "redemption_limit",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.rewards.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.task_benchmark_photos": {
+      "name": "task_benchmark_photos",
+      "description": "task_benchmark_photos",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/task_benchmark_photos"
+      }
+    },
+    "rowFilter.task_benchmark_photos.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.task_benchmark_photos.task_id": {
+      "name": "task_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.task_benchmark_photos.url": {
+      "name": "url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.task_benchmark_photos.media_type": {
+      "name": "media_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.task_benchmark_photos.sort_order": {
+      "name": "sort_order",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.task_benchmark_photos.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.guardians": {
+      "name": "guardians",
+      "description": "guardians",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/guardians"
+      }
+    },
+    "rowFilter.guardians.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardians.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardians.auth_user_id": {
+      "name": "auth_user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardians.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardians.email": {
+      "name": "email",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardians.parent_pin": {
+      "name": "parent_pin",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.guardians.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.completions": {
+      "name": "completions",
+      "description": "completions",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/completions"
+      }
+    },
+    "rowFilter.completions.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.task_id": {
+      "name": "task_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.date": {
+      "name": "date",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.photo_url": {
+      "name": "photo_url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.ai_verdict": {
+      "name": "ai_verdict",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.ai_reason": {
+      "name": "ai_reason",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.approved_by": {
+      "name": "approved_by",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completions.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.completion_photos": {
+      "name": "completion_photos",
+      "description": "completion_photos",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/completion_photos"
+      }
+    },
+    "rowFilter.completion_photos.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completion_photos.completion_id": {
+      "name": "completion_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completion_photos.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completion_photos.url": {
+      "name": "url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.completion_photos.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.star_ledger": {
+      "name": "star_ledger",
+      "description": "star_ledger",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/star_ledger"
+      }
+    },
+    "rowFilter.star_ledger.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.star_ledger.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.star_ledger.delta": {
+      "name": "delta",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.star_ledger.reason": {
+      "name": "reason",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.star_ledger.source_type": {
+      "name": "source_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.star_ledger.source_id": {
+      "name": "source_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.star_ledger.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.redemptions": {
+      "name": "redemptions",
+      "description": "redemptions",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/redemptions"
+      }
+    },
+    "rowFilter.redemptions.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.redemptions.reward_id": {
+      "name": "reward_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.redemptions.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.redemptions.date": {
+      "name": "date",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.redemptions.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.redemptions.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.family_goals": {
+      "name": "family_goals",
+      "description": "family_goals",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/family_goals"
+      }
+    },
+    "rowFilter.family_goals.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.family_goals.family_id": {
+      "name": "family_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.family_goals.title": {
+      "name": "title",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.family_goals.target": {
+      "name": "target",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.family_goals.progress": {
+      "name": "progress",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.family_goals.reward_text": {
+      "name": "reward_text",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.family_goals.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.praises": {
+      "name": "praises",
+      "description": "praises",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/praises"
+      }
+    },
+    "rowFilter.praises.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.praises.child_id": {
+      "name": "child_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.praises.message": {
+      "name": "message",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.praises.seen": {
+      "name": "seen",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.praises.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    }
+  },
+  "externalDocs": {
+    "description": "PostgREST Documentation",
+    "url": "https://postgrest.org/en/v14/references/api.html"
+  }
+}

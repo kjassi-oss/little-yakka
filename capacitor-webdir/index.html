@@ -24,7 +24,10 @@
     <div class="box">
       <h1>You're offline</h1>
       <p>Little Yakka needs an internet connection. Check your connection and try again.</p>
-      <button onclick="location.reload()">Retry</button>
+      <!-- This page is served from file:// as the errorPath fallback, so
+           location.reload() would just re-load this same local file forever.
+           Point Retry back at the real site instead. -->
+      <button onclick="location.href='https://www.littleyakka.com'">Retry</button>
     </div>
   </body>
 </html>

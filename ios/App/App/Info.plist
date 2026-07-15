@@ -40,11 +40,11 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<!-- Portrait only: the app is a mobile-first portrait layout with sticky
+	     headers and a bottom nav; landscape was never designed for. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

@@ -40,7 +40,7 @@ export default async function ChildPage({ params, searchParams }: {
     { data: family }, { data: assignments }, { data: completions }, { data: completedHistory },
     { data: starData }, { data: rewards }, { data: pendingRedemptions }, { data: ufgData },
     { count: totalCompletions }, { data: unlockRows }, { data: spinToday }, { data: unseenPraises },
-    { data: redeemedRows },
+    { data: redeemedRows }, { data: siblings },
   ] = await Promise.all([
     supabase.from('families').select('*').eq('id', guardian?.family_id).maybeSingle(),
     supabase.from('task_assignments').select('task_id, tasks(*)').eq('child_id', childId),
@@ -64,6 +64,9 @@ export default async function ChildPage({ params, searchParams }: {
     supabase.from('redemptions').select('id, created_at, rewards(title, emoji, star_cost)')
       .eq('child_id', childId).eq('status', 'approved')
       .order('created_at', { ascending: false }).limit(50),
+    // Realtime watches every child in the family, not just this one: a sibling
+    // claiming an up-for-grabs task has to refresh this page too.
+    supabase.from('children').select('id').eq('family_id', guardian?.family_id),
   ])
   const allTasks = (assignments?.map(a => a.tasks).flat().filter(Boolean) || []) as any[]
 
@@ -215,7 +218,7 @@ export default async function ChildPage({ params, searchParams }: {
 
   return (<>
     {/* Live sync: refresh this page when completions/stars change elsewhere */}
-    <RealtimeRefresh />
+    <RealtimeRefresh familyId={guardian?.family_id} childIds={(siblings || []).map(s => s.id)} />
     <ChildTaskView
       child={child}
       tasks={tasksForList}
