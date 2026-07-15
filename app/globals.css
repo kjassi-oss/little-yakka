@@ -7,6 +7,10 @@
   --theme-from: #0EA5E9;
   --theme-to: #2563EB;
   --theme-gradient: linear-gradient(135deg, #0EA5E9, #2563EB);
+  /* RGB channels — for rgba(var(--theme-from-rgb), 0.08) tints. Kept in sync
+     with the hexes above and with THEMES in components/ThemeProvider.tsx. */
+  --theme-from-rgb: 14, 165, 233;
+  --theme-to-rgb: 37, 99, 235;
 }
 
 @theme inline {
@@ -46,15 +50,16 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Theme presets — drive solid accents (from/to) and header/button gradient */
-[data-theme="rainbow"]  { --theme-from: #D6336C; --theme-to: #7048E8; --theme-gradient: linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93); }
-[data-theme="candy"]    { --theme-from: #EC4899; --theme-to: #8B5CF6; --theme-gradient: linear-gradient(135deg, #EC4899, #8B5CF6); }
-[data-theme="princess"] { --theme-from: #E84393; --theme-to: #FF7AC6; --theme-gradient: linear-gradient(135deg, #F368E0, #FF8FB1); }
-[data-theme="rockstar"] { --theme-from: #2563EB; --theme-to: #06B6D4; --theme-gradient: linear-gradient(135deg, #2563EB, #06B6D4); }
-[data-theme="sunshine"] { --theme-from: #F97316; --theme-to: #FBBF24; --theme-gradient: linear-gradient(135deg, #F97316, #FBBF24); }
-[data-theme="mint"]     { --theme-from: #059669; --theme-to: #34D399; --theme-gradient: linear-gradient(135deg, #059669, #34D399); }
-[data-theme="galaxy"]   { --theme-from: #6D28D9; --theme-to: #C026D3; --theme-gradient: linear-gradient(135deg, #6D28D9, #C026D3); }
-[data-theme="ocean"]    { --theme-from: #0EA5E9; --theme-to: #2563EB; --theme-gradient: linear-gradient(135deg, #0EA5E9, #2563EB); }
+/* Theme presets — drive solid accents (from/to) and header/button gradient.
+   *-rgb are the same colours as channels, for rgba(...) tints. */
+[data-theme="rainbow"]  { --theme-from: #D6336C; --theme-to: #7048E8; --theme-from-rgb: 214, 51, 108; --theme-to-rgb: 112, 72, 232; --theme-gradient: linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93); }
+[data-theme="candy"]    { --theme-from: #EC4899; --theme-to: #8B5CF6; --theme-from-rgb: 236, 72, 153; --theme-to-rgb: 139, 92, 246; --theme-gradient: linear-gradient(135deg, #EC4899, #8B5CF6); }
+[data-theme="princess"] { --theme-from: #E84393; --theme-to: #FF7AC6; --theme-from-rgb: 232, 67, 147; --theme-to-rgb: 255, 122, 198; --theme-gradient: linear-gradient(135deg, #F368E0, #FF8FB1); }
+[data-theme="rockstar"] { --theme-from: #2563EB; --theme-to: #06B6D4; --theme-from-rgb: 37, 99, 235;  --theme-to-rgb: 6, 182, 212;   --theme-gradient: linear-gradient(135deg, #2563EB, #06B6D4); }
+[data-theme="sunshine"] { --theme-from: #F97316; --theme-to: #FBBF24; --theme-from-rgb: 249, 115, 22; --theme-to-rgb: 251, 191, 36;  --theme-gradient: linear-gradient(135deg, #F97316, #FBBF24); }
+[data-theme="mint"]     { --theme-from: #059669; --theme-to: #34D399; --theme-from-rgb: 5, 150, 105;  --theme-to-rgb: 52, 211, 153;  --theme-gradient: linear-gradient(135deg, #059669, #34D399); }
+[data-theme="galaxy"]   { --theme-from: #6D28D9; --theme-to: #C026D3; --theme-from-rgb: 109, 40, 217; --theme-to-rgb: 192, 38, 211;  --theme-gradient: linear-gradient(135deg, #6D28D9, #C026D3); }
+[data-theme="ocean"]    { --theme-from: #0EA5E9; --theme-to: #2563EB; --theme-from-rgb: 14, 165, 233; --theme-to-rgb: 37, 99, 235;   --theme-gradient: linear-gradient(135deg, #0EA5E9, #2563EB); }
 
 /* Kid zone animations */
 @keyframes floatUp {

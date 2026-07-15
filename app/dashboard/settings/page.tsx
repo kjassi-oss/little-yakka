@@ -12,7 +12,6 @@ import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
 import AvatarPicker from '@/components/AvatarPicker'
-import { isKidAvatar } from '@/lib/kidAvatars'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -324,6 +323,18 @@ export default function SettingsPage() {
     // Include the savings goal; retry without it if the columns don't exist yet
     const { error } = await supabase.from('children').update({ ...base, ...goal }).eq('id', editingChild.id)
     if (error) await supabase.from('children').update(base).eq('id', editingChild.id)
+
+    // Swapping a photo for an avatar leaves the file unreferenced — bin it so
+    // we don't accumulate orphans (and so the child's photo doesn't outlive the
+    // parent's decision to remove it).
+    const hadPhoto = children.find(c => c.id === editingChild.id)?.avatar_url
+    if (hadPhoto && !editingChild.avatar_url) {
+      const dir = `${familyId}/${editingChild.id}`
+      const { data: stale } = await supabase.storage.from('kid-avatars').list(dir)
+      const paths = (stale || []).map(f => `${dir}/${f.name}`)
+      if (paths.length) await supabase.storage.from('kid-avatars').remove(paths)
+    }
+
     setEditingChild(null); setSaving(false); loadData()
   }
 
@@ -415,7 +426,7 @@ export default function SettingsPage() {
             <h2 className="font-bold text-gray-800">Children</h2>
             <button onClick={() => { setShowAddForm(!showAddForm); setEditingChild(null) }}
               className="font-semibold px-3 py-1.5 rounded-xl text-sm active:scale-95 transition"
-              style={{ backgroundColor: 'var(--theme-from)22', color: 'var(--theme-from)' }}>
+              style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.13)', color: 'var(--theme-from)' }}>
               {showAddForm ? '✕ Cancel' : '+ Add Child'}
             </button>
           </div>
@@ -471,9 +482,11 @@ export default function SettingsPage() {
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
                       <AvatarPicker value={editingChild.avatar}
-                        onChange={a => setEditingChild({ ...editingChild, avatar: a,
-                          // Picking an emoji clears a leftover cartoon avatar (kept for real photos)
-                          avatar_url: isKidAvatar(editingChild.avatar_url) ? undefined : editingChild.avatar_url })}/>
+                        // avatar_url wins over `avatar` everywhere it renders, so picking
+                        // one here has to clear it — including a real photo. Previously only
+                        // cartoon avatars were cleared, which made the picker silently do
+                        // nothing for any child who had a photo.
+                        onChange={a => setEditingChild({ ...editingChild, avatar: a, avatar_url: undefined })}/>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Colour</p>
@@ -533,7 +546,7 @@ export default function SettingsPage() {
                       <button onClick={() => { setAdjustChild(child); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustError('') }}
                         aria-label="Adjust stars" className="text-xs font-bold w-8 h-8 rounded-xl bg-yellow-50 text-yellow-600 active:scale-90 transition">⭐</button>
                       <button onClick={() => { setEditingChild(child); setShowAddForm(false) }} aria-label="Edit"
-                        className="text-xs w-8 h-8 rounded-xl active:scale-90 transition" style={{ backgroundColor: 'var(--theme-from)15', color: 'var(--theme-from)' }}>✏️</button>
+                        className="text-xs w-8 h-8 rounded-xl active:scale-90 transition" style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.08)', color: 'var(--theme-from)' }}>✏️</button>
                       <button onClick={() => deleteChild(child.id)} aria-label="Remove"
                         className="text-red-400 text-xs font-semibold w-8 h-8 bg-red-50 rounded-xl active:scale-90 transition">✕</button>
                     </div>

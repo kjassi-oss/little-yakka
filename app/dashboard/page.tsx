@@ -220,7 +220,10 @@ export default async function DashboardPage() {
               const showMedal = childData.length > 1 && rank < 3 && weekStars > 0
               return (
                 <div key={child.id}
-                  className={`relative bg-white rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px] lg:w-[200px]' : 'flex-1 min-w-0 max-w-[150px] lg:max-w-[220px]'}`}>
+                  className={`relative rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px] lg:w-[200px]' : 'flex-1 min-w-0 max-w-[150px] lg:max-w-[220px]'}`}
+                  // Faint wash of the active theme so the tiles lift off the page
+                  // without competing with the avatars.
+                  style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.08)', border: '1px solid rgba(var(--theme-from-rgb), 0.15)' }}>
                   {/* Weekly rank medal, top-left */}
                   {showMedal && (
                     <div className="absolute top-1.5 left-1.5 z-10 text-base drop-shadow-sm">{MEDALS[rank]}</div>
