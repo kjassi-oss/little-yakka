@@ -19,6 +19,14 @@ export const THEMES = {
 export type ThemeKey = keyof typeof THEMES
 const DEFAULT_THEME: ThemeKey = 'ocean'
 
+// "#0EA5E9" → "14, 165, 233"
+function hexToRgb(hex: string) {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const n = parseInt(full, 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
+
 function applyTheme(key: string) {
   const theme = THEMES[key as ThemeKey] ?? THEMES[DEFAULT_THEME]
   const root = document.documentElement
@@ -26,6 +34,11 @@ function applyTheme(key: string) {
   root.style.setProperty('--theme-from', theme.from)
   root.style.setProperty('--theme-to', theme.to)
   root.style.setProperty('--theme-gradient', theme.gradient)
+  // Channels only, so tints can be built with rgba(var(--theme-from-rgb), 0.08).
+  // `var(--theme-from)14` LOOKS like it appends an alpha byte but is invalid CSS —
+  // it silently computes to transparent, which is why themed tints never showed.
+  root.style.setProperty('--theme-from-rgb', hexToRgb(theme.from))
+  root.style.setProperty('--theme-to-rgb', hexToRgb(theme.to))
 }
 
 export function getStoredTheme(): ThemeKey {
