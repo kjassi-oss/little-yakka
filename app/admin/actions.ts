@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { purgeFamilyPhotos } from '@/lib/storagePurge'
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'kjassi@gmail.com').toLowerCase()
 
@@ -49,6 +50,10 @@ export async function deleteUserAccount(authUserId: string): Promise<{ error?: s
           .from('tasks').select('id').eq('family_id', familyId)
         const taskIds = (taskRows || []).map(t => t.id)
 
+        // Photos first — storage is keyed off family_id, so a failure after the
+        // rows are gone would strand the files with no way to attribute them.
+        await purgeFamilyPhotos(admin, familyId)
+
         // Delete leaf tables first
         if (childIds.length) {
           await Promise.all([
@@ -82,15 +87,6 @@ export async function deleteUserAccount(authUserId: string): Promise<{ error?: s
 
         await admin.from('guardians').delete().eq('family_id', familyId)
         await admin.from('families').delete().eq('id', familyId)
-
-        // Delete storage files for children
-        if (childIds.length) {
-          const { data: avatarList } = await admin.storage.from('kid-avatars').list(familyId)
-          if (avatarList?.length) {
-            const paths = avatarList.map(f => `${familyId}/${f.name}`)
-            await admin.storage.from('kid-avatars').remove(paths)
-          }
-        }
 
         // Delete other co-guardian auth accounts if they exist
         for (const coAuthId of otherAuthIds) {

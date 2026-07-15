@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { purgeFamilyPhotos } from '@/lib/storagePurge'
 
 function getAdmin() {
   const serviceKey =
@@ -41,6 +42,12 @@ export async function deleteMyAccount(): Promise<{ error?: string }> {
         const { data: taskRows } = await admin.from('tasks').select('id').eq('family_id', familyId)
         const taskIds = (taskRows || []).map(t => t.id)
 
+        // Purge photos BEFORE the rows. Storage is keyed off family_id, so once
+        // the family row is gone we can no longer tell whose files these were —
+        // a failure here after the deletes would strand them permanently
+        // (which is exactly how the pre-existing orphans accumulated).
+        await purgeFamilyPhotos(admin, familyId)
+
         if (childIds.length) {
           await Promise.all([
             admin.from('spin_results').delete().in('child_id', childIds),
@@ -72,13 +79,6 @@ export async function deleteMyAccount(): Promise<{ error?: string }> {
 
         await admin.from('guardians').delete().eq('family_id', familyId)
         await admin.from('families').delete().eq('id', familyId)
-
-        if (childIds.length) {
-          const { data: avatarList } = await admin.storage.from('kid-avatars').list(familyId)
-          if (avatarList?.length) {
-            await admin.storage.from('kid-avatars').remove(avatarList.map(f => `${familyId}/${f.name}`))
-          }
-        }
 
         for (const coAuthId of otherAuthIds) {
           if (coAuthId) await admin.auth.admin.deleteUser(coAuthId)

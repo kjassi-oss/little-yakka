@@ -14,6 +14,11 @@ const config: CapacitorConfig = {
   webDir: 'capacitor-webdir',
   server: {
     url: 'https://www.littleyakka.com',
+    // Shown when the remote site can't be reached (no network, DNS failure, our
+    // site down). Resolves against the bundled webDir. Without this the WebView
+    // renders a BLANK WHITE SCREEN on a failed load — unlike Safari it has no
+    // built-in error page — which reads as a broken app (Guideline 2.1).
+    errorPath: 'index.html',
     // Only allow navigation within our own origins; everything else opens in the system browser.
     allowNavigation: ['www.littleyakka.com', 'littleyakka.com', '*.supabase.co'],
     cleartext: false,
