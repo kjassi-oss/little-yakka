@@ -10,7 +10,7 @@ import CelebrationBurst from '@/components/CelebrationBurst'
 import { getCachedFamily } from '@/lib/familyCache'
 import { completionFeedback } from '@/lib/feedback'
 import UpcomingTaskList from '@/components/UpcomingTaskList'
-import { TASK_PRESETS, DEFAULT_TASK_EMOJIS as DEFAULT_EMOJIS, EMOJI_OPTIONS } from '@/lib/taskPresets'
+import { TASK_PRESETS, DEFAULT_TASK_ICONS, EMOJI_OPTIONS } from '@/lib/taskPresets'
 
 const TIME_OPTIONS = [
   { value: 'anytime',   label: '📋 Anytime' },
@@ -60,6 +60,8 @@ export default function ChoresPage() {
   const [filterChildId, setFilterChildId] = useState<string | null>(null)
   const [showChildPicker, setShowChildPicker] = useState(false)
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
+  // Kids offered in the child picker — only those with the tapped occurrence outstanding
+  const [pendingKidIds, setPendingKidIds] = useState<string[] | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<HistoryRow[]>([])
   const [todayOnly, setTodayOnly] = useState(false)
   const [expandedDoneChild, setExpandedDoneChild] = useState<string | null>(null)
@@ -219,19 +221,26 @@ export default function ChoresPage() {
     loadData()
   }
 
-  // Multi-child: tapping a task asks which child (or jumps straight in if only one)
-  function openTaskForChild(task: Task) {
-    const ids = (assignments[task.id] || []).filter(cid => upcomingFilter.size === 0 || upcomingFilter.has(cid))
+  // Multi-child: tapping a task asks which child (or jumps straight in if only one).
+  // Only kids who still have that occurrence outstanding are offered; if everyone
+  // has finished it, fall back to all assigned kids (e.g. to review/undo).
+  function openTaskForChild(task: Task, date?: string) {
+    const ds = date || ymdLocal(new Date())
+    const all = (assignments[task.id] || []).filter(cid => upcomingFilter.size === 0 || upcomingFilter.has(cid))
+    const outstanding = all.filter(cid => !windowComps.some(c => c.task_id === task.id && c.child_id === cid && c.date === ds))
+    const ids = outstanding.length ? outstanding : all
     if (ids.length === 1) router.push(`/kid-mode/${ids[0]}?task=${task.id}`)
-    else { setPendingTaskId(task.id); setShowChildPicker(true) }
+    else { setPendingTaskId(task.id); setPendingKidIds(ids); setShowChildPicker(true) }
   }
 
   function handleTaskClick(task: Task) {
     // Tapping a task jumps into the kid zone, deep-linked to that task.
-    const kids = assignments[task.id] || []
+    const all = assignments[task.id] || []
+    const outstanding = all.filter(cid => !completedSet.has(`${task.id}-${cid}`))
+    const ids = outstanding.length ? outstanding : all
     if (filterChildId) router.push(`/kid-mode/${filterChildId}?task=${task.id}`)
-    else if (kids.length === 1) router.push(`/kid-mode/${kids[0]}?task=${task.id}`)
-    else { setPendingTaskId(task.id); setShowChildPicker(true) }
+    else if (ids.length === 1) router.push(`/kid-mode/${ids[0]}?task=${task.id}`)
+    else { setPendingTaskId(task.id); setPendingKidIds(ids); setShowChildPicker(true) }
   }
 
   async function approveCompletion(row: HistoryRow) {
@@ -498,40 +507,46 @@ export default function ChoresPage() {
               </div>
             )}
 
-            {/* Name with the chosen icon beside it (white bg, red border) */}
+            {/* Name with the chosen icon beside it (white bg, red border) + 🔍 search toggle */}
             <div className="flex items-center gap-2">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
                 style={{ border: '2px solid #EF4444' }}>{emoji}</div>
               <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 placeholder="Task name"/>
+              <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+                aria-label="Search icons"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                style={showEmojiSearch ? { background: 'var(--theme-gradient)' } : {}}>🔍</button>
             </div>
 
-            {/* Icon picker — 10 defaults (5 per row); 🔍 reveals full search */}
+            {/* Icon picker — 10 defaults on one row (labelled); 🔍 reveals full search */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500">Choose an icon</p>
-                <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
-                  aria-label="Search icons"
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-base transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-                  style={showEmojiSearch ? { background: 'var(--theme-gradient)' } : {}}>🔍</button>
-              </div>
               {showEmojiSearch && (
                 <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
                   placeholder="Search icons (e.g. bed, teeth, dog)"/>
               )}
-              <div className="grid grid-cols-5 gap-1.5 p-1.5 bg-gray-50 rounded-2xl">
-                {(emojiSearch.trim()
-                  ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
-                  : DEFAULT_EMOJIS
-                ).map((e, i) => (
-                  <button key={`${e}-${i}`} onClick={() => setEmoji(e)}
-                    className={`text-2xl p-2 rounded-xl transition ${emoji === e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>
-                    {e}
-                  </button>
-                ))}
-              </div>
+              {emojiSearch.trim() ? (
+                <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+                  {EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map((o, i) => (
+                    <button key={`${o.e}-${i}`} onClick={() => setEmoji(o.e)}
+                      className={`text-xl p-1 rounded-lg transition ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>
+                      {o.e}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+                  {DEFAULT_TASK_ICONS.map(o => (
+                    <button key={o.e} onClick={() => setEmoji(o.e)}
+                      className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
+                      <span className={`text-xl leading-none p-1 rounded-lg ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60'}`}>{o.e}</span>
+                      <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">{o.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Up for grabs — unassigned; any child can claim it, first done wins */}
@@ -550,7 +565,12 @@ export default function ChoresPage() {
 
             {!upForGrabs && (<>
             <div>
-              <p className="text-xs text-gray-500 mb-2">How often?</p>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <p className="text-xs text-gray-500">How often?</p>
+                {frequency === 'weekly' && (
+                  <p className="text-[11px] font-bold text-red-500">The week runs from Monday to Sunday</p>
+                )}
+              </div>
               <div className="flex gap-2">
                 {FREQ_OPTIONS.map(opt => (
                   <button key={opt.value} onClick={() => setFrequency(opt.value as any)}
@@ -911,14 +931,14 @@ export default function ChoresPage() {
 
       {/* Child picker — shown when tapping a task with no kid filter selected */}
       {showChildPicker && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => { setShowChildPicker(false); setPendingTaskId(null) }}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => { setShowChildPicker(false); setPendingTaskId(null); setPendingKidIds(null) }}>
           <div className="bg-white w-full rounded-t-3xl p-5 pop-in" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"/>
             <h3 className="font-black text-gray-800 text-lg mb-1">Who's doing this? ⭐</h3>
             <p className="text-gray-400 text-sm mb-4">Tap a child to enter their zone</p>
             <div className="grid grid-cols-3 gap-3 mb-3">
-              {(pendingTaskId && (assignments[pendingTaskId] || []).length
-                ? (assignments[pendingTaskId] || []).map(id => childMap[id]).filter(Boolean)
+              {(pendingKidIds && pendingKidIds.length
+                ? children.filter(c => pendingKidIds.includes(c.id)) // childrenList order, outstanding only
                 : children /* up-for-grabs tasks have no assignments — anyone can take them */
               ).map(child => (
                 <button key={child.id} onClick={() => router.push(`/kid-mode/${child.id}${pendingTaskId ? `?task=${pendingTaskId}` : ''}`)}
@@ -931,7 +951,7 @@ export default function ChoresPage() {
                 </button>
               ))}
             </div>
-            <button onClick={() => { setShowChildPicker(false); setPendingTaskId(null) }}
+            <button onClick={() => { setShowChildPicker(false); setPendingTaskId(null); setPendingKidIds(null) }}
               className="w-full text-gray-500 font-semibold py-3 rounded-2xl border border-gray-200 active:scale-95 transition">
               ← Back to tasks
             </button>

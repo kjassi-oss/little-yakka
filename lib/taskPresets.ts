@@ -16,12 +16,56 @@ export const TASK_PRESETS: { emoji: string; title: string }[] = [
   { emoji: '🪴', title: 'Water the plants' },         { emoji: '🐕', title: 'Feed pet / walk dog' },
 ]
 
-// 10 default quick-pick icons shown 5-per-row (search reveals the rest).
-export const DEFAULT_TASK_EMOJIS = ['🦷', '📚', '🎹', '🎒', '🧸', '🛏️', '🍽️', '🗑️', '🧹', '🪴']
+// 10 default quick-pick icons shown on ONE row with Title Case labels
+// (the 🔍 search reveals the rest). Star first by design.
+export const DEFAULT_TASK_ICONS: { e: string; label: string }[] = [
+  { e: '⭐', label: 'Star' },
+  { e: '🛏️', label: 'Make Bed' },
+  { e: '📚', label: 'Study' },
+  { e: '🎵', label: 'Music' },
+  { e: '🧺', label: 'Laundry Hamper' },
+  { e: '✨', label: 'Clean Bedroom' },
+  { e: '🗑️', label: 'Take Out Trash' },
+  { e: '🍽️', label: 'Set Table' },
+  { e: '👕', label: 'Fold Laundry' },
+  { e: '🧹', label: 'Vacuum' },
+]
+
+// Reward emoji picker — top 10 shown on one row; the 🔍 search reveals the rest.
+export const DEFAULT_REWARD_EMOJIS = ['🎁', '🍦', '🎮', '📱', '🎬', '🍿', '🍔', '🍭', '🍰', '🏆']
+
+export const REWARD_EMOJI_OPTIONS: { e: string; kw: string }[] = [
+  { e: '🎁', kw: 'gift present surprise' }, { e: '🍦', kw: 'ice cream icecream treat' },
+  { e: '🎮', kw: 'games computer console video gaming' }, { e: '📱', kw: 'ipad phone tablet screen time' },
+  { e: '🎬', kw: 'movie movies cinema film' }, { e: '🍿', kw: 'popcorn movie night' },
+  { e: '🍔', kw: 'burger takeaway maccas dinner' }, { e: '🍭', kw: 'lolly lollipop candy sweet' },
+  { e: '🍰', kw: 'cake dessert sweet' }, { e: '🏆', kw: 'trophy winner prize' },
+  { e: '🍕', kw: 'pizza takeaway dinner' }, { e: '🍩', kw: 'donut doughnut treat' },
+  { e: '🍪', kw: 'cookie biscuit treat' }, { e: '🎂', kw: 'birthday cake party' },
+  { e: '🧁', kw: 'cupcake baking treat' }, { e: '🍫', kw: 'chocolate treat sweet' },
+  { e: '📺', kw: 'tv television show cartoons' }, { e: '💻', kw: 'computer laptop screen' },
+  { e: '🎧', kw: 'headphones music listen' }, { e: '🎵', kw: 'music song' },
+  { e: '🎉', kw: 'party celebrate' }, { e: '🛍️', kw: 'shopping shops buy' },
+  { e: '✈️', kw: 'plane holiday travel trip' }, { e: '🏖️', kw: 'beach holiday swim sand' },
+  { e: '🎡', kw: 'ferris wheel fair carnival show' }, { e: '🎢', kw: 'rollercoaster theme park ride' },
+  { e: '🎠', kw: 'carousel fair ride' }, { e: '🎯', kw: 'darts target games' },
+  { e: '🏅', kw: 'medal winner sport' }, { e: '🥇', kw: 'gold first winner' },
+  { e: '👑', kw: 'crown princess king queen' }, { e: '💎', kw: 'gem diamond jewel special' },
+  { e: '🌟', kw: 'star special shine' }, { e: '🧸', kw: 'teddy toy plush' },
+  { e: '🌈', kw: 'rainbow colourful' }, { e: '🌙', kw: 'stay up late bedtime night' },
+  { e: '🚲', kw: 'bike ride bicycle' }, { e: '⚽', kw: 'soccer football sport' },
+  { e: '🏀', kw: 'basketball sport' }, { e: '🏊', kw: 'swim swimming pool' },
+  { e: '⛺', kw: 'camping tent sleepover backyard' }, { e: '🎨', kw: 'art craft paint drawing' },
+  { e: '📚', kw: 'book books reading' }, { e: '🐶', kw: 'puppy dog pet play' },
+  { e: '🎳', kw: 'bowling games outing' }, { e: '🃏', kw: 'cards game night' },
+  { e: '🎲', kw: 'board game dice game night' }, { e: '🍉', kw: 'fruit watermelon snack' },
+  { e: '🥤', kw: 'drink slurpee soft drink milkshake' }, { e: '🍨', kw: 'sundae ice cream dessert' },
+]
 
 // Full searchable icon set — keywords drive the 🔍 search box.
 export const EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '⭐', kw: 'star reward good special' },
+  { e: '✨', kw: 'clean bedroom tidy sparkle shine' },
   { e: '🛏️', kw: 'bed make sleep bedroom' }, { e: '🧹', kw: 'sweep broom clean tidy floor' },
   { e: '🍽️', kw: 'dishes plate dinner table eat clear' }, { e: '🧺', kw: 'laundry washing clothes' },
   { e: '📖', kw: 'reading book bedtime story read' }, { e: '📝', kw: 'homework write notes school' },
