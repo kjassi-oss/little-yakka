@@ -5,15 +5,20 @@ import { useEffect } from 'react'
 // Each theme drives the WHOLE app via CSS variables:
 //   --theme-from / --theme-to  → solid accent colours (text, borders, fills)
 //   --theme-gradient           → the big header/button gradient (can be multi-stop)
+//
+// Colours are sampled from the Little Yakka logo (logo.png):
+//   teal #06A8B2 · purple #62449B · yellow #F8B211 · raspberry #EC4160
+//   green #5FAD43 · blue #0768C3 · orange #F69112 · navy #0E2473
+// Princess Pink is the one deliberate off-palette keeper.
 export const THEMES = {
-  rainbow:  { name: 'Rainbow',        emoji: '🌈', from: '#D6336C', to: '#7048E8', gradient: 'linear-gradient(135deg, #FF595E, #FFCA3A, #8AC926, #1982C4, #6A4C93)' },
-  candy:    { name: 'Candy Pop',      emoji: '🍭', from: '#EC4899', to: '#8B5CF6', gradient: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
+  rainbow:  { name: 'Rainbow',        emoji: '🌈', from: '#EC4160', to: '#62449B', gradient: 'linear-gradient(135deg, #EC4160, #F69112, #F8B211, #5FAD43, #0768C3, #62449B)' },
+  candy:    { name: 'Candy Pop',      emoji: '🍭', from: '#EC4160', to: '#F69112', gradient: 'linear-gradient(135deg, #EC4160, #F69112)' },
   princess: { name: 'Princess Pink',  emoji: '👑', from: '#E84393', to: '#FF7AC6', gradient: 'linear-gradient(135deg, #F368E0, #FF8FB1)' },
-  rockstar: { name: 'Rock Star Blue', emoji: '🎸', from: '#2563EB', to: '#06B6D4', gradient: 'linear-gradient(135deg, #2563EB, #06B6D4)' },
-  sunshine: { name: 'Sunshine',       emoji: '☀️', from: '#F97316', to: '#FBBF24', gradient: 'linear-gradient(135deg, #F97316, #FBBF24)' },
-  mint:     { name: 'Minty Fresh',    emoji: '🍃', from: '#059669', to: '#34D399', gradient: 'linear-gradient(135deg, #059669, #34D399)' },
-  galaxy:   { name: 'Galaxy',         emoji: '🌌', from: '#6D28D9', to: '#C026D3', gradient: 'linear-gradient(135deg, #6D28D9, #C026D3)' },
-  ocean:    { name: 'Ocean',          emoji: '🌊', from: '#0EA5E9', to: '#2563EB', gradient: 'linear-gradient(135deg, #0EA5E9, #2563EB)' },
+  rockstar: { name: 'Rock Star Blue', emoji: '🎸', from: '#0E2473', to: '#0768C3', gradient: 'linear-gradient(135deg, #0E2473, #0768C3)' },
+  sunshine: { name: 'Sunshine',       emoji: '☀️', from: '#F69112', to: '#F8B211', gradient: 'linear-gradient(135deg, #F69112, #F8B211)' },
+  mint:     { name: 'Minty Fresh',    emoji: '🍃', from: '#5FAD43', to: '#06A8B2', gradient: 'linear-gradient(135deg, #5FAD43, #06A8B2)' },
+  galaxy:   { name: 'Galaxy',         emoji: '🌌', from: '#62449B', to: '#EC4160', gradient: 'linear-gradient(135deg, #62449B, #EC4160)' },
+  ocean:    { name: 'Ocean',          emoji: '🌊', from: '#0768C3', to: '#06A8B2', gradient: 'linear-gradient(135deg, #0768C3, #06A8B2)' },
 } as const
 
 export type ThemeKey = keyof typeof THEMES
