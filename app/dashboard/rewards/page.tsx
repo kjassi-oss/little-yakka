@@ -25,6 +25,14 @@ interface Reward {
   star_cost: number
   scope: 'family' | 'child'
   child_id: string | null
+  child_ids?: string[] | null // multi-kid audience (newer column; child_id keeps the first for back-compat)
+}
+
+// Which kids can redeem this reward?
+function rewardKidIds(r: Reward): string[] {
+  if (r.scope === 'family') return []
+  if (r.child_ids?.length) return r.child_ids
+  return r.child_id ? [r.child_id] : []
 }
 
 interface Child {
@@ -57,12 +65,14 @@ export default function RewardsPage() {
   const [redeemTarget, setRedeemTarget] = useState<Reward | null>(null)
   const [expandedChild, setExpandedChild] = useState<string | null>(null)
   const [redeemBurst, setRedeemBurst] = useState<{ colour: string; emoji: string; photo?: string | null; avatar?: string; title: string; sub?: string } | null>(null)
+  // Themed confirmation dialog (replaces browser confirm(), which is easy to miss)
+  const [confirmAsk, setConfirmAsk] = useState<{ emoji: string; title: string; sub: string; onConfirm: () => void } | null>(null)
 
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('🎁')
   const [starCost, setStarCost] = useState(10)
-  const [scope, setScope] = useState<'family' | 'child'>('family')
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
+  // Audience: empty = everyone (family scope); otherwise any subset of kids
+  const [selectedChildIds, setSelectedChildIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [emojiSearch, setEmojiSearch] = useState('')
@@ -105,14 +115,14 @@ export default function RewardsPage() {
   }
 
   function resetForm() {
-    setTitle(''); setEmoji('🎁'); setStarCost(10); setScope('family'); setSelectedChildId(null)
+    setTitle(''); setEmoji('🎁'); setStarCost(10); setSelectedChildIds([])
     setEditingRewardId(null); setShowTemplates(false); setEmojiSearch(''); setShowEmojiSearch(false)
   }
 
   function openEditReward(r: Reward) {
     setEditingRewardId(r.id)
     setTitle(r.title); setEmoji(r.emoji); setStarCost(r.star_cost)
-    setScope(r.scope); setSelectedChildId(r.child_id)
+    setSelectedChildIds(rewardKidIds(r))
     setShowForm(true)
   }
 
@@ -120,16 +130,23 @@ export default function RewardsPage() {
     if (!title.trim()) return
     setSaving(true)
     const supabase = createClient()
-    const payload = {
+    // Selecting every kid is the same as Everyone — store it as family scope
+    const kidIds = selectedChildIds.length >= children.length ? [] : selectedChildIds
+    const base = {
       family_id: familyId,
       title: title.trim(),
       emoji,
       star_cost: starCost,
-      scope,
-      child_id: scope === 'child' ? selectedChildId : null,
+      scope: kidIds.length ? 'child' : 'family',
+      child_id: kidIds[0] ?? null, // legacy single-kid column keeps the first pick
     }
-    if (editingRewardId) await supabase.from('rewards').update(payload).eq('id', editingRewardId)
-    else await supabase.from('rewards').insert(payload)
+    // Try with the multi-kid column; retry without it if it hasn't been migrated
+    const payload = { ...base, child_ids: kidIds.length ? kidIds : null }
+    const attempt = (p: any) => editingRewardId
+      ? supabase.from('rewards').update(p).eq('id', editingRewardId)
+      : supabase.from('rewards').insert(p)
+    const { error } = await attempt(payload)
+    if (error) await attempt(base)
     resetForm()
     setShowForm(false); setSaving(false)
     loadData()
@@ -160,15 +177,23 @@ export default function RewardsPage() {
     loadData()
   }
 
-  async function undoRedemption(r: Redemption) {
-    if (!confirm(`Undo "${r.rewards?.title}" for ${r.children?.name}? Stars will be refunded.`)) return
-    const supabase = createClient()
-    await supabase.from('redemptions').delete().eq('id', r.id)
-    await supabase.from('star_ledger').insert({
-      child_id: r.child_id, delta: r.rewards?.star_cost || 0,
-      reason: `Undo redeem: ${r.rewards?.title}`, source_type: 'undo',
+  function undoRedemption(r: Redemption) {
+    setConfirmAsk({
+      emoji: r.rewards?.emoji || '🎁',
+      title: `Undo "${r.rewards?.title}" for ${r.children?.name?.split(' ')[0] || 'this child'}?`,
+      sub: `This refunds ${r.rewards?.star_cost || 0} ⭐`,
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        const supabase = createClient()
+        const { error } = await supabase.from('redemptions').delete().eq('id', r.id)
+        if (error) { alert(`Couldn't undo: ${error.message}`); return }
+        await supabase.from('star_ledger').insert({
+          child_id: r.child_id, delta: r.rewards?.star_cost || 0,
+          reason: `Undo redeem: ${r.rewards?.title}`, source_type: 'undo',
+        })
+        loadData()
+      },
     })
-    loadData()
   }
 
   async function approveRedemption(r: Redemption) {
@@ -304,19 +329,23 @@ export default function RewardsPage() {
             </div>
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">Who can redeem this?</p>
+              <p className="text-xs text-gray-500 mb-2">Who can redeem this? <span className="text-gray-300">(tap to pick one or more)</span></p>
               <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(children.length + 1, 1), 4)}, minmax(0, 1fr))` }}>
                 {/* All kids */}
-                <button onClick={() => { setScope('family'); setSelectedChildId(null) }}
-                  className="flex flex-col items-center gap-1 active:scale-95 transition">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black ${scope === 'family' ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                    style={scope === 'family' ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
-                  <span className="text-[11px] font-bold" style={{ color: scope === 'family' ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
-                </button>
-                {children.map(c => {
-                  const sel = scope === 'child' && selectedChildId === c.id
+                {(() => { const allSel = selectedChildIds.length === 0
                   return (
-                    <button key={c.id} onClick={() => { setScope('child'); setSelectedChildId(c.id) }}
+                    <button onClick={() => setSelectedChildIds([])}
+                      className="flex flex-col items-center gap-1 active:scale-95 transition">
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black ${allSel ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                        style={allSel ? { background: 'var(--theme-gradient)', boxShadow: '0 0 0 3px white, 0 0 0 5px var(--theme-from)' } : {}}>All</div>
+                      <span className="text-[11px] font-bold" style={{ color: allSel ? 'var(--theme-from)' : '#9ca3af' }}>Everyone</span>
+                    </button>
+                  ) })()}
+                {children.map(c => {
+                  const sel = selectedChildIds.includes(c.id)
+                  return (
+                    <button key={c.id}
+                      onClick={() => setSelectedChildIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}
                       className="flex flex-col items-center gap-1 active:scale-95 transition">
                       {c.avatar_url
                         ? <img src={c.avatar_url} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
@@ -413,7 +442,7 @@ export default function RewardsPage() {
                             <p className="text-xs text-gray-400">−{(r.rewards as any)?.star_cost} ⭐</p>
                           </div>
                           <button onClick={() => undoRedemption(r)}
-                            className="text-xs text-gray-300 hover:text-red-400 font-semibold transition px-2 py-1 rounded-lg hover:bg-red-50">Undo</button>
+                            className="text-xs text-red-500 bg-red-50 font-bold px-3 py-1.5 rounded-xl active:scale-95 transition flex-shrink-0">↩ Undo</button>
                         </div>
                       ))}
                     </div>
@@ -444,7 +473,7 @@ export default function RewardsPage() {
             <p className="text-gray-400 text-sm mb-4">Costs ⭐ {redeemTarget.star_cost} — who's redeeming?</p>
             <div className="grid grid-cols-3 gap-3 mb-3">
               {children
-                .filter(c => redeemTarget.scope === 'family' || redeemTarget.child_id === c.id)
+                .filter(c => redeemTarget.scope === 'family' || rewardKidIds(redeemTarget).includes(c.id))
                 .map(child => {
                   const bal = balances[child.id] || 0
                   const canAfford = bal >= redeemTarget.star_cost
@@ -471,6 +500,28 @@ export default function RewardsPage() {
         <CelebrationBurst colour={redeemBurst.colour} emoji={redeemBurst.emoji} photo={redeemBurst.photo}
           avatar={redeemBurst.avatar} title={redeemBurst.title} sub={redeemBurst.sub}
           duration={2400} onDone={() => setRedeemBurst(null)} />
+      )}
+
+      {/* Themed confirmation dialog — Undo is the primary action */}
+      {confirmAsk && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-6" onClick={() => setConfirmAsk(null)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
+              style={{ border: '2px solid var(--theme-from)' }}>{confirmAsk.emoji}</div>
+            <h3 className="text-lg font-black text-gray-800 leading-tight mb-1">{confirmAsk.title}</h3>
+            <p className="text-sm font-semibold text-gray-400 mb-5">{confirmAsk.sub}</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmAsk(null)}
+                className="px-5 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
+                Keep it
+              </button>
+              <button onClick={confirmAsk.onConfirm}
+                className="flex-1 py-3 rounded-2xl font-black text-sm text-white bg-red-500 shadow active:scale-95 transition">
+                ↩ Yes, undo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Large + FAB */}

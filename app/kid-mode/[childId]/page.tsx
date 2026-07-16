@@ -52,8 +52,16 @@ export default async function ChildPage({ params, searchParams }: {
       .gte('date', ymd(thirtyAgo))
       .order('created_at', { ascending: false }).limit(60),
     supabase.from('star_ledger').select('delta, created_at, source_type, source_id').eq('child_id', childId),
-    supabase.from('rewards').select('id, title, emoji, star_cost').eq('family_id', guardian?.family_id)
-      .or(`scope.eq.family,and(scope.eq.child,child_id.eq.${childId})`).order('star_cost'),
+    // Rewards for this child: family-wide, multi-kid (child_ids contains), or
+    // legacy single child_id. Falls back to the legacy filter if the child_ids
+    // column hasn't been migrated yet.
+    (async () => {
+      const q = (filter: string) => supabase.from('rewards').select('id, title, emoji, star_cost')
+        .eq('family_id', guardian?.family_id).or(filter).order('star_cost')
+      let res = await q(`scope.eq.family,child_ids.cs.{${childId}},and(scope.eq.child,child_id.eq.${childId})`)
+      if (res.error) res = await q(`scope.eq.family,and(scope.eq.child,child_id.eq.${childId})`)
+      return res
+    })(),
     supabase.from('redemptions').select('reward_id').eq('child_id', childId).eq('status', 'requested'),
     supabase.from('tasks').select('*').eq('family_id', guardian?.family_id).eq('up_for_grabs', true),
     supabase.from('completions').select('id', { count: 'exact', head: true })

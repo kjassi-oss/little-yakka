@@ -194,3 +194,9 @@ using (
     select family_id::text from guardians where auth_user_id = auth.uid()
   )
 );
+
+-- ── 2026-07-16: multi-kid reward audience ────────────────────────────────────
+-- Rewards can now target any subset of kids, not just one or all.
+-- child_ids holds the full audience; child_id keeps the first pick so older
+-- clients/queries still behave. NULL child_ids = legacy/family reward.
+alter table rewards add column if not exists child_ids uuid[];
