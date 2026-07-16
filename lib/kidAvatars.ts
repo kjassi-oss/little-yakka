@@ -21,26 +21,20 @@ export function parseKidAvatar(v: string): { kid: number; tone: number } | null 
   return m ? { kid: Number(m[1]), tone: Number(m[2]) } : null
 }
 
-// ── Circled picker set ─────────────────────────────────────────────────────
-// The 10 curated avatars offered when creating/editing a child: 5 girls then
-// 5 boys, each pre-composited onto a coloured circle as c{kid}-t{tone}.svg
-// (generated from the kid{i} set). Stored in children.avatar_url so every
-// existing render site (img-based) picks them up with no changes.
-export const PICKER_KIDS = [1, 2, 3, 5, 7, 4, 6, 8, 12, 14] // girls row, then boys row
-export const PICKER_DEFAULT_TONES: Record<number, number> = {
-  1: 2, 2: 4, 3: 0, 5: 2, 7: 1,   // girls
-  4: 1, 6: 5, 8: 2, 12: 4, 14: 3, // boys
-}
+// ── Picker set ──────────────────────────────────────────────────────────────
+// The 12 avatars offered when creating/editing a child: the user's own
+// "Kid Avatar" artwork (AI-illustrated portraits, resized to 320px webp),
+// 6 girls then 6 boys. Values are public paths stored in children.avatar_url
+// so every existing render site (img-based) picks them up with no changes.
+// (The older c{kid}-t{tone}.svg DiceBear composites stay on disk so children
+// saved with them keep rendering.)
+export const PICKER_AVATARS: string[] = [
+  ...['g1', 'g2', 'g3', 'g4', 'g5', 'g6'].map(s => `/avatars/kid-${s}.webp`),
+  ...['b1', 'b2', 'b3', 'b4', 'b5', 'b6'].map(s => `/avatars/kid-${s}.webp`),
+]
 
-export function circledAvatarPath(kid: number, tone: number): string {
-  return `/avatars/c${kid}-t${tone}.svg`
-}
-
-export function isCircledAvatar(v: string | null | undefined): boolean {
-  return !!v && v.startsWith('/avatars/c')
-}
-
-export function parseCircledAvatar(v: string | null | undefined): { kid: number; tone: number } | null {
-  const m = /^\/avatars\/c(\d+)-t(\d)\.svg$/.exec(v || '')
-  return m ? { kid: Number(m[1]), tone: Number(m[2]) } : null
+// Any avatar shipped with the app (old SVG composites or the new webp set) —
+// as opposed to an uploaded photo living in Supabase storage.
+export function isBundledAvatar(v: string | null | undefined): boolean {
+  return !!v && v.startsWith('/avatars/')
 }

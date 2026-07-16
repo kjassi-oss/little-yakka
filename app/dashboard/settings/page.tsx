@@ -13,7 +13,7 @@ import { isNativePush, nativePermissionState, registerNativePush, cachedNativeTo
 import { compressImage } from '@/lib/imageCompress'
 import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
-import { isCircledAvatar } from '@/lib/kidAvatars'
+import { isBundledAvatar } from '@/lib/kidAvatars'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -87,6 +87,7 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState('')
   const [manualLog, setManualLog] = useState<{ id: string; child_id: string; delta: number; reason: string | null; created_at: string }[]>([])
   const [manualOpen, setManualOpen] = useState(false)
+  const [account, setAccount] = useState<{ email: string; provider: string } | null>(null)
   const [notifStatus, setNotifStatus] = useState<'checking' | 'unsupported' | 'off' | 'on' | 'denied'>('checking')
   const [notifBusy, setNotifBusy] = useState(false)
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -110,6 +111,7 @@ export default function SettingsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setAccount({ email: user.email || '', provider: (user.app_metadata as any)?.provider || 'email' })
     const { data: guardian } = await supabase.from('guardians').select('family_id, parent_pin').eq('auth_user_id', user.id).single()
     if (!guardian) return
     setFamilyId(guardian.family_id)
@@ -234,7 +236,7 @@ export default function SettingsPage() {
     const { age, ...rest } = newChild
     // Cartoon avatars are image paths — store them in avatar_url (which every
     // render site prefers) and keep a safe emoji in the text avatar column.
-    const cartoon = isCircledAvatar(rest.avatar)
+    const cartoon = isBundledAvatar(rest.avatar)
     const base = {
       ...rest,
       avatar: cartoon ? '🙂' : rest.avatar,
@@ -340,8 +342,8 @@ export default function SettingsPage() {
     // parent's decision to remove it). Cartoon avatar_urls are bundled paths,
     // not uploads, so they count as "no photo" here.
     const prevUrl = children.find(c => c.id === editingChild.id)?.avatar_url
-    const hadPhoto = prevUrl && !isCircledAvatar(prevUrl)
-    const hasPhotoNow = editingChild.avatar_url && !isCircledAvatar(editingChild.avatar_url)
+    const hadPhoto = prevUrl && !isBundledAvatar(prevUrl)
+    const hasPhotoNow = editingChild.avatar_url && !isBundledAvatar(editingChild.avatar_url)
     if (hadPhoto && !hasPhotoNow) {
       const dir = `${familyId}/${editingChild.id}`
       const { data: stale } = await supabase.storage.from('kid-avatars').list(dir)
@@ -452,7 +454,7 @@ export default function SettingsPage() {
                 <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
                   {newChildPhoto
                     ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
-                    : isCircledAvatar(newChild.avatar)
+                    : isBundledAvatar(newChild.avatar)
                     ? <img src={newChild.avatar} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
                     : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[40px] leading-none overflow-hidden bg-white" style={{ border: `3px solid ${newChild.colour}` }}>{newChild.avatar}</div>}
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
@@ -719,6 +721,17 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Account — who's signed in and how */}
+        {account && (
+          <div className="bg-white rounded-3xl shadow-sm p-5">
+            <h2 className="font-bold text-gray-800 mb-1">👤 Account</h2>
+            <p className="text-sm text-gray-700 font-semibold break-all">{account.email || '—'}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Signed in with {account.provider === 'apple' ? 'Apple' : account.provider === 'google' ? 'Google' : 'email & password'}
+            </p>
+          </div>
+        )}
 
         {/* Change password — collapsible */}
         <div className="bg-white rounded-3xl shadow-sm p-5">

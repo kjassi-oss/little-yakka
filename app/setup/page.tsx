@@ -7,7 +7,7 @@ import { compressImage } from '@/lib/imageCompress'
 import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
-import { isCircledAvatar } from '@/lib/kidAvatars'
+import { isBundledAvatar } from '@/lib/kidAvatars'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
@@ -39,7 +39,8 @@ interface RewardDraft { title: string; emoji: string; star_cost: number }
 
 const blankTask = (): TaskDraft => ({
   title: '', emoji: '⭐', type: 'chore', star_value: 3, frequency: 'daily',
-  time_of_day: 'anytime', start_date: '', carry_over: false,
+  // start date defaults to today in the device's timezone
+  time_of_day: 'anytime', start_date: new Intl.DateTimeFormat('en-CA').format(new Date()), carry_over: false,
   can_do_early: false, days_of_week: [0, 1, 2, 3, 4, 5, 6], // daily, every day on by default
   up_for_grabs: false, expires_on: '', assignedIdx: [],
 })
@@ -202,7 +203,7 @@ export default function SetupPage() {
     for (const c of children) {
       // Cartoon avatars are image paths — store in avatar_url (all render sites
       // prefer it) with a safe emoji fallback in the text avatar column.
-      const cartoon = isCircledAvatar(c.avatar)
+      const cartoon = isBundledAvatar(c.avatar)
       const baseChild: any = {
         name: c.name, avatar: cartoon ? '🙂' : c.avatar, colour: c.colour, family_id: familyId,
         ...(cartoon ? { avatar_url: c.avatar } : {}),
@@ -308,7 +309,7 @@ export default function SetupPage() {
               <div className="relative">
                 {c.photo
                   ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-2xl object-cover" alt=""/>
-                  : isCircledAvatar(c.avatar)
+                  : isBundledAvatar(c.avatar)
                   ? <img src={c.avatar} className="w-12 h-12 rounded-2xl object-cover" style={{ border: `2px solid ${c.colour}` }} alt=""/>
                   : <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-white" style={{ border: `2px solid ${c.colour}` }}>{c.avatar}</div>}
                 <button onClick={() => setChildren(children.filter((_, j) => j !== i))}
@@ -786,7 +787,7 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
                   className={`flex flex-col items-center gap-1 active:scale-95 transition ${on ? '' : 'opacity-40 grayscale'}`}>
                   {c.photo
                     ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-full object-cover" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
-                    : isCircledAvatar(c.avatar)
+                    : isBundledAvatar(c.avatar)
                     ? <img src={c.avatar} className="w-12 h-12 rounded-full object-cover" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
                     : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-white" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }}>{c.avatar}</div>}
                   <span className="text-[11px] font-bold text-gray-600 max-w-[56px] truncate">{c.name}</span>
