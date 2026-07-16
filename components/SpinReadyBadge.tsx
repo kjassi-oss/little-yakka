@@ -52,7 +52,7 @@ export default function SpinReadyBadge({ childId, cadence, day, time, tz, spun }
     <Link href={`/kid-mode/${childId}?spin=1`}
       className="block mx-2.5 mb-2.5 text-center text-[10px] font-black text-white rounded-full px-2 py-1 animate-pulse active:scale-95 transition"
       style={{ background: 'var(--theme-gradient)' }}>
-      🎰 SPIN READY!
+      🎡 SPIN READY!
     </Link>
   )
 }

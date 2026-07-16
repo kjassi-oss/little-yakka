@@ -349,7 +349,7 @@ export default function ChildTaskView({
             {canSpin && (
               <button onClick={() => setShowSpin(true)}
                 className="w-full font-black text-xl py-5 rounded-3xl shadow-lg active:scale-95 transition text-white"
-                style={{ background: 'var(--theme-gradient)' }}>🎰 Bonus Spin!</button>
+                style={{ background: 'var(--theme-gradient)' }}>🎡 Bonus Spin!</button>
             )}
             {rewards.length > 0 && (
               <button onClick={() => setShowRewards(true)}
@@ -473,7 +473,7 @@ export default function ChildTaskView({
               <button onClick={() => setShowSpin(true)}
                 className="w-full flex items-center justify-center gap-2 text-white font-black text-base py-3 rounded-2xl shadow-sm active:scale-95 transition"
                 style={{ background: 'var(--theme-gradient)' }}>
-                🎰 Bonus spin ready! Tap to play
+                🎡 Bonus spin ready! Tap to play
               </button>
             )}
 
@@ -587,7 +587,7 @@ export default function ChildTaskView({
             <button onClick={() => setShowSpin(true)}
               className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-2xl shadow-sm active:scale-95 transition"
               style={{ background: 'var(--theme-gradient)' }}>
-              🎰 Spin!
+              🎡 Spin!
             </button>
           )}
         </div>

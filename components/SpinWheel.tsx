@@ -83,11 +83,13 @@ interface Props {
   childAvatarUrl?: string
   childName?: string
   maxPrize: number
+  // Parent-facing demo (Settings/Setup "Show Example"): banner up top, no stars awarded.
+  example?: boolean
   onWin: (stars: number) => void
   onClose: () => void
 }
 
-export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, childName, maxPrize, onWin, onClose }: Props) {
+export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, childName, maxPrize, example = false, onWin, onClose }: Props) {
   const PRIZES = useMemo(() => buildPrizes(maxPrize), [maxPrize])
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
@@ -146,6 +148,12 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
 
       {/* Header — logo up top on pure white; the sky fade starts just below it */}
       <div className="text-center mb-5 relative z-10">
+        {example && (
+          <div className="inline-block mb-2 px-4 py-1.5 rounded-full text-sm font-black tracking-wide text-white shadow"
+            style={{ background: '#EC4160' }}>
+            Example Only
+          </div>
+        )}
         <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto mx-auto mb-6"/>
         <h2 className="text-4xl font-black leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', color: GOLD, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
           {childName ? (<><span className="name-flash" style={{ color: '#EC4899' }}>{`${childName}'s`}</span>{' Bonus Spin'}</>) : 'Bonus Spin'}
