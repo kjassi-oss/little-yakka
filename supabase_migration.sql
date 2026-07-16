@@ -161,6 +161,7 @@ using (
 
 -- Writes: scoped to the caller's own family folder.
 drop policy if exists "Authenticated upload kid-avatars" on storage.objects;
+drop policy if exists "avatars: owner insert" on storage.objects;
 create policy "avatars: owner insert" on storage.objects for insert to authenticated
 with check (
   bucket_id = 'kid-avatars'
@@ -170,6 +171,7 @@ with check (
 );
 
 drop policy if exists "Authenticated update kid-avatars" on storage.objects;
+drop policy if exists "avatars: owner update" on storage.objects;
 create policy "avatars: owner update" on storage.objects for update to authenticated
 using (
   bucket_id = 'kid-avatars'
