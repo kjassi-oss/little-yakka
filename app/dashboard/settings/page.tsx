@@ -12,6 +12,8 @@ import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
 import AvatarPicker from '@/components/AvatarPicker'
+import SpinWheel from '@/components/SpinWheel'
+import { isCircledAvatar } from '@/lib/kidAvatars'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -63,6 +65,7 @@ export default function SettingsPage() {
   const [savingBonus, setSavingBonus] = useState(false)
   const [bonusSaved, setBonusSaved] = useState(false)
   const [bonusInfoOpen, setBonusInfoOpen] = useState(false)
+  const [bonusExampleOpen, setBonusExampleOpen] = useState(false)
   const [curPw, setCurPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confPw, setConfPw] = useState('')
@@ -229,7 +232,15 @@ export default function SettingsPage() {
     setSaving(true)
     const supabase = createClient()
     const { age, ...rest } = newChild
-    const base = { ...rest, name: newChild.name.trim(), family_id: familyId }
+    // Cartoon avatars are image paths — store them in avatar_url (which every
+    // render site prefers) and keep a safe emoji in the text avatar column.
+    const cartoon = isCircledAvatar(rest.avatar)
+    const base = {
+      ...rest,
+      avatar: cartoon ? '🙂' : rest.avatar,
+      ...(cartoon ? { avatar_url: rest.avatar } : {}),
+      name: newChild.name.trim(), family_id: familyId,
+    }
     let { data: created } = await supabase.from('children')
       .insert({ ...base, age: age ? Number(age) : null }).select('id').single()
     if (!created) { // age column may not exist yet — retry without it
@@ -326,9 +337,12 @@ export default function SettingsPage() {
 
     // Swapping a photo for an avatar leaves the file unreferenced — bin it so
     // we don't accumulate orphans (and so the child's photo doesn't outlive the
-    // parent's decision to remove it).
-    const hadPhoto = children.find(c => c.id === editingChild.id)?.avatar_url
-    if (hadPhoto && !editingChild.avatar_url) {
+    // parent's decision to remove it). Cartoon avatar_urls are bundled paths,
+    // not uploads, so they count as "no photo" here.
+    const prevUrl = children.find(c => c.id === editingChild.id)?.avatar_url
+    const hadPhoto = prevUrl && !isCircledAvatar(prevUrl)
+    const hasPhotoNow = editingChild.avatar_url && !isCircledAvatar(editingChild.avatar_url)
+    if (hadPhoto && !hasPhotoNow) {
       const dir = `${familyId}/${editingChild.id}`
       const { data: stale } = await supabase.storage.from('kid-avatars').list(dir)
       const paths = (stale || []).map(f => `${dir}/${f.name}`)
@@ -438,6 +452,8 @@ export default function SettingsPage() {
                 <button onClick={() => newChildPhotoRef.current?.click()} className="relative flex-shrink-0 active:scale-95 transition">
                   {newChildPhoto
                     ? <img src={URL.createObjectURL(newChildPhoto)} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
+                    : isCircledAvatar(newChild.avatar)
+                    ? <img src={newChild.avatar} className="w-14 h-14 rounded-2xl object-cover" style={{ border: `3px solid ${newChild.colour}` }} alt=""/>
                     : <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[40px] leading-none overflow-hidden bg-white" style={{ border: `3px solid ${newChild.colour}` }}>{newChild.avatar}</div>}
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-xs shadow">📷</div>
                 </button>
@@ -451,8 +467,8 @@ export default function SettingsPage() {
               </div>
               <p className="text-[11px] text-gray-400 -mt-1">Tap the picture to add a photo (optional)</p>
               <div>
-                <p className="text-xs text-gray-500 mb-1.5">Avatar emoji</p>
-                <AvatarPicker value={newChild.avatar} onChange={a => setNewChild({ ...newChild, avatar: a })}/>
+                <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
+                <AvatarPicker value={newChildPhoto ? '' : newChild.avatar} onChange={a => { setNewChild({ ...newChild, avatar: a }); setNewChildPhoto(null) }}/>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1.5">Colour</p>
@@ -481,12 +497,10 @@ export default function SettingsPage() {
                       className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"/>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Avatar</p>
-                      <AvatarPicker value={editingChild.avatar}
-                        // avatar_url wins over `avatar` everywhere it renders, so picking
-                        // one here has to clear it — including a real photo. Previously only
-                        // cartoon avatars were cleared, which made the picker silently do
-                        // nothing for any child who had a photo.
-                        onChange={a => setEditingChild({ ...editingChild, avatar: a, avatar_url: undefined })}/>
+                      <AvatarPicker value={editingChild.avatar_url || ''}
+                        // Cartoon avatars live in avatar_url (image paths), so picking one
+                        // replaces any uploaded photo too — avatar_url wins everywhere.
+                        onChange={a => setEditingChild({ ...editingChild, avatar_url: a })}/>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Colour</p>
@@ -560,9 +574,14 @@ export default function SettingsPage() {
         {/* Bonus wheel */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
-            <h2 className="font-bold text-gray-800">🎰 Bonus Wheel</h2>
+            <h2 className="font-bold text-gray-800">🎡 Bonus Wheel</h2>
             <button onClick={() => setBonusInfoOpen(true)} aria-label="How the bonus wheel works"
               className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-[11px] font-black italic flex items-center justify-center active:scale-90 transition">i</button>
+            <button onClick={() => setBonusExampleOpen(true)}
+              className="ml-auto text-xs font-bold px-3 py-1.5 rounded-xl active:scale-95 transition"
+              style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.13)', color: 'var(--theme-from)' }}>
+              Show Example
+            </button>
           </div>
 
           <div className="flex bg-gray-100 rounded-2xl p-1 mb-3">
@@ -838,15 +857,21 @@ export default function SettingsPage() {
       {bonusInfoOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={() => setBonusInfoOpen(false)}>
           <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in" onClick={e => e.stopPropagation()}>
-            <div className="text-4xl mb-2">🎰</div>
+            <div className="text-4xl mb-2">🎡</div>
             <p className="text-sm font-semibold text-gray-600 leading-snug">
-              Bonus stars are awarded based on how well they have performed over the previous 7 days if set to Weekly, or the previous 28 days if set to Monthly.
+              Bonus STARS are awarded based on how well they have performed over the previous 7 days if set to Weekly, or the previous 28 days if set to Monthly. Use the Award Value slider to determine the range of how many bonus STARS can be awarded.
             </p>
             <button onClick={() => setBonusInfoOpen(false)}
               className="mt-4 w-full py-2.5 rounded-2xl text-white font-black active:scale-95 transition"
               style={{ background: 'var(--theme-gradient)' }}>Got it!</button>
           </div>
         </div>
+      )}
+
+      {/* Bonus wheel example — the real SpinWheel in demo mode, no stars awarded */}
+      {bonusExampleOpen && (
+        <SpinWheel childColour="#EC4160" childAvatar="👧" childName="Sofia" maxPrize={20}
+          example onWin={() => {}} onClose={() => setBonusExampleOpen(false)}/>
       )}
 
       {/* Manual star adjust — centred so the mobile keyboard never hides Apply */}

@@ -4,20 +4,21 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/imageCompress'
-import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_EMOJIS } from '@/lib/taskPresets'
+import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
+import SpinWheel from '@/components/SpinWheel'
+import { isCircledAvatar } from '@/lib/kidAvatars'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
 
 const COLOURS = ['#FF6B6B','#FF9F43','#FFC312','#A3CB38','#12CBC4','#74B9FF','#6C5CE7','#9B59B6','#FDA7DF','#E17055']
-const REWARD_EMOJIS = ['🎁','🍦','🎬','🍔','🎮','📱','🍿','🎨','🍫','🍭','🏆','⚽','🛍️','🎡','🍰','🎠']
 
 const PREDEFINED_REWARDS: { title: string; emoji: string }[] = [
   { title: 'Ice Cream', emoji: '🍦' }, { title: 'iPad Time', emoji: '📱' },
   { title: 'Go To Movies', emoji: '🎬' }, { title: 'Takeaway', emoji: '🍔' },
   { title: 'Choose Dessert', emoji: '🍰' }, { title: 'Stay Up Extra 30 Mins', emoji: '🌙' },
-  { title: '30 Mins Computer Games', emoji: '🎮' }, { title: 'Lollie', emoji: '🍭' },
+  { title: '30 Mins Computer', emoji: '🎮' }, { title: 'Lollie', emoji: '🍭' },
   { title: 'Choose Family Movie', emoji: '🍿' },
 ]
 
@@ -112,6 +113,8 @@ export default function SetupPage() {
   const [bonusDate, setBonusDate] = useState(1)    // monthly: date of month
   const [bonusTime, setBonusTime] = useState('16:00')
   const [bonusAwardPct, setBonusAwardPct] = useState(50)
+  const [bonusInfoOpen, setBonusInfoOpen] = useState(false)
+  const [bonusExampleOpen, setBonusExampleOpen] = useState(false)
   const [task, setTask] = useState<TaskDraft>(blankTask())
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '🎁', star_cost: 10 })
@@ -197,7 +200,13 @@ export default function SetupPage() {
     // Index-aligned with the `children` drafts so per-task assignments resolve
     const childIdByIdx: (string | null)[] = []
     for (const c of children) {
-      const baseChild: any = { name: c.name, avatar: c.avatar, colour: c.colour, family_id: familyId }
+      // Cartoon avatars are image paths — store in avatar_url (all render sites
+      // prefer it) with a safe emoji fallback in the text avatar column.
+      const cartoon = isCircledAvatar(c.avatar)
+      const baseChild: any = {
+        name: c.name, avatar: cartoon ? '🙂' : c.avatar, colour: c.colour, family_id: familyId,
+        ...(cartoon ? { avatar_url: c.avatar } : {}),
+      }
       let { data: created } = await supabase.from('children')
         .insert({ ...baseChild, age: c.age ? Number(c.age) : null }).select('id').single()
       if (!created) { // age column may not exist yet — retry without it
@@ -299,6 +308,8 @@ export default function SetupPage() {
               <div className="relative">
                 {c.photo
                   ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-2xl object-cover" alt=""/>
+                  : isCircledAvatar(c.avatar)
+                  ? <img src={c.avatar} className="w-12 h-12 rounded-2xl object-cover" style={{ border: `2px solid ${c.colour}` }} alt=""/>
                   : <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-white" style={{ border: `2px solid ${c.colour}` }}>{c.avatar}</div>}
                 <button onClick={() => setChildren(children.filter((_, j) => j !== i))}
                   className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-200 text-gray-500 rounded-full text-xs font-bold flex items-center justify-center">×</button>
@@ -482,7 +493,37 @@ export default function SetupPage() {
     <Page>
       <BackBtn onClick={() => { setError(''); setStep(3) }}/>
       <GradientTitle>Bonus Wheel</GradientTitle>
+      <div className="flex items-center justify-center gap-2 mb-1">
+        <button onClick={() => setBonusInfoOpen(true)} aria-label="How the bonus wheel works"
+          className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-[11px] font-black italic flex items-center justify-center active:scale-90 transition">i</button>
+        <button onClick={() => setBonusExampleOpen(true)}
+          className="text-xs font-bold px-3 py-1.5 rounded-xl active:scale-95 transition"
+          style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.13)', color: 'var(--theme-from)' }}>
+          Show Example
+        </button>
+      </div>
       <p className="text-sm text-gray-400 text-center mb-4">A prize wheel kids can spin for bonus stars</p>
+
+      {/* Bonus wheel info popup — same wording as Settings */}
+      {bonusInfoOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={() => setBonusInfoOpen(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center pop-in" onClick={e => e.stopPropagation()}>
+            <div className="text-4xl mb-2">🎡</div>
+            <p className="text-sm font-semibold text-gray-600 leading-snug">
+              Bonus STARS are awarded based on how well they have performed over the previous 7 days if set to Weekly, or the previous 28 days if set to Monthly. Use the Award Value slider to determine the range of how many bonus STARS can be awarded.
+            </p>
+            <button onClick={() => setBonusInfoOpen(false)}
+              className="mt-4 w-full py-2.5 rounded-2xl text-white font-black active:scale-95 transition"
+              style={{ background: RAINBOW }}>Got it!</button>
+          </div>
+        </div>
+      )}
+
+      {/* Bonus wheel example — the real SpinWheel in demo mode, no stars awarded */}
+      {bonusExampleOpen && (
+        <SpinWheel childColour="#EC4160" childAvatar="👧" childName="Sofia" maxPrize={20}
+          example onWin={() => {}} onClose={() => setBonusExampleOpen(false)}/>
+      )}
 
       <div className="rounded-2xl p-3.5 mb-4 text-center border-2 border-dashed space-y-2"
         style={{ background: 'color-mix(in srgb, var(--theme-from) 8%, white)', borderColor: 'var(--theme-from)' }}>
@@ -576,6 +617,7 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
   task: TaskDraft; setTask: (t: TaskDraft) => void; childrenList: ChildDraft[]; onSave: () => void; onCancel: () => void; error: string
 }) {
   const [emojiSearch, setEmojiSearch] = useState('')
+  const [showEmojiSearch, setShowEmojiSearch] = useState(false)
   // Free-typing star box: keep the raw text so "1" can be deleted before typing "5"
   const [starText, setStarText] = useState(String(task.star_value))
   function setStars(v: number) { setTask({ ...task, star_value: v }); setStarText(String(v)) }
@@ -589,26 +631,42 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
         ))}
       </div>
 
-      <input type="text" value={task.title} onChange={e => setTask({ ...task, title: e.target.value })}
-        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-        placeholder="Task name"/>
+      {/* Name with the chosen icon beside it + 🔍 search toggle (matches the Tasks page) */}
+      <div className="flex items-center gap-2">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-gray-50">{task.emoji}</div>
+        <input type="text" value={task.title} onChange={e => setTask({ ...task, title: e.target.value })}
+          className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+          placeholder="Task name"/>
+        <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+          aria-label="Search icons"
+          className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+          style={showEmojiSearch ? { background: RAINBOW } : {}}>🔍</button>
+      </div>
 
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-gray-50">{task.emoji}</div>
-          <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-            placeholder="🔍 Search icons"/>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5 p-1.5 bg-gray-50 rounded-2xl">
-          {(emojiSearch.trim()
-            ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
-            : DEFAULT_TASK_EMOJIS
-          ).map((e, i) => (
-            <button key={`${e}-${i}`} onClick={() => setTask({ ...task, emoji: e })}
-              className={`text-2xl p-2 rounded-xl transition ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>{e}</button>
-          ))}
-        </div>
+        {showEmojiSearch && (
+          <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+            placeholder="Search icons (e.g. bed, teeth, dog)"/>
+        )}
+        {emojiSearch.trim() ? (
+          <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+            {EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map((o, i) => (
+              <button key={`${o.e}-${i}`} onClick={() => setTask({ ...task, emoji: o.e })}
+                className={`text-xl p-1 rounded-lg transition ${task.emoji === o.e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>{o.e}</button>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+            {DEFAULT_TASK_ICONS.map(o => (
+              <button key={o.e} onClick={() => setTask({ ...task, emoji: o.e })}
+                className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
+                <span className={`text-xl leading-none p-1 rounded-lg ${task.emoji === o.e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{o.e}</span>
+                <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">{o.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Up For Grabs — a bounty any child can claim, first done wins */}
@@ -634,7 +692,12 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
 
       {!task.up_for_grabs && (<>
       <div>
-        <p className="text-xs text-gray-500 mb-1">How often?</p>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <p className="text-xs text-gray-500">How often?</p>
+          {task.frequency === 'weekly' && (
+            <p className="text-[11px] font-bold text-red-500">The week runs from Monday to Sunday</p>
+          )}
+        </div>
         <div className="flex gap-2">
           {FREQ.map(o => (
             <button key={o.v} onClick={() => setTask({ ...task, frequency: o.v, days_of_week: o.v === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : [] })}
@@ -723,6 +786,8 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
                   className={`flex flex-col items-center gap-1 active:scale-95 transition ${on ? '' : 'opacity-40 grayscale'}`}>
                   {c.photo
                     ? <img src={URL.createObjectURL(c.photo)} className="w-12 h-12 rounded-full object-cover" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
+                    : isCircledAvatar(c.avatar)
+                    ? <img src={c.avatar} className="w-12 h-12 rounded-full object-cover" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }} alt=""/>
                     : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-white" style={{ border: `3px solid ${on ? c.colour : '#D1D5DB'}` }}>{c.avatar}</div>}
                   <span className="text-[11px] font-bold text-gray-600 max-w-[56px] truncate">{c.name}</span>
                 </button>
@@ -748,17 +813,37 @@ function RewardForm({ reward, setReward, onSave, onCancel, error }: {
 }) {
   // Free-typing cost box: keep the raw text so the default can be cleared
   const [costText, setCostText] = useState(String(reward.star_cost))
+  const [emojiSearch, setEmojiSearch] = useState('')
+  const [showEmojiSearch, setShowEmojiSearch] = useState(false)
   function setCost(v: number) { setReward({ ...reward, star_cost: v }); setCostText(String(v)) }
   return (
     <div className="border border-gray-100 rounded-3xl p-4 space-y-4 shadow-sm">
-      <input type="text" value={reward.title} onChange={e => setReward({ ...reward, title: e.target.value })}
-        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-        placeholder="Reward name"/>
-      <div className="grid grid-cols-6 gap-1 max-h-36 overflow-y-auto p-1 bg-gray-50 rounded-2xl">
-        {REWARD_EMOJIS.map((e, i) => (
-          <button key={`${e}-${i}`} onClick={() => setReward({ ...reward, emoji: e })}
-            className={`text-2xl p-1 rounded-xl ${reward.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'hover:bg-white'}`}>{e}</button>
-        ))}
+      {/* Name with the chosen emoji beside it + 🔍 search toggle (matches the task form) */}
+      <div className="flex items-center gap-2">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-gray-50">{reward.emoji}</div>
+        <input type="text" value={reward.title} onChange={e => setReward({ ...reward, title: e.target.value })}
+          className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+          placeholder="Reward name"/>
+        <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+          aria-label="Search emojis"
+          className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+          style={showEmojiSearch ? { background: RAINBOW } : {}}>🔍</button>
+      </div>
+      <div>
+        {showEmojiSearch && (
+          <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+            placeholder="Search emojis (e.g. movie, pizza, swim)"/>
+        )}
+        <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+          {(emojiSearch.trim()
+            ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
+            : DEFAULT_REWARD_EMOJIS
+          ).map((e, i) => (
+            <button key={`${e}-${i}`} onClick={() => setReward({ ...reward, emoji: e })}
+              className={`text-xl p-1 rounded-lg transition ${reward.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>{e}</button>
+          ))}
+        </div>
       </div>
       <div>
         <p className="text-xs text-gray-500 mb-1">Cost ⭐</p>
