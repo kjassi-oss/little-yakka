@@ -40,7 +40,9 @@ interface Props {
   lockAfter?: string | null
   highlightKey?: string | null
   // Loose task types so callers can pass their own stricter Task shape without friction.
-  onOpenTask: (task: any) => void
+  // `date` is the tapped occurrence's YYYY-MM-DD so callers can offer only the
+  // kids who still have that occurrence outstanding.
+  onOpenTask: (task: any, date?: string) => void
   onComplete: (task: any, childId: string, date: string, child?: any) => void
   onUndo: (comp: UComp, task: any, childName: string) => void
 }
@@ -71,10 +73,15 @@ export default function UpcomingTaskList({
     const ds = ymdLocal(d)
     const items = tasks
       .filter(t => occursOn(t as any, d))
-      .map(t => ({
-        task: t,
-        kids: (assignments[t.id] || []).map(id => childMap[id]).filter(Boolean).filter(k => kidSelected(k.id)),
-      }))
+      .map(t => {
+        // Walk childrenList (not the raw assignment rows) so the kids on every
+        // task row appear in the same order across Home, Tasks and Kids Zone.
+        const assigned = new Set(assignments[t.id] || [])
+        return {
+          task: t,
+          kids: childrenList.filter(k => assigned.has(k.id)).filter(k => kidSelected(k.id)),
+        }
+      })
       .filter(x => x.kids.length > 0)
       .sort((a, b) => (UP_TIME_ORDER[a.task.time_of_day ?? ''] ?? 0) - (UP_TIME_ORDER[b.task.time_of_day ?? ''] ?? 0))
     if (items.length) days.push({ ds, d: new Date(d), items })
@@ -130,7 +137,7 @@ export default function UpcomingTaskList({
                 const claimer = claim ? childMap[claim.child_id] : null
                 return (
                   <div key={task.id}
-                    onClick={() => { if (!claim && !singleChildId) onOpenTask(task) }}
+                    onClick={() => { if (!claim && !singleChildId) onOpenTask(task, todayL) }}
                     className={`rounded-2xl px-3 py-2 shadow-sm flex items-center gap-2.5 border-2 border-dashed border-amber-300 bg-amber-50 ${!claim && !singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${claim ? 'opacity-75' : ''}`}>
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-white" style={{ border: '1.5px solid #F59E0B' }}>{task.emoji}</div>
                     <div className="flex-1 min-w-0">
@@ -183,7 +190,7 @@ export default function UpcomingTaskList({
                 return (
                   <div key={task.id}
                     id={singleChildId ? `occ-${task.id}|${ds}` : undefined}
-                    onClick={() => { if (!singleChildId) onOpenTask(task) }}
+                    onClick={() => { if (!singleChildId) onOpenTask(task, ds) }}
                     className={`rounded-2xl px-3 py-2 shadow-sm flex items-center gap-2.5 border ${!singleChildId ? 'cursor-pointer active:scale-[0.98]' : ''} ${highlit ? 'bounce-in' : ''} ${struck ? 'bg-gray-50 border-gray-100' : missed ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100'}`}
                     style={highlit ? { boxShadow: '0 0 0 3px var(--theme-from)' } : undefined}>
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-white ${missed || lockedDay ? 'grayscale opacity-50' : ''}`}
@@ -209,8 +216,8 @@ export default function UpcomingTaskList({
                           style={{ background: 'var(--theme-gradient)' }}>DONE</button>
                       )
                     ) : (
-                      <div className="flex gap-1 justify-end flex-shrink-0">
-                        {kids.slice(0, 3).map(child => {
+                      <div className="flex flex-wrap gap-1 justify-end flex-shrink-0 max-w-[45%]">
+                        {kids.map(child => {
                           const done = compKey.has(`${task.id}|${child.id}|${ds}`)
                           return (
                             <div key={child.id} className="relative flex-shrink-0" title={child.name.split(' ')[0]}>
