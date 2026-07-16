@@ -7,19 +7,14 @@ import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
 import { redeemFeedback } from '@/lib/feedback'
 import { getCachedFamily } from '@/lib/familyCache'
-
-const REWARD_EMOJIS = [
-  '🎁','🍦','🎬','🍕','🎮','📱','🏖️','🎨','📚','🍫','🏆','⚽',
-  '🎠','🍔','🍩','🍪','🎂','🧁','📺','💻','🎧','🎵','🎉','🛍️',
-  '✈️','🎡','🎢','🎯','🏅','🥇','👑','💎','🌟','🧸','🍭','🌈',
-]
+import { DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
 
 // Quick-start templates (same set as the setup wizard) — hidden until requested
 const REWARD_TEMPLATES: { title: string; emoji: string }[] = [
   { title: 'Ice Cream', emoji: '🍦' }, { title: 'iPad Time', emoji: '📱' },
   { title: 'Go To Movies', emoji: '🎬' }, { title: 'Takeaway', emoji: '🍔' },
   { title: 'Choose Dessert', emoji: '🍰' }, { title: 'Stay Up Extra 30 Mins', emoji: '🌙' },
-  { title: '30 Mins Computer Games', emoji: '🎮' }, { title: 'Lollie', emoji: '🍭' },
+  { title: '30 Mins Computer', emoji: '🎮' }, { title: 'Lollie', emoji: '🍭' },
   { title: 'Choose Family Movie', emoji: '🍿' },
 ]
 
@@ -70,6 +65,8 @@ export default function RewardsPage() {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [emojiSearch, setEmojiSearch] = useState('')
+  const [showEmojiSearch, setShowEmojiSearch] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -109,7 +106,7 @@ export default function RewardsPage() {
 
   function resetForm() {
     setTitle(''); setEmoji('🎁'); setStarCost(10); setScope('family'); setSelectedChildId(null)
-    setEditingRewardId(null); setShowTemplates(false)
+    setEditingRewardId(null); setShowTemplates(false); setEmojiSearch(''); setShowEmojiSearch(false)
   }
 
   function openEditReward(r: Reward) {
@@ -257,18 +254,34 @@ export default function RewardsPage() {
               )}
             </div>
 
-            <input
-              type="text" value={title} onChange={e => setTitle(e.target.value)}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
-              placeholder="e.g. Movie night, Ice cream, Screen time..."
-            />
+            {/* Name with the chosen emoji beside it + 🔍 search toggle (matches the task form) */}
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
+                style={{ border: '2px solid #EF4444' }}>{emoji}</div>
+              <input
+                type="text" value={title} onChange={e => setTitle(e.target.value)}
+                className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                placeholder="Reward name"
+              />
+              <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+                aria-label="Search emojis"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                style={showEmojiSearch ? { background: 'var(--theme-gradient)' } : {}}>🔍</button>
+            </div>
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">Choose an emoji</p>
-              <div className="grid grid-cols-6 gap-1.5">
-                {REWARD_EMOJIS.map(e => (
-                  <button key={e} onClick={() => setEmoji(e)}
-                    className={`text-2xl p-1.5 rounded-xl transition flex items-center justify-center ${emoji === e ? 'bg-pink-100 ring-2 ring-pink-400' : 'hover:bg-gray-100'}`}>
+              {showEmojiSearch && (
+                <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  placeholder="Search emojis (e.g. movie, pizza, swim)"/>
+              )}
+              <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+                {(emojiSearch.trim()
+                  ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
+                  : DEFAULT_REWARD_EMOJIS
+                ).map((e, i) => (
+                  <button key={`${e}-${i}`} onClick={() => setEmoji(e)}
+                    className={`text-xl p-1 rounded-lg transition ${emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>
                     {e}
                   </button>
                 ))}
