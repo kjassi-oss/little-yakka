@@ -192,7 +192,8 @@ export default function ChoresPage() {
       onConfirm: async () => {
         setConfirmAsk(null)
         const supabase = createClient()
-        await supabase.from('completions').delete().eq('id', comp.id)
+        const { error } = await supabase.from('completions').delete().eq('id', comp.id)
+        if (error) { alert(`Couldn't undo: ${error.message}`); return }
         await supabase.from('star_ledger').insert({
           child_id: comp.child_id, delta: -(task.star_value || 0),
           reason: `Undo: ${task.title}`, source_type: 'undo',
@@ -266,7 +267,7 @@ export default function ChoresPage() {
     setEditingTaskId(null)
     setTitle(''); setEmoji('⭐'); setType('chore'); setTimeOfDay('anytime')
     setFrequency('daily'); setCarryOver(false); setStarValue(3)
-    setStartDate(new Date().toISOString().split('T')[0])
+    setStartDate(ymdLocal(new Date())) // today in the device's timezone (UTC was a day behind before ~10am AEST)
     setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
     setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
     setExistingBenchmarks([]); setAssignedChildren(children.map(c => c.id)); setDifficulty('medium')
@@ -388,7 +389,8 @@ export default function ChoresPage() {
       onConfirm: async () => {
         setConfirmAsk(null)
         const supabase = createClient()
-        await supabase.from('completions').delete().eq('id', row.id)
+        const { error } = await supabase.from('completions').delete().eq('id', row.id)
+        if (error) { alert(`Couldn't undo: ${error.message}`); return }
         await supabase.from('star_ledger').insert({
           child_id: row.child_id,
           delta: -(row.tasks?.star_value || 0),
@@ -861,7 +863,7 @@ export default function ChoresPage() {
                             <p className="text-xs text-gray-400">{fmtDate(h.date)} · <span className="text-yellow-500 font-semibold">+{h.tasks?.star_value} ⭐</span></p>
                           </div>
                           <button onClick={() => undoCompletion(h)}
-                            className="text-xs text-gray-300 hover:text-red-400 font-semibold transition px-2 py-1 rounded-lg hover:bg-red-50 flex-shrink-0">Undo</button>
+                            className="text-xs text-red-500 bg-red-50 font-bold px-3 py-1.5 rounded-xl active:scale-95 transition flex-shrink-0">↩ Undo</button>
                         </div>
                       ))}
                     </div>
@@ -883,15 +885,15 @@ export default function ChoresPage() {
               style={{ border: '2px solid var(--theme-from)' }}>{confirmAsk.emoji}</div>
             <h3 className="text-lg font-black text-gray-800 leading-tight mb-1">{confirmAsk.title}</h3>
             <p className="text-sm font-semibold text-gray-400 mb-5">{confirmAsk.sub}</p>
+            {/* Undo is the action the user came for — make it the obvious button */}
             <div className="flex gap-2">
               <button onClick={() => setConfirmAsk(null)}
-                className="flex-1 py-3 rounded-2xl font-black text-sm text-white shadow active:scale-95 transition"
-                style={{ background: 'var(--theme-gradient)' }}>
-                Keep it ✓
+                className="px-5 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
+                Keep it
               </button>
               <button onClick={confirmAsk.onConfirm}
-                className="flex-1 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
-                Undo
+                className="flex-1 py-3 rounded-2xl font-black text-sm text-white bg-red-500 shadow active:scale-95 transition">
+                ↩ Yes, undo
               </button>
             </div>
           </div>
