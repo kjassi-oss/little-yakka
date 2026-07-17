@@ -8,6 +8,7 @@ import CelebrationBurst from '@/components/CelebrationBurst'
 import { redeemFeedback } from '@/lib/feedback'
 import { getCachedFamily } from '@/lib/familyCache'
 import { DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
+import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
 // Quick-start templates (same set as the setup wizard) — hidden until requested
 const REWARD_TEMPLATES: { title: string; emoji: string }[] = [
@@ -65,8 +66,8 @@ export default function RewardsPage() {
   const [redeemTarget, setRedeemTarget] = useState<Reward | null>(null)
   const [expandedChild, setExpandedChild] = useState<string | null>(null)
   const [redeemBurst, setRedeemBurst] = useState<{ colour: string; emoji: string; photo?: string | null; avatar?: string; title: string; sub?: string } | null>(null)
-  // Themed confirmation dialog (replaces browser confirm(), which is easy to miss)
-  const [confirmAsk, setConfirmAsk] = useState<{ emoji: string; title: string; sub: string; onConfirm: () => void } | null>(null)
+  // Themed confirmation dialog (replaces browser confirm()/alert())
+  const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
 
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('🎁')
@@ -182,11 +183,12 @@ export default function RewardsPage() {
       emoji: r.rewards?.emoji || '🎁',
       title: `Undo "${r.rewards?.title}" for ${r.children?.name?.split(' ')[0] || 'this child'}?`,
       sub: `This refunds ${r.rewards?.star_cost || 0} ⭐`,
+      danger: true, confirmLabel: '↩ Yes, undo', cancelLabel: 'Keep it',
       onConfirm: async () => {
         setConfirmAsk(null)
         const supabase = createClient()
         const { error } = await supabase.from('redemptions').delete().eq('id', r.id)
-        if (error) { alert(`Couldn't undo: ${error.message}`); return }
+        if (error) { setConfirmAsk({ alert: true, emoji: '⚠️', title: "Couldn't undo", sub: error.message }); return }
         await supabase.from('star_ledger').insert({
           child_id: r.child_id, delta: r.rewards?.star_cost || 0,
           reason: `Undo redeem: ${r.rewards?.title}`, source_type: 'undo',
@@ -371,7 +373,11 @@ export default function RewardsPage() {
               </button>
             </div>
             {editingRewardId && (
-              <button onClick={() => { if (confirm('Delete this reward?')) { deleteReward(editingRewardId); setShowForm(false); resetForm() } }}
+              <button onClick={() => setConfirmAsk({
+                  emoji, title: `Delete "${title || 'this reward'}"?`, sub: 'Kids will no longer be able to redeem it.',
+                  danger: true, confirmLabel: 'Delete', cancelLabel: 'Keep it',
+                  onConfirm: () => { setConfirmAsk(null); deleteReward(editingRewardId); setShowForm(false); resetForm() },
+                })}
                 className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">
                 🗑 Delete reward
               </button>
@@ -502,27 +508,8 @@ export default function RewardsPage() {
           duration={2400} onDone={() => setRedeemBurst(null)} />
       )}
 
-      {/* Themed confirmation dialog — Undo is the primary action */}
-      {confirmAsk && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-6" onClick={() => setConfirmAsk(null)}>
-          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
-              style={{ border: '2px solid var(--theme-from)' }}>{confirmAsk.emoji}</div>
-            <h3 className="text-lg font-black text-gray-800 leading-tight mb-1">{confirmAsk.title}</h3>
-            <p className="text-sm font-semibold text-gray-400 mb-5">{confirmAsk.sub}</p>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmAsk(null)}
-                className="px-5 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
-                Keep it
-              </button>
-              <button onClick={confirmAsk.onConfirm}
-                className="flex-1 py-3 rounded-2xl font-black text-sm text-white bg-red-500 shadow active:scale-95 transition">
-                ↩ Yes, undo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Themed confirmation dialog */}
+      <ConfirmDialog ask={confirmAsk} onClose={() => setConfirmAsk(null)}/>
 
       {/* Large + FAB */}
       <button onClick={() => { if (showForm) { setShowForm(false); resetForm() } else { resetForm(); setShowForm(true) } }}

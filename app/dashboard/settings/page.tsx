@@ -14,6 +14,7 @@ import { compressImage } from '@/lib/imageCompress'
 import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
 import { isBundledAvatar } from '@/lib/kidAvatars'
+import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   const [manualLog, setManualLog] = useState<{ id: string; child_id: string; delta: number; reason: string | null; created_at: string }[]>([])
   const [manualOpen, setManualOpen] = useState(false)
   const [account, setAccount] = useState<{ email: string; provider: string } | null>(null)
+  const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
   const [notifStatus, setNotifStatus] = useState<'checking' | 'unsupported' | 'off' | 'on' | 'denied'>('checking')
   const [notifBusy, setNotifBusy] = useState(false)
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -305,13 +307,21 @@ export default function SettingsPage() {
   }
 
   // Reverse a past manual adjustment by posting the opposite entry (audit-preserving)
-  async function undoManualAdjust(entry: { child_id: string; delta: number; reason: string | null }) {
-    if (!confirm(`Reverse this ${entry.delta > 0 ? '+' : ''}${entry.delta}⭐ adjustment?`)) return
-    const supabase = createClient()
-    const base = { child_id: entry.child_id, delta: -entry.delta, reason: `Reversed: ${entry.reason || 'adjustment'}` }
-    let { error } = await supabase.from('star_ledger').insert({ ...base, source_type: 'manual' })
-    if (error) await supabase.from('star_ledger').insert({ ...base, source_type: entry.delta > 0 ? 'undo' : 'completion' })
-    loadData()
+  function undoManualAdjust(entry: { child_id: string; delta: number; reason: string | null }) {
+    setConfirmAsk({
+      emoji: '⭐',
+      title: `Reverse this ${entry.delta > 0 ? '+' : ''}${entry.delta} ⭐ adjustment?`,
+      sub: `A balancing ${entry.delta > 0 ? '−' : '+'}${Math.abs(entry.delta)} ⭐ entry will be added.`,
+      danger: true, confirmLabel: '↩ Reverse', cancelLabel: 'Keep it',
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        const supabase = createClient()
+        const base = { child_id: entry.child_id, delta: -entry.delta, reason: `Reversed: ${entry.reason || 'adjustment'}` }
+        let { error } = await supabase.from('star_ledger').insert({ ...base, source_type: 'manual' })
+        if (error) await supabase.from('star_ledger').insert({ ...base, source_type: entry.delta > 0 ? 'undo' : 'completion' })
+        loadData()
+      },
+    })
   }
 
   async function confirmDeleteAccount() {
@@ -354,10 +364,18 @@ export default function SettingsPage() {
     setEditingChild(null); setSaving(false); loadData()
   }
 
-  async function deleteChild(childId: string) {
-    if (!confirm('Remove this child? Their stars and completions will also be deleted.')) return
-    await createClient().from('children').delete().eq('id', childId)
-    loadData()
+  function deleteChild(child: Child) {
+    setConfirmAsk({
+      emoji: '🗑',
+      title: `Remove ${child.name.split(' ')[0]}?`,
+      sub: 'Their stars and completions will also be deleted. This cannot be undone.',
+      danger: true, confirmLabel: 'Remove', cancelLabel: 'Keep them',
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        await createClient().from('children').delete().eq('id', child.id)
+        loadData()
+      },
+    })
   }
 
   async function uploadChildPhoto(childId: string, rawFile: File) {
@@ -372,7 +390,7 @@ export default function SettingsPage() {
     const path = `${familyId}/${childId}/avatar-${Date.now()}.${ext}`
     const { error: uploadError } = await supabase.storage.from('kid-avatars').upload(path, file, { upsert: true })
     if (uploadError) {
-      alert(`Photo upload failed: ${uploadError.message}`)
+      setConfirmAsk({ alert: true, emoji: '⚠️', title: 'Photo upload failed', sub: uploadError.message })
     } else {
       const { data: { publicUrl } } = supabase.storage.from('kid-avatars').getPublicUrl(path)
       await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', childId)
@@ -563,7 +581,7 @@ export default function SettingsPage() {
                         aria-label="Adjust stars" className="text-xs font-bold w-8 h-8 rounded-xl bg-yellow-50 text-yellow-600 active:scale-90 transition">⭐</button>
                       <button onClick={() => { setEditingChild(child); setShowAddForm(false) }} aria-label="Edit"
                         className="text-xs w-8 h-8 rounded-xl active:scale-90 transition" style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.08)', color: 'var(--theme-from)' }}>✏️</button>
-                      <button onClick={() => deleteChild(child.id)} aria-label="Remove"
+                      <button onClick={() => deleteChild(child)} aria-label="Remove"
                         className="text-red-400 text-xs font-semibold w-8 h-8 bg-red-50 rounded-xl active:scale-90 transition">✕</button>
                     </div>
                   </div>
@@ -880,6 +898,9 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Themed confirmation dialog */}
+      <ConfirmDialog ask={confirmAsk} onClose={() => setConfirmAsk(null)}/>
 
       {/* Bonus wheel example — the real SpinWheel in demo mode, no stars awarded */}
       {bonusExampleOpen && (

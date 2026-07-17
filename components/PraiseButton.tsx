@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
 const QUICK_PRAISES = [
   "You're doing amazing! 🌟",
@@ -28,6 +29,7 @@ export default function PraiseButton({ childId, childName, childColour, variant 
   const [custom, setCustom] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [errAsk, setErrAsk] = useState<DialogAsk | null>(null)
 
   async function sendPraise(message: string) {
     if (!message.trim() || sending) return
@@ -35,7 +37,7 @@ export default function PraiseButton({ childId, childName, childColour, variant 
     const supabase = createClient()
     const { error } = await supabase.from('praises').insert({ child_id: childId, message: message.trim() })
     setSending(false)
-    if (error) { alert(`Couldn't send praise: ${error.message}`); return }
+    if (error) { setErrAsk({ alert: true, emoji: '⚠️', title: "Couldn't send praise", sub: error.message }); return }
     // Purge the client router cache so the kid's zone refetches and shows the
     // praise immediately (a recently-visited zone would otherwise be served
     // from the 30s stale cache without it)
@@ -104,6 +106,8 @@ export default function PraiseButton({ childId, childName, childColour, variant 
           </div>
         </div>
       )}
+
+      <ConfirmDialog ask={errAsk} onClose={() => setErrAsk(null)}/>
     </>
   )
 }
