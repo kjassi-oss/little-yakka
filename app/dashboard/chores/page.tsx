@@ -10,6 +10,7 @@ import CelebrationBurst from '@/components/CelebrationBurst'
 import { getCachedFamily } from '@/lib/familyCache'
 import { completionFeedback } from '@/lib/feedback'
 import UpcomingTaskList from '@/components/UpcomingTaskList'
+import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 import { TASK_PRESETS, DEFAULT_TASK_ICONS, EMOJI_OPTIONS } from '@/lib/taskPresets'
 
 const TIME_OPTIONS = [
@@ -23,7 +24,6 @@ const FREQ_OPTIONS = [
   { value: 'weekly',  label: '🗓️ Weekly' },
   { value: 'monthly', label: '📆 Monthly' },
 ]
-const UP_TIME_ORDER: Record<string, number> = { morning: 1, afternoon: 2, evening: 3 }
 // Local-timezone YYYY-MM-DD (avoids the UTC off-by-one that toISOString causes in AEST)
 function ymdLocal(d: Date): string { return new Intl.DateTimeFormat('en-CA').format(d) }
 
@@ -70,8 +70,8 @@ export default function ChoresPage() {
   const [windowComps, setWindowComps] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
   const [pastWindow, setPastWindow] = useState(0) // days of history shown in Upcoming (0 = today only; max 30)
   const [burst, setBurst] = useState<{ colour: string; emoji: string; title: string; sub?: string } | null>(null)
-  // Themed confirmation dialog (replaces browser confirm() popups)
-  const [confirmAsk, setConfirmAsk] = useState<{ emoji: string; title: string; sub: string; onConfirm: () => void } | null>(null)
+  // Themed confirmation dialog (replaces browser confirm()/alert() popups)
+  const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -189,11 +189,12 @@ export default function ChoresPage() {
       emoji: task.emoji,
       title: `Undo "${task.title}"${childName ? ` for ${childName}` : ''}?`,
       sub: `This gives back ${task.star_value} ⭐`,
+      danger: true, confirmLabel: '↩ Yes, undo', cancelLabel: 'Keep it',
       onConfirm: async () => {
         setConfirmAsk(null)
         const supabase = createClient()
         const { error } = await supabase.from('completions').delete().eq('id', comp.id)
-        if (error) { alert(`Couldn't undo: ${error.message}`); return }
+        if (error) { setConfirmAsk({ alert: true, emoji: '⚠️', title: "Couldn't undo", sub: error.message }); return }
         await supabase.from('star_ledger').insert({
           child_id: comp.child_id, delta: -(task.star_value || 0),
           reason: `Undo: ${task.title}`, source_type: 'undo',
@@ -257,10 +258,18 @@ export default function ChoresPage() {
     loadData()
   }
 
-  async function rejectCompletion(row: HistoryRow) {
-    if (!confirm(`Reject "${row.tasks?.title}" for ${row.children?.name}? No stars will be given.`)) return
-    await createClient().from('completions').delete().eq('id', row.id)
-    loadData()
+  function rejectCompletion(row: HistoryRow) {
+    setConfirmAsk({
+      emoji: row.tasks?.emoji || '🕓',
+      title: `Reject "${row.tasks?.title}" for ${row.children?.name?.split(' ')[0] || 'this child'}?`,
+      sub: 'No stars will be given.',
+      danger: true, confirmLabel: 'Reject', cancelLabel: 'Back',
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        await createClient().from('completions').delete().eq('id', row.id)
+        loadData()
+      },
+    })
   }
 
   function openNewForm() {
@@ -375,10 +384,20 @@ export default function ChoresPage() {
     closeForm(); setSaving(false); loadData()
   }
 
-  async function deleteTask(taskId: string) {
-    if (!confirm('Delete this task?')) return
-    await createClient().from('tasks').delete().eq('id', taskId)
-    loadData()
+  function deleteTask(taskId: string) {
+    const t = tasks.find(x => x.id === taskId)
+    setConfirmAsk({
+      emoji: t?.emoji || '🗑',
+      title: `Delete "${t?.title || 'this task'}"?`,
+      sub: "It disappears from every child's list. Past completions keep their stars.",
+      danger: true, confirmLabel: 'Delete', cancelLabel: 'Keep it',
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        await createClient().from('tasks').delete().eq('id', taskId)
+        closeForm()
+        loadData()
+      },
+    })
   }
 
   function undoCompletion(row: HistoryRow) {
@@ -386,11 +405,12 @@ export default function ChoresPage() {
       emoji: row.tasks?.emoji || '📋',
       title: `Undo "${row.tasks?.title}" for ${row.children?.name?.split(' ')[0] || 'this child'}?`,
       sub: `This gives back ${row.tasks?.star_value || 0} ⭐`,
+      danger: true, confirmLabel: '↩ Yes, undo', cancelLabel: 'Keep it',
       onConfirm: async () => {
         setConfirmAsk(null)
         const supabase = createClient()
         const { error } = await supabase.from('completions').delete().eq('id', row.id)
-        if (error) { alert(`Couldn't undo: ${error.message}`); return }
+        if (error) { setConfirmAsk({ alert: true, emoji: '⚠️', title: "Couldn't undo", sub: error.message }); return }
         await supabase.from('star_ledger').insert({
           child_id: row.child_id,
           delta: -(row.tasks?.star_value || 0),
@@ -509,25 +529,25 @@ export default function ChoresPage() {
               </div>
             )}
 
-            {/* Name with the chosen icon beside it (white bg, red border) + 🔍 search toggle */}
+            {/* Name with the chosen icon beside it (white bg, red border) */}
             <div className="flex items-center gap-2">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
                 style={{ border: '2px solid #EF4444' }}>{emoji}</div>
               <input type="text" value={title} onChange={e => setTitle(e.target.value)}
                 className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 placeholder="Task name"/>
-              <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
-                aria-label="Search icons"
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-                style={showEmojiSearch ? { background: 'var(--theme-gradient)' } : {}}>🔍</button>
             </div>
 
-            {/* Icon picker — 10 defaults on one row (labelled); 🔍 reveals full search */}
+            {/* Icon picker — 9 defaults + the 🔍 cell on one row; 🔍 reveals full search */}
             <div>
               {showEmojiSearch && (
-                <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  placeholder="Search icons (e.g. bed, teeth, dog)"/>
+                <div className="flex items-center gap-2 mb-2">
+                  <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+                    className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    placeholder="Search icons (e.g. bed, teeth, dog)"/>
+                  <button onClick={() => { setShowEmojiSearch(false); setEmojiSearch('') }} aria-label="Close search"
+                    className="w-9 h-9 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center text-lg flex-shrink-0 active:scale-90 transition">×</button>
+                </div>
               )}
               {emojiSearch.trim() ? (
                 <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
@@ -547,6 +567,12 @@ export default function ChoresPage() {
                       <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">{o.label}</span>
                     </button>
                   ))}
+                  <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+                    aria-label="Search icons"
+                    className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition active:scale-90">
+                    <span className={`text-xl leading-none p-1 rounded-lg ${showEmojiSearch ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60'}`}>🔍</span>
+                    <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">Search</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -612,41 +638,31 @@ export default function ChoresPage() {
             })()}
             </>)}
 
-            {/* Time of day + start date; for up-for-grabs the expiry gets its own
-                clean row with the start date (three date fields never share a row) */}
-            <div className="flex gap-2">
+            {/* Time of day + start date (+ expiry when up-for-grabs, all on ONE row —
+                compact paddings/text so three fields fit a 390px phone without overlap) */}
+            <div className="flex gap-1.5">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 mb-2">Time of day</p>
+                <p className="text-xs text-gray-500 mb-2 truncate">Time of day</p>
                 <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}
-                  className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                  className={`w-full border border-gray-200 rounded-2xl text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 ${upForGrabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}>
                   {TIME_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
-              {!upForGrabs && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500 mb-2 truncate">Start date</p>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                  className={`w-full border border-gray-200 rounded-2xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 ${upForGrabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}/>
+              </div>
+              {upForGrabs && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-2">Start date</p>
-                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                    className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+                  <p className="text-xs text-gray-500 mb-2 truncate">Expiry <span className="text-gray-300">(opt.)</span></p>
+                  <input type="date" value={expiresOn} onChange={e => setExpiresOn(e.target.value)}
+                    className="w-full border border-gray-200 rounded-2xl px-1.5 py-2.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-300"/>
                 </div>
               )}
             </div>
-
-            {upForGrabs && (
-              <div className="flex gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-2">Start date</p>
-                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                    className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"/>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-2">Expiry <span className="text-gray-300">(optional)</span></p>
-                  <input type="date" value={expiresOn} onChange={e => setExpiresOn(e.target.value)}
-                    className="w-full border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-300"/>
-                </div>
-              </div>
-            )}
 
             {!upForGrabs && (
             <div className="flex gap-2">
@@ -745,7 +761,7 @@ export default function ChoresPage() {
               </button>
             </div>
             {editingTaskId && (
-              <button onClick={() => { deleteTask(editingTaskId); closeForm() }}
+              <button onClick={() => deleteTask(editingTaskId)}
                 className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">
                 🗑 Delete task
               </button>
@@ -878,27 +894,7 @@ export default function ChoresPage() {
       {burst && <CelebrationBurst colour={burst.colour} emoji={burst.emoji} title={burst.title} sub={burst.sub} onDone={() => setBurst(null)} />}
 
       {/* Themed confirmation dialog */}
-      {confirmAsk && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-6" onClick={() => setConfirmAsk(null)}>
-          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl pop-in text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center text-3xl bg-white"
-              style={{ border: '2px solid var(--theme-from)' }}>{confirmAsk.emoji}</div>
-            <h3 className="text-lg font-black text-gray-800 leading-tight mb-1">{confirmAsk.title}</h3>
-            <p className="text-sm font-semibold text-gray-400 mb-5">{confirmAsk.sub}</p>
-            {/* Undo is the action the user came for — make it the obvious button */}
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmAsk(null)}
-                className="px-5 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
-                Keep it
-              </button>
-              <button onClick={confirmAsk.onConfirm}
-                className="flex-1 py-3 rounded-2xl font-black text-sm text-white bg-red-500 shadow active:scale-95 transition">
-                ↩ Yes, undo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog ask={confirmAsk} onClose={() => setConfirmAsk(null)}/>
 
       {/* Large + FAB — add a task / reward */}
       {!showForm && (

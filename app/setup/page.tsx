@@ -8,6 +8,8 @@ import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DE
 import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
 import { isBundledAvatar } from '@/lib/kidAvatars'
+import { timeOfDayLabel } from '@/components/UpcomingTaskList'
+import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
 const RAINBOW = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
@@ -121,6 +123,7 @@ export default function SetupPage() {
   const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '🎁', star_cost: 10 })
   const [rewardFormOpen, setRewardFormOpen] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
+  const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
 
   function addChild(): boolean {
     if (!child.name.trim()) { setError('Please enter your child\'s name.'); return false }
@@ -131,7 +134,14 @@ export default function SetupPage() {
   }
 
   function pickAvatar(a: string) {
-    if (child.photo && !confirm('Replace your uploaded photo with this avatar?')) return
+    if (child.photo) {
+      setConfirmAsk({
+        emoji: '📷', title: 'Replace the photo?', sub: 'This avatar will replace the photo you uploaded.',
+        confirmLabel: 'Use avatar', cancelLabel: 'Keep photo',
+        onConfirm: () => { setConfirmAsk(null); setChild(c => ({ ...c, avatar: a, photo: undefined })) },
+      })
+      return
+    }
     setChild({ ...child, avatar: a, photo: undefined })
   }
   function uploadPhoto(file: File) {
@@ -362,6 +372,8 @@ export default function SetupPage() {
         <AvatarPicker accent="pink" value={child.photo ? '' : child.avatar} onChange={pickAvatar}/>
       </div>
 
+      <ConfirmDialog ask={confirmAsk} onClose={() => setConfirmAsk(null)}/>
+
       {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
 
       <button onClick={() => { if (child.name.trim()) addChild() }}
@@ -398,7 +410,7 @@ export default function SetupPage() {
               <span className="text-2xl">{t.emoji}</span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-800 text-sm truncate">{t.title}</p>
-                <p className="text-[11px] text-gray-400">{t.frequency} · {t.time_of_day} · ⭐ {t.star_value}</p>
+                <p className="text-[11px] text-gray-400">{t.frequency} · {timeOfDayLabel(t.time_of_day === 'anytime' ? null : t.time_of_day)} · ⭐ {t.star_value}</p>
               </div>
               <button onClick={() => setTasks(tasks.filter((_, j) => j !== i))} className="text-gray-300 hover:text-red-400 text-xl font-bold">×</button>
             </div>
@@ -632,23 +644,24 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
         ))}
       </div>
 
-      {/* Name with the chosen icon beside it + 🔍 search toggle (matches the Tasks page) */}
+      {/* Name with the chosen icon beside it (matches the Tasks page) */}
       <div className="flex items-center gap-2">
         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-gray-50">{task.emoji}</div>
         <input type="text" value={task.title} onChange={e => setTask({ ...task, title: e.target.value })}
           className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
           placeholder="Task name"/>
-        <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
-          aria-label="Search icons"
-          className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-          style={showEmojiSearch ? { background: RAINBOW } : {}}>🔍</button>
       </div>
 
+      {/* Icon picker — 9 defaults + the 🔍 cell on one row */}
       <div>
         {showEmojiSearch && (
-          <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
-            placeholder="Search icons (e.g. bed, teeth, dog)"/>
+          <div className="flex items-center gap-2 mb-2">
+            <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+              className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+              placeholder="Search icons (e.g. bed, teeth, dog)"/>
+            <button onClick={() => { setShowEmojiSearch(false); setEmojiSearch('') }} aria-label="Close search"
+              className="w-9 h-9 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center text-lg flex-shrink-0 active:scale-90 transition">×</button>
+          </div>
         )}
         {emojiSearch.trim() ? (
           <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
@@ -666,6 +679,12 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
                 <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">{o.label}</span>
               </button>
             ))}
+            <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+              aria-label="Search icons"
+              className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition active:scale-90">
+              <span className={`text-xl leading-none p-1 rounded-lg ${showEmojiSearch ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>🔍</span>
+              <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">Search</span>
+            </button>
           </div>
         )}
       </div>
@@ -682,13 +701,6 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
             <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${task.up_for_grabs ? 'translate-x-6' : 'translate-x-0.5'}`}/>
           </button>
         </div>
-        {task.up_for_grabs && (
-          <div>
-            <p className="text-xs text-amber-600 mb-1">Expiry date <span className="opacity-60">(optional — leave blank to keep it open)</span></p>
-            <input type="date" value={task.expires_on} onChange={e => setTask({ ...task, expires_on: e.target.value })}
-              className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"/>
-          </div>
-        )}
       </div>
 
       {!task.up_for_grabs && (<>
@@ -728,20 +740,27 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
       )}
       </>)}
 
-      {/* Time of day + start date on one row */}
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <p className="text-xs text-gray-500 mb-1">Time of day</p>
+      {/* Time of day + start date (+ expiry when up-for-grabs) on one row */}
+      <div className="flex gap-1.5">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500 mb-1 truncate">Time of day</p>
           <select value={task.time_of_day} onChange={e => setTask({ ...task, time_of_day: e.target.value })}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
+            className={`w-full border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 ${task.up_for_grabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}>
             {TIMES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
           </select>
         </div>
-        <div className="flex-1">
-          <p className="text-xs text-gray-500 mb-1">Start date</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500 mb-1 truncate">Start date</p>
           <input type="date" value={task.start_date} onChange={e => setTask({ ...task, start_date: e.target.value })}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"/>
+            className={`w-full border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 ${task.up_for_grabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}/>
         </div>
+        {task.up_for_grabs && (
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-500 mb-1 truncate">Expiry <span className="text-gray-300">(opt.)</span></p>
+            <input type="date" value={task.expires_on} onChange={e => setTask({ ...task, expires_on: e.target.value })}
+              className="w-full border border-gray-200 rounded-xl px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300"/>
+          </div>
+        )}
       </div>
 
       {!task.up_for_grabs && (<>

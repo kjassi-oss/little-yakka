@@ -16,16 +16,16 @@ export const TASK_PRESETS: { emoji: string; title: string }[] = [
   { emoji: '🪴', title: 'Water the plants' },         { emoji: '🐕', title: 'Feed pet / walk dog' },
 ]
 
-// 10 default quick-pick icons shown on ONE row with Title Case labels
-// (the 🔍 search reveals the rest). Star first by design.
+// 9 default quick-pick icons + the 🔍 search cell share ONE row of 10.
+// Star first by design. (Laundry Hamper was dropped to make room for the
+// search cell — Fold Laundry covers laundry.)
 export const DEFAULT_TASK_ICONS: { e: string; label: string }[] = [
   { e: '⭐', label: 'Star' },
   { e: '🛏️', label: 'Make Bed' },
   { e: '📚', label: 'Study' },
   { e: '🎵', label: 'Music' },
-  { e: '🧺', label: 'Laundry Hamper' },
   { e: '✨', label: 'Clean Bedroom' },
-  { e: '🗑️', label: 'Take Out Trash' },
+  { e: '🗑️', label: 'Trash Out' },
   { e: '🍽️', label: 'Set Table' },
   { e: '👕', label: 'Fold Laundry' },
   { e: '🧹', label: 'Vacuum' },
