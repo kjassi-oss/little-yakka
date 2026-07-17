@@ -37,6 +37,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full flex flex-col">
         <NativeAuth />
         <ThemeProvider>{children}</ThemeProvider>
+        {/* Landscape guard — phones are portrait-only (the iOS shell is already
+            locked in Info.plist; this covers browsers/PWA). Hidden by default,
+            shown by the globals.css media query on short-landscape viewports. */}
+        <div id="rotate-guard" aria-hidden="true">
+          <div className="rotate-guard-inner">
+            <span className="rotate-guard-emoji">📱</span>
+            <p>Please turn your device upright</p>
+            <p className="rotate-guard-sub">Little Yakka works in portrait</p>
+          </div>
+        </div>
       </body>
     </html>
   )

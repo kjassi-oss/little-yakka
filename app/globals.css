@@ -174,3 +174,22 @@ body {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.2; }
 }
+
+/* Landscape guard — phones are portrait-only. The height cap keeps it off
+   tablets/desktops in landscape (they're taller than any landscape phone). */
+#rotate-guard { display: none; }
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  #rotate-guard {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #fff;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .rotate-guard-inner p { font-weight: 800; color: #374151; font-size: 18px; }
+  .rotate-guard-inner .rotate-guard-sub { font-weight: 600; color: #9ca3af; font-size: 13px; margin-top: 2px; }
+  .rotate-guard-emoji { font-size: 44px; display: inline-block; transform: rotate(90deg); margin-bottom: 10px; }
+}
