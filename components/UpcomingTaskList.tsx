@@ -15,7 +15,15 @@ export interface UTask {
 export interface UChild { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 export interface UComp { id: string; task_id: string; child_id: string; date: string }
 
+// Anytime tasks sink to the BOTTOM of each day (timed tasks come first)
 const UP_TIME_ORDER: Record<string, number> = { morning: 1, afternoon: 2, evening: 3 }
+const UP_TIME_LAST = 4 // anytime / unknown
+const TIME_ICONS: Record<string, string> = { morning: '🌅', afternoon: '☀️', evening: '🌙' }
+// "morning" → "🌅 Morning" · null → "🕐 Anytime"
+export function timeOfDayLabel(t: string | null | undefined): string {
+  const key = t || 'anytime'
+  return `${TIME_ICONS[key] || '🕐'} ${key[0].toUpperCase()}${key.slice(1)}`
+}
 function ymdLocal(d: Date): string { return new Intl.DateTimeFormat('en-CA').format(d) }
 
 interface Props {
@@ -83,7 +91,7 @@ export default function UpcomingTaskList({
         }
       })
       .filter(x => x.kids.length > 0)
-      .sort((a, b) => (UP_TIME_ORDER[a.task.time_of_day ?? ''] ?? 0) - (UP_TIME_ORDER[b.task.time_of_day ?? ''] ?? 0))
+      .sort((a, b) => (UP_TIME_ORDER[a.task.time_of_day ?? ''] ?? UP_TIME_LAST) - (UP_TIME_ORDER[b.task.time_of_day ?? ''] ?? UP_TIME_LAST))
     if (items.length) days.push({ ds, d: new Date(d), items })
   }
 
@@ -197,7 +205,7 @@ export default function UpcomingTaskList({
                       style={{ border: '1.5px solid var(--theme-from)' }}>{task.emoji}</div>
                     <div className="flex-1 min-w-0">
                       <p className={`font-bold text-base leading-tight truncate ${struck ? 'line-through text-gray-400' : missed || lockedDay ? 'text-gray-400' : 'text-gray-800'}`}>{task.title}</p>
-                      <p className="text-xs text-gray-400">{task.time_of_day || 'Anytime'} · ⭐ {task.star_value}</p>
+                      <p className="text-xs text-gray-400">{timeOfDayLabel(task.time_of_day)} · ⭐ {task.star_value}</p>
                     </div>
 
                     {singleChildId ? (
