@@ -14,7 +14,7 @@
 | **Bundle ID** | `com.littleyakka.app` (locked) |
 | **Primary category** | Lifestyle — confirmed over Education: Education is for apps that teach content (courses, languages, maths); a chore/habit app there invites reviewer skepticism. Lifestyle + Productivity is where comparable family chore apps sit. |
 | **Secondary category** | Productivity |
-| **Content rights** | Does not contain third-party content |
+| **Content rights** | Does not contain third-party content — the only bundled artwork is the 12 illustrated kid avatars, which are the developer's own (the previous CC BY "Custom Avatar" set and its in-app attribution were removed 2026-07-17). Answer "does not contain third-party content" **only if** you hold the rights to those avatar images; if they came from a generator whose terms you're unsure of, answer that it contains third-party content you have the rights to use. |
 | **Age rating** | Complete questionnaire — all content types "None" → expect **4+**. Do **NOT** opt into the Kids Category (see §6). |
 
 ## 2. Version Information

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
@@ -30,10 +30,8 @@ function ymdLocal(d: Date): string { return new Intl.DateTimeFormat('en-CA').for
 interface Task {
   id: string; title: string; emoji: string; type: 'chore' | 'routine'
   time_of_day: string | null; star_value: number
-  requires_photo: boolean; requires_benchmark_photo: boolean
-  benchmark_differs_per_child: boolean
   frequency: 'daily' | 'weekly' | 'monthly'; carry_over: boolean
-  start_date?: string | null; requires_approval?: boolean
+  start_date?: string | null
   days_of_week?: number[] | null
 }
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
@@ -87,15 +85,7 @@ export default function ChoresPage() {
   const [carryOver, setCarryOver] = useState(false)
   const [infoTip, setInfoTip] = useState<null | 'carry' | 'early'>(null)
   const [starValue, setStarValue] = useState(3)
-  const [requiresPhoto, setRequiresPhoto] = useState(false)
-  const [requiresBenchmarkPhoto, setRequiresBenchmarkPhoto] = useState(false)
-  const [benchmarkDiffersPerChild, setBenchmarkDiffersPerChild] = useState(false)
-  const [benchmarkFiles, setBenchmarkFiles] = useState<File[]>([])
-  const [benchmarkVideo, setBenchmarkVideo] = useState<File | null>(null)
-  const [existingBenchmarks, setExistingBenchmarks] = useState<{ id: string; url: string; media_type: string }[]>([])
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
-  const [requiresApproval, setRequiresApproval] = useState(false)
   const [canDoEarly, setCanDoEarly] = useState(false)
   const [upForGrabs, setUpForGrabs] = useState(false)
   const [expiresOn, setExpiresOn] = useState('')
@@ -103,8 +93,6 @@ export default function ChoresPage() {
   const [ufgClaims, setUfgClaims] = useState<{ id: string; task_id: string; child_id: string; date: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
-  const benchmarkPhotoRef = useRef<HTMLInputElement>(null)
-  const benchmarkVideoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadData()
@@ -277,10 +265,7 @@ export default function ChoresPage() {
     setTitle(''); setEmoji('⭐'); setType('chore'); setTimeOfDay('anytime')
     setFrequency('daily'); setCarryOver(false); setStarValue(3)
     setStartDate(ymdLocal(new Date())) // today in the device's timezone (UTC was a day behind before ~10am AEST)
-    setRequiresPhoto(false); setRequiresBenchmarkPhoto(false)
-    setBenchmarkDiffersPerChild(false); setBenchmarkFiles([]); setBenchmarkVideo(null)
-    setExistingBenchmarks([]); setAssignedChildren(children.map(c => c.id)); setDifficulty('medium')
-    setRequiresApproval(false); setCanDoEarly(false); setDaysOfWeek([0, 1, 2, 3, 4, 5, 6])
+    setAssignedChildren(children.map(c => c.id)); setCanDoEarly(false); setDaysOfWeek([0, 1, 2, 3, 4, 5, 6])
     setUpForGrabs(false); setExpiresOn(''); setShowPresets(false); setShowEmojiSearch(false); setEmojiSearch('')
     setFormError('')
     setShowForm(true)
@@ -291,23 +276,15 @@ export default function ChoresPage() {
     setTitle(task.title); setEmoji(task.emoji); setType(task.type)
     setTimeOfDay(task.time_of_day || 'anytime')
     setFrequency(task.frequency || 'daily'); setCarryOver(task.carry_over ?? true)
-    setStarValue(task.star_value); setRequiresPhoto(task.requires_photo)
+    setStarValue(task.star_value)
     setStartDate(task.start_date || '')
-    setRequiresBenchmarkPhoto(task.requires_benchmark_photo || false)
-    setBenchmarkDiffersPerChild(task.benchmark_differs_per_child || false)
-    setBenchmarkFiles([]); setBenchmarkVideo(null)
     setAssignedChildren(assignments[task.id] || [])
-    setDifficulty((task as any).difficulty || 'medium')
-    setRequiresApproval((task as any).requires_approval || false)
     setCanDoEarly((task as any).can_do_early ?? true)
     setDaysOfWeek(task.days_of_week?.length ? task.days_of_week : [0, 1, 2, 3, 4, 5, 6])
     setUpForGrabs((task as any).up_for_grabs ?? false)
     setExpiresOn((task as any).expires_on || '')
     setFormError('')
     setShowForm(true)
-    const supabase = createClient()
-    const { data } = await supabase.from('task_benchmark_photos').select('id, url, media_type').eq('task_id', task.id)
-    setExistingBenchmarks(data || [])
   }
 
   function closeForm() { setShowForm(false); setEditingTaskId(null) }
@@ -324,14 +301,9 @@ export default function ChoresPage() {
       time_of_day: timeOfDay === 'anytime' ? null : timeOfDay,
       star_value: starValue,
       start_date: startDate || null,
-      requires_photo: requiresPhoto || requiresBenchmarkPhoto,
-      requires_benchmark_photo: requiresBenchmarkPhoto,
-      benchmark_differs_per_child: benchmarkDiffersPerChild,
       // Up-for-grabs is a one-off: no recurrence, no carry-over restrictions
       frequency: upForGrabs ? 'daily' : frequency,
       carry_over: upForGrabs ? false : carryOver,
-      difficulty,
-      requires_approval: false,
       days_of_week: !upForGrabs && frequency === 'daily' && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? [...daysOfWeek].sort() : null,
     }
     const midPayload = { ...basePayload, can_do_early: upForGrabs ? true : canDoEarly }
@@ -357,28 +329,6 @@ export default function ChoresPage() {
     if (editingTaskId) await supabase.from('task_assignments').delete().eq('task_id', editingTaskId)
     if (!upForGrabs && assignedChildren.length) {
       await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: taskId, child_id: cid })))
-    }
-
-    if (taskId && requiresBenchmarkPhoto) {
-      for (let i = 0; i < benchmarkFiles.length; i++) {
-        const file = benchmarkFiles[i]
-        const ext = file.name.split('.').pop()
-        const path = `${familyId}/${taskId}/photo_${i}.${ext}`
-        const { error: upErr } = await supabase.storage.from('task-benchmarks').upload(path, file, { upsert: true })
-        if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage.from('task-benchmarks').getPublicUrl(path)
-          await supabase.from('task_benchmark_photos').insert({ task_id: taskId, url: publicUrl, media_type: 'photo', sort_order: i })
-        }
-      }
-      if (benchmarkVideo) {
-        const ext = benchmarkVideo.name.split('.').pop()
-        const path = `${familyId}/${taskId}/video.${ext}`
-        const { error: upErr } = await supabase.storage.from('task-benchmarks').upload(path, benchmarkVideo, { upsert: true })
-        if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage.from('task-benchmarks').getPublicUrl(path)
-          await supabase.from('task_benchmark_photos').insert({ task_id: taskId, url: publicUrl, media_type: 'video', sort_order: 99 })
-        }
-      }
     }
 
     closeForm(); setSaving(false); loadData()
@@ -806,8 +756,6 @@ export default function ChoresPage() {
                       </div>
                       <p className="text-xs font-bold text-gray-700 text-center leading-tight line-clamp-2">{task.title}</p>
                       <p className="text-xs text-yellow-500 font-bold">⭐ {task.star_value}</p>
-                      {task.requires_benchmark_photo && <span className="text-[9px] bg-purple-50 text-purple-400 font-semibold px-1 py-0.5 rounded-full">AI check</span>}
-                      {(task as any).requires_approval && <span className="text-[9px] bg-amber-50 text-amber-500 font-semibold px-1 py-0.5 rounded-full">🕓 OK</span>}
                       <div className="flex -space-x-1.5 justify-center">
                         {assignedKids.map(child => (
                           child.avatar_url

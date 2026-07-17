@@ -877,11 +877,6 @@ export default function SettingsPage() {
           className="w-full text-gray-400 font-semibold text-sm text-center py-2 active:scale-95 transition">
           Delete Account
         </button>
-
-        {/* Avatar art attribution (CC BY 4.0) */}
-        <p className="text-[10px] text-center text-gray-300 px-4">
-          Kid avatars remixed from <a href="https://www.figma.com/community/file/881358461963645496" className="underline">"Custom Avatar"</a> by Ashley Seo, licensed <a href="https://creativecommons.org/licenses/by/4.0/" className="underline">CC BY 4.0</a>.
-        </p>
       </div>
 
       {/* Bonus wheel info popup */}
