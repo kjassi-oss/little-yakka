@@ -8,6 +8,7 @@ import ProfileButton from '@/components/ProfileButton'
 import { occursOn, type RecurringTask } from '@/lib/recurrence'
 import { localDateStr, parseTzCookie } from '@/lib/localDate'
 import { getCachedFamily } from '@/lib/familyCache'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface TaskMeta extends RecurringTask { id: string }
@@ -61,6 +62,7 @@ export default function AnalyticsPage() {
       supabase.from('completions').select('child_id, date').eq('status', 'approved').gte('date', thirty),
     ])
 
+    await signAvatarUrls(supabase, childrenData || [])
     setChildren(childrenData || [])
     setTasks(tasksData || [])
     setAssignPairs(assignData || [])

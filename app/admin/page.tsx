@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import AdminUserList from './AdminUserList'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,9 @@ export default async function AdminPage() {
     admin.from('redemptions').select('id, child_id, status, created_at'),
     admin.from('completions').select('child_id, created_at'),
   ])
+
+  // Private-bucket photos → signed URLs (service role can sign any object)
+  await signAvatarUrls(admin, children || [])
 
   const authUsers = authData?.users || []
   const familyName: Record<string, string> = {}

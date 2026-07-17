@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 
 export default async function KidModePage() {
   const supabase = await createClient()
@@ -13,6 +14,7 @@ export default async function KidModePage() {
 
   const { data: children } = await supabase
     .from('children').select('*').eq('family_id', guardian.family_id).order('name')
+  await signAvatarUrls(supabase, children || [])
 
   const childIds = children?.map(c => c.id) || []
   const { data: starData } = await supabase

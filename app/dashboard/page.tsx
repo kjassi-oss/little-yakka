@@ -10,6 +10,7 @@ import GetStartedHero from '@/components/GetStartedHero'
 import SpinReadyBadge from '@/components/SpinReadyBadge'
 import { occursOn } from '@/lib/recurrence'
 import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -87,6 +88,9 @@ export default async function DashboardPage() {
     supabase.from('families').select('bonus_cadence, bonus_day, bonus_time').eq('id', guardian.family_id).maybeSingle(),
     supabase.from('spin_results').select('child_id, date').gte('date', localDateStr(thirtyDaysAgo, tz)),
   ])
+  // Child photos are in a private bucket — swap avatar_url for signed URLs
+  await signAvatarUrls(supabase, children || [])
+
   const bonusCadence = family?.bonus_cadence === 'monthly' ? 'monthly' : 'weekly'
   const bonusDay = family?.bonus_day ?? 0
   const bonusTime = (family?.bonus_time || '16:00').toString().slice(0, 5)

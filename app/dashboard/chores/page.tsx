@@ -11,6 +11,7 @@ import { getCachedFamily } from '@/lib/familyCache'
 import { completionFeedback } from '@/lib/feedback'
 import UpcomingTaskList from '@/components/UpcomingTaskList'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 import { TASK_PRESETS, DEFAULT_TASK_ICONS, EMOJI_OPTIONS } from '@/lib/taskPresets'
 
 const TIME_OPTIONS = [
@@ -138,6 +139,13 @@ export default function ChoresPage() {
 
     const map: Record<string, string[]> = {}
     assignmentsData?.forEach(a => { if (!map[a.task_id]) map[a.task_id] = []; map[a.task_id].push(a.child_id) })
+    // Private-bucket photos → signed URLs (the child list + the child joined on
+    // each history/approval row all render avatar_url)
+    await signAvatarUrls(supabase, [
+      ...(childrenData || []),
+      ...((historyData as any[]) || []).map(h => h.children),
+      ...((approvalData as any[]) || []).map(a => a.children),
+    ])
     setTasks(tasksData || [])
     setChildren(childrenData || [])
     setAssignments(map)

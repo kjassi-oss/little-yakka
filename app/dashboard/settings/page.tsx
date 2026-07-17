@@ -15,6 +15,7 @@ import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
 import { isBundledAvatar } from '@/lib/kidAvatars'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
+import { signAvatarUrls, canonicalAvatarUrl } from '@/lib/avatarUrls'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -127,6 +128,7 @@ export default function SettingsPage() {
       supabase.from('children').select('*').eq('family_id', guardian.family_id).order('name'),
       supabase.from('families').select('*').eq('id', guardian.family_id).single(),
     ])
+    await signAvatarUrls(supabase, childrenData || [])
     setChildren(childrenData || [])
     setFamilyName(familyData?.name || '')
     if (familyData?.bonus_cadence) setBonusCadence(familyData.bonus_cadence === 'monthly' ? 'monthly' : 'weekly')
@@ -374,7 +376,9 @@ export default function SettingsPage() {
     if (!editingChild) return
     setSaving(true)
     const supabase = createClient()
-    const base = { name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour, avatar_url: editingChild.avatar_url ?? null }
+    // avatar_url in state may be a temporary SIGNED url — persist the canonical form
+    const canonUrl = canonicalAvatarUrl(editingChild.avatar_url, process.env.NEXT_PUBLIC_SUPABASE_URL || '')
+    const base = { name: editingChild.name, avatar: editingChild.avatar, colour: editingChild.colour, avatar_url: canonUrl }
     const goal = {
       goal_title: editingChild.goal_title?.trim() || null,
       goal_emoji: editingChild.goal_emoji?.trim() || null,

@@ -9,6 +9,7 @@ import { redeemFeedback } from '@/lib/feedback'
 import { getCachedFamily } from '@/lib/familyCache'
 import { DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 
 // Quick-start templates (same set as the setup wizard) — hidden until requested
 const REWARD_TEMPLATES: { title: string; emoji: string }[] = [
@@ -107,6 +108,13 @@ export default function RewardsPage() {
     const bal: Record<string, number> = {}
     starData?.forEach(s => { bal[s.child_id] = (bal[s.child_id] || 0) + s.delta })
 
+    // Private-bucket photos → signed URLs (child list + the child joined on each
+    // pending/redeemed row, which the burst + history render)
+    await signAvatarUrls(supabase, [
+      ...(childrenData || []),
+      ...((pendingData as any[]) || []).map(p => p.children),
+      ...((redeemedData as any[]) || []).map(r => r.children),
+    ])
     setChildren(childrenData || [])
     setRewards(rewardsData || [])
     setPending(pendingData as any || [])

@@ -5,6 +5,7 @@ import ChildTaskView from './ChildTaskView'
 import RealtimeRefresh from '@/components/RealtimeRefresh'
 import { occursOn, mondayOf, ymd } from '@/lib/recurrence'
 import { localNow, localDateStr, parseTzCookie } from '@/lib/localDate'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 
 export default async function ChildPage({ params, searchParams }: {
   params: Promise<{ childId: string }>
@@ -22,6 +23,8 @@ export default async function ChildPage({ params, searchParams }: {
     supabase.from('guardians').select('family_id, parent_pin').eq('auth_user_id', user.id).single(),
   ])
   if (!child) redirect('/kid-mode')
+  // Child photo lives in a private bucket — swap avatar_url for a signed URL
+  await signAvatarUrls(supabase, [child])
   // Soft gate: if the parent set a 4-digit PIN, leaving Kid Mode asks for it.
   const pinRequired = !!(guardian?.parent_pin && String(guardian.parent_pin).length === 4)
 
