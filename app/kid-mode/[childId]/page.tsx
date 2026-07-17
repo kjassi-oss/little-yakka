@@ -19,9 +19,11 @@ export default async function ChildPage({ params, searchParams }: {
   // Stage 1 (parallel): the child + the caller's family id
   const [{ data: child }, { data: guardian }] = await Promise.all([
     supabase.from('children').select('*').eq('id', childId).single(),
-    supabase.from('guardians').select('family_id').eq('auth_user_id', user.id).single(),
+    supabase.from('guardians').select('family_id, parent_pin').eq('auth_user_id', user.id).single(),
   ])
   if (!child) redirect('/kid-mode')
+  // Soft gate: if the parent set a 4-digit PIN, leaving Kid Mode asks for it.
+  const pinRequired = !!(guardian?.parent_pin && String(guardian.parent_pin).length === 4)
 
   // Timezone-aware dates
   const cookieStore = await cookies()
@@ -254,6 +256,7 @@ export default async function ChildPage({ params, searchParams }: {
       totalCompletions={totalCompletions ?? 0}
       unlockedIds={unlockedIds}
       myRewards={myRewards}
+      pinRequired={pinRequired}
     />
   </>)
 }

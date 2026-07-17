@@ -58,7 +58,12 @@ export default function SettingsPage() {
   const [inviteLink, setInviteLink] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
-  const [parentPin, setParentPin] = useState('')
+  const [parentPin, setParentPin] = useState('')      // current stored PIN ('' = none)
+  const [pinDraft, setPinDraft] = useState('')        // new PIN being entered
+  const [pinConfirm, setPinConfirm] = useState('')
+  const [pinMsg, setPinMsg] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
+  const [pinOpen, setPinOpen] = useState(false)
   const [bonusCadence, setBonusCadence] = useState<'weekly' | 'monthly'>('weekly')
   const [bonusDay, setBonusDay] = useState(0)
   const [bonusTime, setBonusTime] = useState('16:00')
@@ -223,6 +228,38 @@ export default function SettingsPage() {
     if (error) await supabase.from('families').update(base).eq('id', familyId)
     setSavingBonus(false); setBonusSaved(true)
     setTimeout(() => setBonusSaved(false), 2000)
+  }
+
+  // Parent PIN: a 4-digit soft gate for leaving Kid Mode into the dashboard.
+  async function saveParentPin() {
+    setPinMsg('')
+    if (!/^\d{4}$/.test(pinDraft)) { setPinMsg('PIN must be exactly 4 digits.'); return }
+    if (pinDraft !== pinConfirm) { setPinMsg("PINs don't match."); return }
+    setPinSaving(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setPinSaving(false); return }
+    const { error } = await supabase.from('guardians').update({ parent_pin: pinDraft }).eq('auth_user_id', user.id)
+    setPinSaving(false)
+    if (error) { setPinMsg(error.message); return }
+    setParentPin(pinDraft); setPinDraft(''); setPinConfirm(''); setPinMsg('Saved ✓')
+    setTimeout(() => { setPinMsg(''); setPinOpen(false) }, 1200)
+  }
+
+  function clearParentPin() {
+    setConfirmAsk({
+      emoji: '🔓', title: 'Remove the parent PIN?',
+      sub: 'Kids will be able to leave Kid Mode into the dashboard without it.',
+      danger: true, confirmLabel: 'Remove', cancelLabel: 'Keep it',
+      onConfirm: async () => {
+        setConfirmAsk(null)
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        await supabase.from('guardians').update({ parent_pin: '' }).eq('auth_user_id', user.id)
+        setParentPin(''); setPinDraft(''); setPinConfirm('')
+      },
+    })
   }
 
   async function saveFamilyName() {
@@ -750,6 +787,45 @@ export default function SettingsPage() {
             </p>
           </div>
         )}
+
+        {/* Parent PIN — soft gate for leaving Kid Mode */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <button onClick={() => setPinOpen(o => !o)} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔐</span>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-800 leading-tight">Parent PIN</h2>
+                <p className="text-xs text-gray-400">{parentPin ? 'On — asked when leaving a child’s zone' : 'Off — set a 4-digit PIN to lock the parent area'}</p>
+              </div>
+            </div>
+            <span className={`text-gray-300 text-xl transition-transform ${pinOpen ? 'rotate-90' : ''}`}>›</span>
+          </button>
+          {pinOpen && (
+            <div className="mt-4 space-y-2.5">
+              <p className="text-xs text-gray-500">A child in Kid Mode must enter this PIN to return to the parent dashboard. Digits only.</p>
+              <input type="text" inputMode="numeric" maxLength={4} value={pinDraft}
+                onChange={e => setPinDraft(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                placeholder={parentPin ? '••••' : 'New 4-digit PIN'}/>
+              <input type="text" inputMode="numeric" maxLength={4} value={pinConfirm}
+                onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                placeholder="Confirm PIN"/>
+              {pinMsg && <p className={`text-xs font-semibold ${pinMsg.includes('✓') ? 'text-green-600' : 'text-red-500'}`}>{pinMsg}</p>}
+              <button onClick={saveParentPin} disabled={pinSaving || pinDraft.length !== 4}
+                className="w-full text-white font-bold py-2.5 rounded-2xl text-sm disabled:opacity-50 active:scale-95 transition"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                {pinSaving ? 'Saving...' : parentPin ? 'Change PIN' : 'Set PIN'}
+              </button>
+              {parentPin && (
+                <button onClick={clearParentPin}
+                  className="w-full text-red-500 font-semibold py-2 rounded-2xl bg-red-50 active:scale-95 transition text-sm">
+                  Remove PIN
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Change password — collapsible */}
         <div className="bg-white rounded-3xl shadow-sm p-5">

@@ -9,6 +9,8 @@ import DecoratedAvatar from '@/components/DecoratedAvatar'
 import StarJar from '@/components/StarJar'
 import TrophyShelf from '@/components/TrophyShelf'
 import UpcomingTaskList, { type UChild, type UComp } from '@/components/UpcomingTaskList'
+import PinModal from '@/components/PinModal'
+import { verifyParentPin } from '@/app/actions/parentPin'
 
 interface Child {
   id: string; name: string; avatar: string; colour: string; avatar_url?: string
@@ -47,6 +49,7 @@ interface Props {
   totalCompletions: number
   unlockedIds: string[]
   myRewards: MyReward[]
+  pinRequired?: boolean
 }
 
 const RAINBOW = 'var(--theme-gradient)'
@@ -94,10 +97,16 @@ export default function ChildTaskView({
   starBalance: initialBalance, rewards, pendingRewardIds: initialPending,
   hasSpunToday, bonusCadence, bonusDay, bonusTime, maxPrize,
   streakDays, doneHistory, unseenPraises, highlightTaskId, autoSpin,
-  totalCompletions, unlockedIds, myRewards,
+  totalCompletions, unlockedIds, myRewards, pinRequired = false,
 }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<'tasks' | 'done' | 'rewards'>('tasks')
+  // Leaving Kid Mode → parent dashboard is PIN-gated when the parent set one.
+  const [pinGateOpen, setPinGateOpen] = useState(false)
+  function exitToParent() {
+    if (pinRequired) setPinGateOpen(true)
+    else router.push('/dashboard')
+  }
   // Local copies so the Done tab and My Rewards update live as the kid taps
   const [doneList, setDoneList] = useState<DoneItem[]>(doneHistory)
   const [myRewardsList, setMyRewardsList] = useState<MyReward[]>(myRewards)
@@ -357,7 +366,7 @@ export default function ChildTaskView({
                 🎁 Spend Stars!
               </button>
             )}
-            <button onClick={() => router.push('/dashboard')} className="text-gray-400 text-sm font-semibold py-2">
+            <button onClick={exitToParent} className="text-gray-400 text-sm font-semibold py-2">
               ← Back to home
             </button>
           </div>
@@ -403,7 +412,7 @@ export default function ChildTaskView({
             <span className="flex-1 min-w-0 truncate text-5xl font-black leading-none text-center" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               {child.name.split(' ')[0]}
             </span>
-            <button onClick={() => router.push('/dashboard')}
+            <button onClick={exitToParent}
               className="flex-shrink-0 px-3.5 py-2.5 rounded-2xl font-black text-sm text-white shadow-md active:scale-95 transition"
               style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: RAINBOW }}>
               ← BACK
@@ -634,6 +643,14 @@ export default function ChildTaskView({
       {showSpin && (
         <SpinWheel childColour={child.colour} childAvatar={child.avatar} childAvatarUrl={child.avatar_url} childName={child.name.split(' ')[0]} maxPrize={maxPrize}
           onWin={handleSpinWin} onClose={() => setShowSpin(false)}/>
+      )}
+
+      {/* Parent-PIN gate — shown when a child tries to leave Kid Mode */}
+      {pinGateOpen && (
+        <PinModal title="Parent Area"
+          checkPin={verifyParentPin}
+          onSuccess={() => { setPinGateOpen(false); router.push('/dashboard') }}
+          onCancel={() => setPinGateOpen(false)}/>
       )}
     </div>
   )
