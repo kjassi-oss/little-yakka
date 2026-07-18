@@ -21,7 +21,7 @@ export default function CelebrationBurst({
     return () => clearTimeout(t)
   }, [onDone, duration])
 
-  const colors = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93', '#EC4899', colour]
+  const colors = ['#F35C77', '#F6B11F', '#4BB543', '#28BCE6', '#8B51D1', '#1976D2', colour]
   const pieces = Array.from({ length: 34 }, (_, i) => ({
     left: Math.random() * 100, bg: colors[i % colors.length],
     dur: 1.0 + Math.random() * 1.0, delay: Math.random() * 0.2, rot: Math.random() * 360,

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 
-const SEGMENT_COLORS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444']
+// Brand palette (logo colours) so the wheel matches the rest of the app
+const SEGMENT_COLORS = ['#8B51D1', '#F35C77', '#F6B11F', '#4BB543', '#1976D2', '#28BCE6']
 
 const N = 6
 const ANGLE = 360 / N

@@ -1,5 +1,6 @@
-// Playful multi-coloured heading in the logo's display font.
-const TITLE_COLORS = ['#16BDCA', '#F59E0B', '#7C3AED', '#22B14C', '#1E88E5', '#EC4899']
+// Playful multi-coloured heading in the logo's display font — letter colours
+// follow the "Little Yakka" wordmark: cyan, yellow, purple, coral, green, blue.
+const TITLE_COLORS = ['#28BCE6', '#F6B11F', '#8B51D1', '#F35C77', '#4BB543', '#1976D2']
 
 export default function ColorTitle({ text, className = '' }: { text: string; className?: string }) {
   return (
