@@ -15,6 +15,7 @@ import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
 import { isBundledAvatar } from '@/lib/kidAvatars'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
+import PinModal from '@/components/PinModal'
 import { signAvatarUrls, canonicalAvatarUrl } from '@/lib/avatarUrls'
 
 const COMMON_TIMEZONES = [
@@ -50,7 +51,7 @@ export default function SettingsPage() {
   const [guideOpen, setGuideOpen] = useState(false)
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newChild, setNewChild] = useState({ name: '', age: '', avatar: '👧', colour: '#FF6B6B' })
+  const [newChild, setNewChild] = useState({ name: '', age: '', avatar: '/avatars/kid-g1.webp', colour: '#FF6B6B' })
   const [newChildPhoto, setNewChildPhoto] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingFamily, setSavingFamily] = useState(false)
@@ -60,6 +61,8 @@ export default function SettingsPage() {
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
   const [parentPin, setParentPin] = useState('')      // current stored PIN ('' = none)
+  const [pinInfoOpen, setPinInfoOpen] = useState(false)
+  const [pinCheckOpen, setPinCheckOpen] = useState(false) // verify current PIN before removing
   const [pinDraft, setPinDraft] = useState('')        // new PIN being entered
   const [pinConfirm, setPinConfirm] = useState('')
   const [pinMsg, setPinMsg] = useState('')
@@ -248,20 +251,20 @@ export default function SettingsPage() {
     setTimeout(() => { setPinMsg(''); setPinOpen(false) }, 1200)
   }
 
+  // Removing the PIN asks for the CURRENT one first — otherwise a child who
+  // reached Settings could just switch the gate off.
   function clearParentPin() {
-    setConfirmAsk({
-      emoji: '🔓', title: 'Remove the parent PIN?',
-      sub: 'Kids will be able to leave Kid Mode into the dashboard without it.',
-      danger: true, confirmLabel: 'Remove', cancelLabel: 'Keep it',
-      onConfirm: async () => {
-        setConfirmAsk(null)
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        await supabase.from('guardians').update({ parent_pin: '' }).eq('auth_user_id', user.id)
-        setParentPin(''); setPinDraft(''); setPinConfirm('')
-      },
-    })
+    setPinCheckOpen(true)
+  }
+
+  async function doClearParentPin() {
+    setPinCheckOpen(false)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('guardians').update({ parent_pin: '' }).eq('auth_user_id', user.id)
+    setParentPin(''); setPinDraft(''); setPinConfirm('')
+    setConfirmAsk({ alert: true, emoji: '🔓', title: 'Parent PIN removed', sub: 'Kids can now leave Kid Mode without a PIN.' })
   }
 
   async function saveFamilyName() {
@@ -301,7 +304,7 @@ export default function SettingsPage() {
         await supabase.from('children').update({ avatar_url: publicUrl }).eq('id', created.id)
       }
     }
-    setNewChild({ name: '', age: '', avatar: '👧', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
+    setNewChild({ name: '', age: '', avatar: '/avatars/kid-g1.webp', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
     setShowAddForm(false); setSaving(false); loadData()
   }
 
@@ -794,26 +797,31 @@ export default function SettingsPage() {
 
         {/* Parent PIN — soft gate for leaving Kid Mode */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
-          <button onClick={() => setPinOpen(o => !o)} className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🔐</span>
-              <div className="text-left">
+          <div className="w-full flex items-center justify-between">
+            <button onClick={() => setPinOpen(o => !o)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+              <span className="text-2xl flex-shrink-0">🔐</span>
+              <div className="min-w-0">
                 <h2 className="font-bold text-gray-800 leading-tight">Parent PIN</h2>
-                <p className="text-xs text-gray-400">{parentPin ? 'On — asked when leaving a child’s zone' : 'Off — set a 4-digit PIN to lock the parent area'}</p>
+                <p className="text-xs text-gray-400 truncate">{parentPin ? 'On — asked when leaving a child’s zone' : 'Off — set a 4-digit PIN to lock the parent area'}</p>
               </div>
-            </div>
-            <span className={`text-gray-300 text-xl transition-transform ${pinOpen ? 'rotate-90' : ''}`}>›</span>
-          </button>
+            </button>
+            <button onClick={() => setPinInfoOpen(true)} aria-label="What is the Parent PIN?"
+              className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-[11px] font-black italic flex items-center justify-center flex-shrink-0 mx-2 active:scale-90 transition">i</button>
+            <button onClick={() => setPinOpen(o => !o)} aria-label="Toggle"
+              className={`text-gray-300 text-xl transition-transform flex-shrink-0 ${pinOpen ? 'rotate-90' : ''}`}>›</button>
+          </div>
           {pinOpen && (
             <div className="mt-4 space-y-2.5">
               <p className="text-xs text-gray-500">A child in Kid Mode must enter this PIN to return to the parent dashboard. Digits only.</p>
+              {/* The wide letter-spacing is for the DIGITS; the placeholder gets the
+                  app's normal font so it doesn't read as stretched-out. */}
               <input type="text" inputMode="numeric" maxLength={4} value={pinDraft}
                 onChange={e => setPinDraft(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-                placeholder={parentPin ? '••••' : 'New 4-digit PIN'}/>
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:tracking-normal placeholder:text-sm placeholder:font-semibold placeholder:text-gray-400"
+                placeholder={parentPin ? 'New 4-digit PIN' : 'New 4-digit PIN'}/>
               <input type="text" inputMode="numeric" maxLength={4} value={pinConfirm}
                 onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:tracking-normal placeholder:text-sm placeholder:font-semibold placeholder:text-gray-400"
                 placeholder="Confirm PIN"/>
               {pinMsg && <p className={`text-xs font-semibold ${pinMsg.includes('✓') ? 'text-green-600' : 'text-red-500'}`}>{pinMsg}</p>}
               <button onClick={saveParentPin} disabled={pinSaving || pinDraft.length !== 4}
@@ -976,6 +984,25 @@ export default function SettingsPage() {
 
       {/* Themed confirmation dialog */}
       <ConfirmDialog ask={confirmAsk} onClose={() => setConfirmAsk(null)}/>
+
+      {/* Parent PIN — what it does */}
+      <ConfirmDialog
+        ask={pinInfoOpen ? {
+          alert: true, emoji: '🔐', title: 'Parent PIN',
+          sub: 'Turning Parent PIN on will require you to enter a PIN before a child leaves their Kids Zone after completing Tasks.',
+        } : null}
+        onClose={() => setPinInfoOpen(false)}/>
+
+      {/* Confirm the CURRENT PIN before switching the gate off */}
+      {pinCheckOpen && (
+        <PinModal title="Enter current PIN" onCancel={() => setPinCheckOpen(false)}
+          checkPin={async pin => {
+            if (pin !== parentPin) return false
+            await doClearParentPin()
+            return true
+          }}
+          onSuccess={() => {}}/>
+      )}
 
       {/* Bonus wheel example — the real SpinWheel in demo mode, no stars awarded */}
       {bonusExampleOpen && (

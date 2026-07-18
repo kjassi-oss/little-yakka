@@ -8,6 +8,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import UpcomingTaskList, { type UChild, type UComp } from './UpcomingTaskList'
+import ConfirmDialog, { type DialogAsk } from './ConfirmDialog'
 
 export default function HomeTaskPreview({ tasks, childrenList, assignments, windowComps, ufgClaims = [] }: {
   tasks: any[]; childrenList: UChild[]; assignments: Record<string, string[]>; windowComps: UComp[]; ufgClaims?: UComp[]
@@ -16,17 +17,26 @@ export default function HomeTaskPreview({ tasks, childrenList, assignments, wind
   const childMap: Record<string, UChild> = Object.fromEntries(childrenList.map(c => [c.id, c]))
   const noop = () => {}
   // Task assigned to several kids → ask whose zone to open (only kids who still
-  // have that occurrence outstanding; if all have done it, offer everyone assigned)
+  // have that occurrence outstanding)
   const [pickerTask, setPickerTask] = useState<{ task: any; kidIds: string[] } | null>(null)
+  // Everyone finished it → say who, instead of asking which zone to open
+  const [doneAsk, setDoneAsk] = useState<DialogAsk | null>(null)
 
   const openTask = (task: any, date?: string) => {
     const all = assignments[task.id] || []
     const outstanding = date
       ? all.filter(id => !windowComps.some(c => c.task_id === task.id && c.child_id === id && c.date === date))
       : all
-    const kids = outstanding.length ? outstanding : all
-    if (kids.length === 1) router.push(`/kid-mode/${kids[0]}?task=${task.id}`)
-    else if (kids.length > 1) setPickerTask({ task, kidIds: kids })
+    if (all.length && !outstanding.length) {
+      const names = all.map(id => childMap[id]?.name.split(' ')[0]).filter(Boolean)
+      const who = names.length === 1
+        ? `${names[0]} has`
+        : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} have`
+      setDoneAsk({ alert: true, emoji: task.emoji, title: `${who} completed this task`, sub: `"${task.title}" is all done 🎉` })
+      return
+    }
+    if (outstanding.length === 1) router.push(`/kid-mode/${outstanding[0]}?task=${task.id}`)
+    else if (outstanding.length > 1) setPickerTask({ task, kidIds: outstanding })
     else router.push('/dashboard/chores')
   }
 
@@ -67,6 +77,8 @@ export default function HomeTaskPreview({ tasks, childrenList, assignments, wind
           </div>
         </div>
       )}
+
+      <ConfirmDialog ask={doneAsk} onClose={() => setDoneAsk(null)}/>
     </div>
   )
 }

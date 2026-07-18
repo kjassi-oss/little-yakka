@@ -3,18 +3,44 @@
 // never drift apart.
 
 // 20 named quick-start presets (tap to fill name + icon).
-export const TASK_PRESETS: { emoji: string; title: string }[] = [
-  { emoji: '🦷', title: 'Brush teeth' },              { emoji: '📚', title: 'Homework / Study' },
-  { emoji: '🎹', title: 'Music practice' },           { emoji: '😴', title: 'Get ready for bed' },
-  { emoji: '🎒', title: 'Pack school bag' },          { emoji: '🧸', title: 'Clean room' },
-  { emoji: '🛏️', title: 'Make the bed' },             { emoji: '🧺', title: 'Clothes in hamper' },
-  { emoji: '🍽️', title: 'Wash dishes' },              { emoji: '🍴', title: 'Set / clear table' },
-  { emoji: '🧽', title: 'Wipe the counters' },        { emoji: '🗑️', title: 'Take out the trash' },
-  { emoji: '🧹', title: 'Vacuum / sweep floors' },    { emoji: '🪶', title: 'Dust the furniture' },
-  { emoji: '👕', title: 'Fold / put away laundry' },  { emoji: '🛍️', title: 'Carry in groceries' },
-  { emoji: '🌱', title: 'Mow the lawn' },             { emoji: '🍂', title: 'Rake / weed the garden' },
-  { emoji: '🪴', title: 'Water the plants' },         { emoji: '🐕', title: 'Feed pet / walk dog' },
+// Presets may also carry sensible scheduling defaults — the form applies these
+// on tap and the parent can still change anything before saving.
+//   twiceDaily: saves TWO tasks (a morning one and an evening one). Needed
+//   because completions are unique per task+child+day, so one task row can
+//   only be ticked once a day.
+export interface TaskPreset {
+  emoji: string
+  title: string
+  frequency?: 'daily' | 'weekly' | 'monthly'
+  timeOfDay?: 'anytime' | 'morning' | 'afternoon' | 'evening'
+  daysOfWeek?: number[] // 0=Sun … 6=Sat (only meaningful for daily)
+  twiceDaily?: boolean
+}
+
+export const TASK_PRESETS: TaskPreset[] = [
+  { emoji: '🦷', title: 'Brush teeth', frequency: 'daily', timeOfDay: 'morning', twiceDaily: true },
+  { emoji: '📚', title: 'Homework / Study', frequency: 'weekly', timeOfDay: 'afternoon' },
+  { emoji: '🎹', title: 'Music practice', frequency: 'weekly', timeOfDay: 'afternoon' },
+  { emoji: '😴', title: 'Get ready for bed', frequency: 'daily', timeOfDay: 'evening' },
+  // School nights: Sunday through Thursday
+  { emoji: '🎒', title: 'Pack school bag', frequency: 'daily', timeOfDay: 'evening', daysOfWeek: [0, 1, 2, 3, 4] },
+  { emoji: '🧸', title: 'Clean room', frequency: 'weekly', timeOfDay: 'anytime' },
+  { emoji: '🛏️', title: 'Make the bed', frequency: 'daily', timeOfDay: 'morning' },
+  { emoji: '🧺', title: 'Clothes in hamper', frequency: 'daily', timeOfDay: 'anytime' },
+  { emoji: '🍽️', title: 'Wash dishes', frequency: 'daily', timeOfDay: 'afternoon' },
+  { emoji: '🍴', title: 'Set / clear table', frequency: 'daily', timeOfDay: 'afternoon' },
+  { emoji: '🧽', title: 'Wipe the counters' },
+  { emoji: '🗑️', title: 'Take out the trash', frequency: 'weekly', timeOfDay: 'evening' },
+  { emoji: '🧹', title: 'Vacuum / sweep floors' },   { emoji: '🪶', title: 'Dust the furniture' },
+  { emoji: '👕', title: 'Fold / put away laundry' }, { emoji: '🛍️', title: 'Carry in groceries' },
+  { emoji: '🌱', title: 'Mow the lawn' },            { emoji: '🍂', title: 'Rake / weed the garden' },
+  { emoji: '🪴', title: 'Water the plants' },        { emoji: '🐕', title: 'Feed pet / walk dog' },
 ]
+
+// "Brush teeth" / "Brushing teeth" etc. — the one task that defaults to twice a day.
+export function isBrushTeeth(title: string): boolean {
+  return /brush\w*\s*(my\s*|your\s*)?teeth/i.test(title.trim())
+}
 
 // 9 default quick-pick icons + the 🔍 search cell share ONE row of 10.
 // Star first by design. (Laundry Hamper was dropped to make room for the
@@ -32,9 +58,11 @@ export const DEFAULT_TASK_ICONS: { e: string; label: string }[] = [
 ]
 
 // Reward emoji picker — top 10 shown on one row; the 🔍 search reveals the rest.
-export const DEFAULT_REWARD_EMOJIS = ['🎁', '🍦', '🎮', '📱', '🎬', '🍿', '🍔', '🍭', '🍰', '🏆']
+// Star leads (the app's currency); the trophy moved into search to keep it to 10.
+export const DEFAULT_REWARD_EMOJIS = ['⭐', '🎁', '🍦', '🎮', '📱', '🎬', '🍿', '🍔', '🍭', '🍰']
 
 export const REWARD_EMOJI_OPTIONS: { e: string; kw: string }[] = [
+  { e: '⭐', kw: 'star stars reward special bonus' },
   { e: '🎁', kw: 'gift present surprise' }, { e: '🍦', kw: 'ice cream icecream treat' },
   { e: '🎮', kw: 'games computer console video gaming' }, { e: '📱', kw: 'ipad phone tablet screen time' },
   { e: '🎬', kw: 'movie movies cinema film' }, { e: '🍿', kw: 'popcorn movie night' },

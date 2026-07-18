@@ -12,7 +12,7 @@ import { completionFeedback } from '@/lib/feedback'
 import UpcomingTaskList from '@/components/UpcomingTaskList'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 import { signAvatarUrls } from '@/lib/avatarUrls'
-import { TASK_PRESETS, DEFAULT_TASK_ICONS, EMOJI_OPTIONS } from '@/lib/taskPresets'
+import { TASK_PRESETS, DEFAULT_TASK_ICONS, EMOJI_OPTIONS, isBrushTeeth, type TaskPreset } from '@/lib/taskPresets'
 
 const TIME_OPTIONS = [
   { value: 'anytime',   label: '📋 Anytime' },
@@ -82,6 +82,10 @@ export default function ChoresPage() {
   const [emojiSearch, setEmojiSearch] = useState('')
   const [showEmojiSearch, setShowEmojiSearch] = useState(false)
   const [showPresets, setShowPresets] = useState(false)
+  // Twice-daily (brush teeth): saves a morning task AND an evening task, so each
+  // can be ticked separately. `touched` stops the title-watcher fighting the parent.
+  const [twiceDaily, setTwiceDaily] = useState(false)
+  const [twiceDailyTouched, setTwiceDailyTouched] = useState(false)
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [carryOver, setCarryOver] = useState(false)
   const [infoTip, setInfoTip] = useState<null | 'carry' | 'early'>(null)
@@ -219,26 +223,43 @@ export default function ChoresPage() {
     loadData()
   }
 
+  // "Ava, Johnny and Sofia have" / "Sofia has"
+  function namesDone(ids: string[]): string {
+    const names = ids.map(id => childMap[id]?.name.split(' ')[0]).filter(Boolean)
+    if (names.length === 0) return 'Everyone has'
+    if (names.length === 1) return `${names[0]} has`
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} have`
+  }
+
+  // Nothing left to do on this task — say who finished it rather than asking
+  // which zone to open.
+  function showAllDone(task: Task, ids: string[]) {
+    setConfirmAsk({
+      alert: true, emoji: task.emoji,
+      title: `${namesDone(ids)} completed this task`,
+      sub: `"${task.title}" is all done 🎉`,
+    })
+  }
+
   // Multi-child: tapping a task asks which child (or jumps straight in if only one).
-  // Only kids who still have that occurrence outstanding are offered; if everyone
-  // has finished it, fall back to all assigned kids (e.g. to review/undo).
+  // Only kids who still have that occurrence outstanding are offered.
   function openTaskForChild(task: Task, date?: string) {
     const ds = date || ymdLocal(new Date())
     const all = (assignments[task.id] || []).filter(cid => upcomingFilter.size === 0 || upcomingFilter.has(cid))
     const outstanding = all.filter(cid => !windowComps.some(c => c.task_id === task.id && c.child_id === cid && c.date === ds))
-    const ids = outstanding.length ? outstanding : all
-    if (ids.length === 1) router.push(`/kid-mode/${ids[0]}?task=${task.id}`)
-    else { setPendingTaskId(task.id); setPendingKidIds(ids); setShowChildPicker(true) }
+    if (all.length && !outstanding.length) { showAllDone(task, all); return }
+    if (outstanding.length === 1) router.push(`/kid-mode/${outstanding[0]}?task=${task.id}`)
+    else { setPendingTaskId(task.id); setPendingKidIds(outstanding); setShowChildPicker(true) }
   }
 
   function handleTaskClick(task: Task) {
     // Tapping a task jumps into the kid zone, deep-linked to that task.
     const all = assignments[task.id] || []
     const outstanding = all.filter(cid => !completedSet.has(`${task.id}-${cid}`))
-    const ids = outstanding.length ? outstanding : all
-    if (filterChildId) router.push(`/kid-mode/${filterChildId}?task=${task.id}`)
-    else if (ids.length === 1) router.push(`/kid-mode/${ids[0]}?task=${task.id}`)
-    else { setPendingTaskId(task.id); setPendingKidIds(ids); setShowChildPicker(true) }
+    if (filterChildId) { router.push(`/kid-mode/${filterChildId}?task=${task.id}`); return }
+    if (all.length && !outstanding.length) { showAllDone(task, all); return }
+    if (outstanding.length === 1) router.push(`/kid-mode/${outstanding[0]}?task=${task.id}`)
+    else { setPendingTaskId(task.id); setPendingKidIds(outstanding); setShowChildPicker(true) }
   }
 
   async function approveCompletion(row: HistoryRow) {
@@ -275,6 +296,7 @@ export default function ChoresPage() {
     setStartDate(ymdLocal(new Date())) // today in the device's timezone (UTC was a day behind before ~10am AEST)
     setAssignedChildren(children.map(c => c.id)); setCanDoEarly(false); setDaysOfWeek([0, 1, 2, 3, 4, 5, 6])
     setUpForGrabs(false); setExpiresOn(''); setShowPresets(false); setShowEmojiSearch(false); setEmojiSearch('')
+    setTwiceDaily(false); setTwiceDailyTouched(false)
     setFormError('')
     setShowForm(true)
   }
@@ -297,16 +319,37 @@ export default function ChoresPage() {
 
   function closeForm() { setShowForm(false); setEditingTaskId(null) }
 
+  // Tapping a template fills the name/icon AND its sensible schedule defaults
+  // (all still editable before saving).
+  function applyPreset(p: TaskPreset) {
+    setTitle(p.title)
+    setEmoji(p.emoji)
+    if (p.frequency) setFrequency(p.frequency)
+    if (p.timeOfDay) setTimeOfDay(p.timeOfDay)
+    setDaysOfWeek(p.daysOfWeek ? [...p.daysOfWeek] : [0, 1, 2, 3, 4, 5, 6])
+    setTwiceDaily(!!p.twiceDaily)
+    setTwiceDailyTouched(false)
+  }
+
+  // Typing a "brush teeth"-ish name also defaults to twice daily, until the
+  // parent flips the toggle themselves.
+  function onTitleChange(v: string) {
+    setTitle(v)
+    if (!twiceDailyTouched && !editingTaskId) setTwiceDaily(isBrushTeeth(v))
+  }
+
   async function saveTask() {
     if (!title.trim()) { setFormError('Please enter a task name.'); return }
     if (!upForGrabs && assignedChildren.length === 0) { setFormError('Please assign to at least one child.'); return }
     setSaving(true); setFormError('')
     const supabase = createClient()
 
-    // Build base payload without newer columns; add them if they exist
+    // Build base payload without newer columns; add them if they exist.
+    // Twice-daily forces this first row to MORNING (the evening twin is added below).
+    const firstTime = twiceDaily && !upForGrabs && !editingTaskId ? 'morning' : timeOfDay
     const basePayload = {
       title: title.trim(), emoji, type,
-      time_of_day: timeOfDay === 'anytime' ? null : timeOfDay,
+      time_of_day: firstTime === 'anytime' ? null : firstTime,
       star_value: starValue,
       start_date: startDate || null,
       // Up-for-grabs is a one-off: no recurrence, no carry-over restrictions
@@ -337,6 +380,23 @@ export default function ChoresPage() {
     if (editingTaskId) await supabase.from('task_assignments').delete().eq('task_id', editingTaskId)
     if (!upForGrabs && assignedChildren.length) {
       await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: taskId, child_id: cid })))
+    }
+
+    // Twice daily (brush teeth): the row above is the MORNING task; add the
+    // matching EVENING one. Two rows, so each can be ticked independently —
+    // a completion is unique per task+child+day.
+    if (twiceDaily && !upForGrabs && !editingTaskId) {
+      const evening = { ...payload, time_of_day: 'evening' }
+      const eveningMid = { ...midPayload, time_of_day: 'evening' }
+      const eveningBase = { ...basePayload, time_of_day: 'evening' }
+      const attempt = (p: any) => supabase.from('tasks')
+        .insert({ ...p, family_id: familyId, recurrence: p.frequency }).select().single()
+      let res = await attempt(evening)
+      if (res.error?.message?.includes('up_for_grabs') || res.error?.message?.includes('expires_on')) res = await attempt(eveningMid)
+      if (res.error?.message?.includes('can_do_early')) res = await attempt(eveningBase)
+      if (res.data && assignedChildren.length) {
+        await supabase.from('task_assignments').insert(assignedChildren.map(cid => ({ task_id: res.data.id, child_id: cid })))
+      }
     }
 
     closeForm(); setSaving(false); loadData()
@@ -476,7 +536,7 @@ export default function ChoresPage() {
                 {showPresets && (
                   <div className="grid grid-cols-4 gap-2.5 mt-3">
                     {TASK_PRESETS.map(p => (
-                      <button key={p.title} onClick={() => { setTitle(p.title); setEmoji(p.emoji); setShowPresets(false) }}
+                      <button key={p.title} onClick={() => { applyPreset(p); setShowPresets(false) }}
                         className="flex flex-col items-center gap-1 active:scale-95 transition">
                         <div className="w-14 h-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl">{p.emoji}</div>
                         <span className="text-[10px] font-semibold text-gray-500 text-center leading-tight">{p.title}</span>
@@ -491,7 +551,7 @@ export default function ChoresPage() {
             <div className="flex items-center gap-2">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
                 style={{ border: '2px solid #EF4444' }}>{emoji}</div>
-              <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              <input type="text" value={title} onChange={e => onTitleChange(e.target.value)}
                 className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 placeholder="Task name"/>
             </div>
@@ -549,6 +609,23 @@ export default function ChoresPage() {
               </div>
             </div>
 
+            {/* Twice daily — saves a morning AND an evening copy (brush teeth) */}
+            {!upForGrabs && !editingTaskId && (
+              <div className="rounded-2xl p-3 bg-gray-50 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-700">Twice a day 🌅🌙</p>
+                  <p className="text-xs text-gray-400">
+                    {twiceDaily ? 'Creates a morning task and an evening task' : 'Once a day'}
+                  </p>
+                </div>
+                <button onClick={() => { setTwiceDaily(v => !v); setTwiceDailyTouched(true) }}
+                  className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${twiceDaily ? '' : 'bg-gray-200'}`}
+                  style={twiceDaily ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${twiceDaily ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+                </button>
+              </div>
+            )}
+
             {!upForGrabs && (<>
             <div>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -596,28 +673,36 @@ export default function ChoresPage() {
             })()}
             </>)}
 
-            {/* Time of day + start date (+ expiry when up-for-grabs, all on ONE row —
-                compact paddings/text so three fields fit a 390px phone without overlap) */}
-            <div className="flex gap-1.5">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 mb-2 truncate">Time of day</p>
-                <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}
-                  className={`w-full border border-gray-200 rounded-2xl text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 ${upForGrabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}>
-                  {TIME_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+            {/* Time of day + start date (+ expiry when up-for-grabs) on ONE row.
+                GRID (not flex) with min-w-0 cells: a native date input has a wide
+                intrinsic size and would otherwise push past its box and collide
+                with the next field once populated. Everything is centred. */}
+            <div className={`grid gap-2 ${upForGrabs ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 mb-2 text-center truncate">Time of day</p>
+                {twiceDaily && !editingTaskId ? (
+                  <div className="w-full border border-gray-200 rounded-2xl px-1 py-2.5 text-xs text-center text-gray-500 bg-gray-50 truncate">
+                    🌅 Morning + 🌙 Evening
+                  </div>
+                ) : (
+                  <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}
+                    className={`w-full min-w-0 border border-gray-200 rounded-2xl text-gray-800 bg-white text-center focus:outline-none focus:ring-2 focus:ring-purple-400 ${upForGrabs ? 'px-1 py-2.5 text-xs' : 'px-2 py-2.5 text-sm'}`}>
+                    {TIME_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 mb-2 truncate">Start date</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 mb-2 text-center truncate">Start date</p>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                  className={`w-full border border-gray-200 rounded-2xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 ${upForGrabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}/>
+                  className={`w-full min-w-0 border border-gray-200 rounded-2xl text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 ${upForGrabs ? 'px-1 py-2.5 text-xs' : 'px-2 py-2.5 text-sm'}`}/>
               </div>
               {upForGrabs && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 mb-2 truncate">Expiry <span className="text-gray-300">(opt.)</span></p>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500 mb-2 text-center truncate">Expiry</p>
                   <input type="date" value={expiresOn} onChange={e => setExpiresOn(e.target.value)}
-                    className="w-full border border-gray-200 rounded-2xl px-1.5 py-2.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-300"/>
+                    className="w-full min-w-0 border border-gray-200 rounded-2xl px-1 py-2.5 text-xs text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-amber-300"/>
                 </div>
               )}
             </div>

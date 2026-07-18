@@ -51,7 +51,13 @@ export default function BottomNav() {
         <Link href="/dashboard/chores"
           className={`flex flex-col items-center gap-1 transition ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/chores') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-3xl">📋</span>
+          {/* Clipboard with a green tick — reads as "tasks done" */}
+          <div className="relative">
+            <span className="text-3xl">📋</span>
+            <span className="absolute -bottom-0.5 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
+              <span className="text-white text-[8px] font-black leading-none">✓</span>
+            </span>
+          </div>
           <span className="text-[11px] font-semibold">Tasks</span>
         </Link>
 

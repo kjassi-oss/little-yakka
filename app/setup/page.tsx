@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/imageCompress'
-import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
+import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS, isBrushTeeth, type TaskPreset } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
 import { isBundledAvatar } from '@/lib/kidAvatars'
@@ -35,6 +35,7 @@ interface TaskDraft {
   time_of_day: string; start_date: string; carry_over: boolean
   can_do_early: boolean; days_of_week: number[]
   up_for_grabs: boolean; expires_on: string
+  twiceDaily: boolean // saves a morning AND an evening task (brush teeth)
   assignedIdx: number[] // indices into the children drafts (no ids yet)
 }
 interface RewardDraft { title: string; emoji: string; star_cost: number }
@@ -44,7 +45,7 @@ const blankTask = (): TaskDraft => ({
   // start date defaults to today in the device's timezone
   time_of_day: 'anytime', start_date: new Intl.DateTimeFormat('en-CA').format(new Date()), carry_over: false,
   can_do_early: false, days_of_week: [0, 1, 2, 3, 4, 5, 6], // daily, every day on by default
-  up_for_grabs: false, expires_on: '', assignedIdx: [],
+  up_for_grabs: false, expires_on: '', twiceDaily: false, assignedIdx: [],
 })
 
 // Full-bleed white page with the logo centred at the top, consistent on every step.
@@ -109,7 +110,7 @@ export default function SetupPage() {
   const [tasks, setTasks] = useState<TaskDraft[]>([])
   const [rewards, setRewards] = useState<RewardDraft[]>([])
 
-  const [child, setChild] = useState<ChildDraft>({ name: '', age: '', avatar: '👧', colour: COLOURS[0] })
+  const [child, setChild] = useState<ChildDraft>({ name: '', age: '', avatar: '/avatars/kid-g1.webp', colour: COLOURS[0] })
   const [bonusOn, setBonusOn] = useState(false)
   const [bonusCadence, setBonusCadence] = useState<'weekly' | 'monthly'>('weekly')
   const [bonusDay, setBonusDay] = useState(0)      // weekly: day of week (0=Sun)
@@ -128,7 +129,7 @@ export default function SetupPage() {
   function addChild(): boolean {
     if (!child.name.trim()) { setError('Please enter your child\'s name.'); return false }
     setChildren(prev => [...prev, { ...child, name: child.name.trim(), colour: COLOURS[prev.length % COLOURS.length] }])
-    setChild({ name: '', age: '', avatar: '👧', colour: COLOURS[(children.length + 1) % COLOURS.length] })
+    setChild({ name: '', age: '', avatar: '/avatars/kid-g1.webp', colour: COLOURS[(children.length + 1) % COLOURS.length] })
     setError('')
     return true
   }
@@ -148,9 +149,17 @@ export default function SetupPage() {
     setChild({ ...child, photo: file })
   }
 
-  function startTask(preset?: { title: string; emoji: string }) {
-    // default: assigned to every child added so far
-    setTask({ ...blankTask(), title: preset?.title || '', emoji: preset?.emoji || '⭐', assignedIdx: children.map((_, i) => i) })
+  function startTask(preset?: TaskPreset) {
+    // default: assigned to every child added so far, plus the preset's schedule
+    setTask({
+      ...blankTask(),
+      title: preset?.title || '', emoji: preset?.emoji || '⭐',
+      frequency: preset?.frequency || 'daily',
+      time_of_day: preset?.timeOfDay || 'anytime',
+      days_of_week: preset?.daysOfWeek ? [...preset.daysOfWeek] : [0, 1, 2, 3, 4, 5, 6],
+      twiceDaily: !!preset?.twiceDaily,
+      assignedIdx: children.map((_, i) => i),
+    })
     setTaskFormOpen(true)
   }
   function saveTask() {
@@ -241,29 +250,37 @@ export default function SetupPage() {
     const allChildIds = childIdByIdx.filter((id): id is string => !!id)
 
     for (const t of tasks) {
-      // Up-for-grabs is a one-off bounty: no recurrence rules, no assignments
-      const taskPayload: any = {
-        family_id: familyId, title: t.title, emoji: t.emoji, star_value: t.star_value,
-        type: t.type, time_of_day: t.time_of_day === 'anytime' ? null : t.time_of_day,
-        frequency: t.up_for_grabs ? 'daily' : t.frequency, recurrence: t.up_for_grabs ? 'daily' : t.frequency,
-        carry_over: t.up_for_grabs ? false : t.carry_over,
-        start_date: t.start_date || null,
-        days_of_week: !t.up_for_grabs && t.frequency === 'daily' && t.days_of_week.length > 0 && t.days_of_week.length < 7
-          ? [...t.days_of_week].sort() : null,
-      }
-      // Try with newer columns; fall back gracefully if they don't exist yet
-      const withEarly = { ...taskPayload, can_do_early: t.up_for_grabs ? true : t.can_do_early }
-      const full = { ...withEarly, up_for_grabs: t.up_for_grabs, expires_on: t.up_for_grabs && t.expires_on ? t.expires_on : null }
-      let res = await supabase.from('tasks').insert(full).select('id').single()
-      if (res.error?.message?.includes('up_for_grabs') || res.error?.message?.includes('expires_on')) res = await supabase.from('tasks').insert(withEarly).select('id').single()
-      if (res.error?.message?.includes('can_do_early')) res = await supabase.from('tasks').insert(taskPayload).select('id').single()
-      const finalTask = res.data
-      if (finalTask && !t.up_for_grabs) {
-        const assignIds = t.assignedIdx.length
-          ? t.assignedIdx.map(i => childIdByIdx[i]).filter((id): id is string => !!id)
-          : allChildIds
-        if (assignIds.length) {
-          await supabase.from('task_assignments').insert(assignIds.map(cid => ({ task_id: finalTask.id, child_id: cid })))
+      // Twice-daily (brush teeth) becomes TWO task rows — morning and evening —
+      // so each can be ticked separately (completions are unique per task+day).
+      const times: (string | null)[] = t.twiceDaily && !t.up_for_grabs
+        ? ['morning', 'evening']
+        : [t.time_of_day === 'anytime' ? null : t.time_of_day]
+
+      for (const time of times) {
+        // Up-for-grabs is a one-off bounty: no recurrence rules, no assignments
+        const taskPayload: any = {
+          family_id: familyId, title: t.title, emoji: t.emoji, star_value: t.star_value,
+          type: t.type, time_of_day: time,
+          frequency: t.up_for_grabs ? 'daily' : t.frequency, recurrence: t.up_for_grabs ? 'daily' : t.frequency,
+          carry_over: t.up_for_grabs ? false : t.carry_over,
+          start_date: t.start_date || null,
+          days_of_week: !t.up_for_grabs && t.frequency === 'daily' && t.days_of_week.length > 0 && t.days_of_week.length < 7
+            ? [...t.days_of_week].sort() : null,
+        }
+        // Try with newer columns; fall back gracefully if they don't exist yet
+        const withEarly = { ...taskPayload, can_do_early: t.up_for_grabs ? true : t.can_do_early }
+        const full = { ...withEarly, up_for_grabs: t.up_for_grabs, expires_on: t.up_for_grabs && t.expires_on ? t.expires_on : null }
+        let res = await supabase.from('tasks').insert(full).select('id').single()
+        if (res.error?.message?.includes('up_for_grabs') || res.error?.message?.includes('expires_on')) res = await supabase.from('tasks').insert(withEarly).select('id').single()
+        if (res.error?.message?.includes('can_do_early')) res = await supabase.from('tasks').insert(taskPayload).select('id').single()
+        const finalTask = res.data
+        if (finalTask && !t.up_for_grabs) {
+          const assignIds = t.assignedIdx.length
+            ? t.assignedIdx.map(i => childIdByIdx[i]).filter((id): id is string => !!id)
+            : allChildIds
+          if (assignIds.length) {
+            await supabase.from('task_assignments').insert(assignIds.map(cid => ({ task_id: finalTask.id, child_id: cid })))
+          }
         }
       }
     }
@@ -647,7 +664,12 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
       {/* Name with the chosen icon beside it (matches the Tasks page) */}
       <div className="flex items-center gap-2">
         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-gray-50">{task.emoji}</div>
-        <input type="text" value={task.title} onChange={e => setTask({ ...task, title: e.target.value })}
+        <input type="text" value={task.title}
+          onChange={e => {
+            const v = e.target.value
+            // A "brush teeth"-ish name defaults to twice daily (toggle below still wins)
+            setTask({ ...task, title: v, ...(isBrushTeeth(v) ? { twiceDaily: true } : {}) })
+          }}
           className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
           placeholder="Task name"/>
       </div>
@@ -740,25 +762,48 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
       )}
       </>)}
 
-      {/* Time of day + start date (+ expiry when up-for-grabs) on one row */}
-      <div className="flex gap-1.5">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-gray-500 mb-1 truncate">Time of day</p>
-          <select value={task.time_of_day} onChange={e => setTask({ ...task, time_of_day: e.target.value })}
-            className={`w-full border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 ${task.up_for_grabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}>
-            {TIMES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-          </select>
+      {/* Twice daily — saves a morning AND an evening copy (brush teeth) */}
+      {!task.up_for_grabs && (
+        <div className="rounded-2xl p-3 bg-gray-50 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-700">Twice a day 🌅🌙</p>
+            <p className="text-xs text-gray-400">{task.twiceDaily ? 'Creates a morning task and an evening task' : 'Once a day'}</p>
+          </div>
+          <button onClick={() => setTask({ ...task, twiceDaily: !task.twiceDaily })}
+            className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${task.twiceDaily ? '' : 'bg-gray-200'}`}
+            style={task.twiceDaily ? { background: RAINBOW } : {}}>
+            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${task.twiceDaily ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+          </button>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-gray-500 mb-1 truncate">Start date</p>
+      )}
+
+      {/* Time of day + start date (+ expiry when up-for-grabs) on ONE row.
+          GRID with min-w-0 cells so a populated date input can't overflow into
+          its neighbour. All three centred. */}
+      <div className={`grid gap-2 ${task.up_for_grabs ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <div className="min-w-0">
+          <p className="text-xs text-gray-500 mb-1 text-center truncate">Time of day</p>
+          {task.twiceDaily && !task.up_for_grabs ? (
+            <div className="w-full border border-gray-200 rounded-xl px-1 py-2.5 text-xs text-center text-gray-500 bg-gray-50 truncate">
+              🌅 Morning + 🌙 Evening
+            </div>
+          ) : (
+            <select value={task.time_of_day} onChange={e => setTask({ ...task, time_of_day: e.target.value })}
+              className={`w-full min-w-0 border border-gray-200 rounded-xl bg-white text-center focus:outline-none focus:ring-2 focus:ring-pink-300 ${task.up_for_grabs ? 'px-1 py-2.5 text-xs' : 'px-2 py-2.5 text-sm'}`}>
+              {TIMES.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+            </select>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-gray-500 mb-1 text-center truncate">Start date</p>
           <input type="date" value={task.start_date} onChange={e => setTask({ ...task, start_date: e.target.value })}
-            className={`w-full border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 ${task.up_for_grabs ? 'px-1.5 py-2.5 text-xs' : 'px-3 py-2.5 text-sm'}`}/>
+            className={`w-full min-w-0 border border-gray-200 rounded-xl text-center focus:outline-none focus:ring-2 focus:ring-pink-300 ${task.up_for_grabs ? 'px-1 py-2.5 text-xs' : 'px-2 py-2.5 text-sm'}`}/>
         </div>
         {task.up_for_grabs && (
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-500 mb-1 truncate">Expiry <span className="text-gray-300">(opt.)</span></p>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500 mb-1 text-center truncate">Expiry</p>
             <input type="date" value={task.expires_on} onChange={e => setTask({ ...task, expires_on: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300"/>
+              className="w-full min-w-0 border border-gray-200 rounded-xl px-1 py-2.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-amber-300"/>
           </div>
         )}
       </div>
