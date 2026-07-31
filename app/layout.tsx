@@ -17,8 +17,13 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Little Yakka",
   },
-  // Favicon comes from app/icon.tsx; the home-screen (apple-touch) icon uses the uploaded logo
+  // Browser-tab favicon = the Little Yakka star (app/icon.png); the home-screen
+  // (apple-touch) icon uses the uploaded wordmark logo. Declaring `icon` here is
+  // required because setting `icons` at all suppresses Next's automatic
+  // app/icon.png favicon link.
   icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
     apple: "/logo.png",
   },
 }
