@@ -26,8 +26,10 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
-  // Pages reachable without a session (auth + recovery + co-parent invite flow)
-  const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password']
+  // Pages reachable without a session: the marketing landing (/), the public
+  // Privacy + Support pages (App Store requires these to load for anyone), the
+  // auth + recovery screens, and the co-parent invite flow.
+  const publicPaths = ['/', '/privacy', '/support', '/login', '/signup', '/forgot-password', '/reset-password']
   const isPublic = publicPaths.includes(pathname) || pathname.startsWith('/join/')
 
   if (!user && !isPublic) {
