@@ -38,11 +38,8 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-screen bg-white text-gray-800">
-      {/* Hero */}
-      <section
-        className="px-5 pt-14 pb-16 text-center"
-        style={{ background: 'linear-gradient(180deg, #f4f8ff 0%, #ffffff 100%)' }}
-      >
+      {/* Hero — pure white so the logo's white matte blends seamlessly */}
+      <section className="px-5 pt-14 pb-16 text-center bg-white">
         <div className="mx-auto max-w-xl">
           <img src="/logo.png" alt="Little Yakka" className="w-44 h-auto mx-auto mb-6" />
 
