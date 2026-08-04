@@ -25,6 +25,7 @@ export default function SideNav() {
   const items = [
     { href: '/dashboard', label: 'Home', icon: '🏠', exact: true },
     { href: '/dashboard/chores', label: 'Tasks', icon: '📋' },
+    { href: '/dashboard/calendar', label: 'Calendar', icon: '📅' },
     { href: '/dashboard/rewards', label: 'Rewards', icon: '🎁', badge: pendingCount },
     { href: '/dashboard/report', label: 'Summary', icon: '🏆' },
     { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },

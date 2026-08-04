@@ -61,6 +61,13 @@ export default function BottomNav() {
           <span className="text-[11px] font-semibold">Tasks</span>
         </Link>
 
+        <Link href="/dashboard/calendar"
+          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/calendar') ? '' : 'text-gray-400'}`}
+          style={active('/dashboard/calendar') ? { color: 'var(--theme-from)' } : {}}>
+          <span className="text-3xl">📅</span>
+          <span className="text-[11px] font-semibold">Calendar</span>
+        </Link>
+
         <Link href="/dashboard/rewards"
           className={`flex flex-col items-center gap-1 transition relative ${active('/dashboard/rewards') ? '' : 'text-gray-400'}`}
           style={active('/dashboard/rewards') ? { color: 'var(--theme-from)' } : {}}>

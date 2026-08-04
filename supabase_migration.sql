@@ -202,3 +202,46 @@ using (
 -- child_ids holds the full audience; child_id keeps the first pick so older
 -- clients/queries still behave. NULL child_ids = legacy/family reward.
 alter table rewards add column if not exists child_ids uuid[];
+
+-- ── 2026-08-04: Family Calendar (Phase 1 — in-app calendar) ───────────────────
+-- A shared per-family calendar of events (appointments, activities, reminders).
+-- Purely additive: a brand-new table, family-scoped RLS matching every other
+-- table. Nothing existing is touched.
+--
+-- Time model: starts_at/ends_at are timestamptz. Timed events store the picked
+-- date+time; all-day events store local-midnight boundaries and are rendered
+-- date-only by the client. ends_at NULL ⇒ a point-in-time / single-day event.
+--
+-- PHASE 2 (NOT built yet — needs inbound-email infrastructure): emailing an
+-- invite to participants and syncing their RSVP will hang off this table
+-- (e.g. a future `family_event_participants` child table). No columns for that
+-- are added now.
+create table if not exists family_events (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  title       text not null,
+  starts_at   timestamptz not null,
+  ends_at     timestamptz,                      -- NULL ⇒ treated as = starts_at
+  all_day     boolean not null default false,
+  colour      text,                             -- brand-palette hex; NULL ⇒ theme default
+  notes       text,
+  created_by  uuid references guardians(id) on delete set null,
+  created_at  timestamptz default now()
+);
+
+-- Fast month/day range scans, scoped per family
+create index if not exists family_events_family_start_idx
+  on family_events (family_id, starts_at);
+
+-- RLS — identical family-scoping to every other table
+alter table family_events enable row level security;
+drop policy if exists family_events_family on family_events;
+create policy family_events_family on family_events for all
+  using      (family_id in (select family_id from guardians where auth_user_id = auth.uid()))
+  with check (family_id in (select family_id from guardians where auth_user_id = auth.uid()));
+
+-- Optional: live co-parent sync (same idempotent pattern as completions/star_ledger)
+do $$
+begin
+  begin alter publication supabase_realtime add table family_events; exception when duplicate_object then null; when undefined_object then null; end;
+end $$;
