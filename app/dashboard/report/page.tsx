@@ -9,6 +9,7 @@ import { occursOn, type RecurringTask } from '@/lib/recurrence'
 import { localDateStr, parseTzCookie } from '@/lib/localDate'
 import { getCachedFamily } from '@/lib/familyCache'
 import { signAvatarUrls } from '@/lib/avatarUrls'
+import { medalFor } from '@/lib/ranking'
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string }
 interface TaskMeta extends RecurringTask { id: string }
@@ -152,6 +153,7 @@ export default function AnalyticsPage() {
   const ringC = 2 * Math.PI * ringR
   const completionLeaders = [...stats.perKid].sort((a, b) => b.pct - a.pct)
   const starLeaders = [...stats.perKid].sort((a, b) => b.stars - a.stars)
+  const allPct = stats.perKid.map(k => k.pct) // for tie-aware medals
   const maxStars = Math.max(...stats.perKid.map(k => k.stars), 1)
 
   return (
@@ -256,7 +258,7 @@ export default function AnalyticsPage() {
                     {k.child.avatar_url
                       ? <img src={k.child.avatar_url} className="w-7 h-7 rounded-full object-cover" alt=""/>
                       : <div className="w-7 h-7 rounded-full flex items-center justify-center text-[18px] leading-none overflow-hidden bg-white" style={{ border: `2px solid ${k.child.colour}` }}>{k.child.avatar}</div>}
-                    {i < 3 && <span className="absolute -bottom-1.5 -right-1.5 text-xs leading-none">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>}
+                    {(() => { const m = medalFor(k.pct, allPct); return m && <span className="absolute -bottom-1.5 -right-1.5 text-xs leading-none">{m}</span> })()}
                   </div>
                   <span className="text-sm font-bold text-gray-700 w-14 truncate">{k.child.name.split(' ')[0]}</span>
                   <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">

@@ -11,6 +11,7 @@ import SpinReadyBadge from '@/components/SpinReadyBadge'
 import { occursOn } from '@/lib/recurrence'
 import { localNow, localDateStr, localTimeHHMM, parseTzCookie } from '@/lib/localDate'
 import { signAvatarUrls } from '@/lib/avatarUrls'
+import { medalFor } from '@/lib/ranking'
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -178,11 +179,9 @@ export default async function DashboardPage() {
     return { child, balance, weekStars, streak, badges, level, myTasks, myDone, canSpin, weekPct }
   })
 
-  const leaderboard = [...childData].sort((a, b) => b.weekStars - a.weekStars)
   const tileScroll = childData.length > 3 // ≤3 fill the frame; 4+ scroll horizontally
-  const rankMap: Record<string, number> = {}
-  leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
-  const MEDALS = ['🥇', '🥈', '🥉']
+  // Tie-aware medals (joint gold when equal, no medal for 0 stars) — same rule as Summary.
+  const allWeekStars = childData.map(cd => cd.weekStars)
 
   // Today's completions (with id + date) so the shared task view can show ✓ ticks.
   const windowComps = (completions || [])
@@ -220,8 +219,7 @@ export default async function DashboardPage() {
               const allDone = total > 0 && myDone === total
               const progressPct = total > 0 ? (myDone / total) * 100 : 0
               const firstName = child.name.split(' ')[0]
-              const rank = rankMap[child.id]
-              const showMedal = childData.length > 1 && rank < 3 && weekStars > 0
+              const medal = childData.length > 1 ? medalFor(weekStars, allWeekStars) : null
               return (
                 <div key={child.id}
                   className={`relative rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px] lg:w-[200px]' : 'flex-1 min-w-0 max-w-[150px] lg:max-w-[220px]'}`}
@@ -229,8 +227,8 @@ export default async function DashboardPage() {
                   // without competing with the avatars.
                   style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.08)', border: '1px solid rgba(var(--theme-from-rgb), 0.15)' }}>
                   {/* Weekly rank medal, top-left */}
-                  {showMedal && (
-                    <div className="absolute top-1.5 left-1.5 z-10 text-base drop-shadow-sm">{MEDALS[rank]}</div>
+                  {medal && (
+                    <div className="absolute top-1.5 left-1.5 z-10 text-base drop-shadow-sm">{medal}</div>
                   )}
                   {/* Praise heart, top-right */}
                   <div className="absolute top-1.5 right-1.5 z-10">
