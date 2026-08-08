@@ -245,3 +245,10 @@ do $$
 begin
   begin alter publication supabase_realtime add table family_events; exception when duplicate_object then null; when undefined_object then null; end;
 end $$;
+
+-- ── 2026-08-08: Calendar enhancements — location + child assignment ───────────
+-- location: free-text place/address shown on the event.
+-- child_ids: which children an event is for (uuid[], same pattern as rewards).
+-- Both additive; existing rows keep NULL (⇒ a family event with no child).
+alter table family_events add column if not exists location text;
+alter table family_events add column if not exists child_ids uuid[];

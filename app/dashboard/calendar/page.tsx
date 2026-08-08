@@ -5,15 +5,19 @@ import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
 import { getCachedFamily } from '@/lib/familyCache'
+import { signAvatarUrls } from '@/lib/avatarUrls'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
-// ── Family Calendar (Phase 1: in-app calendar) ───────────────────────────────
-// A shared per-family calendar of events. Month view (default) + Agenda list,
-// add/edit/delete via the themed full-screen form. Family-scoped by RLS.
+// ── Family Calendar (in-app calendar) ────────────────────────────────────────
+// Week view (default) + Month grid + Agenda list. Events can be assigned to one
+// or more children — their avatars show on the entry and their colours make up
+// the entry's colour bar (a gradient when there are several). Family-scoped by RLS.
 //
 // PHASE 2 (NOT built — needs inbound-email infrastructure): emailing an invite
 // to participants + syncing their RSVP will hang off the family_events table
 // (e.g. a future family_event_participants child table). Nothing here assumes it.
+
+interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string | null }
 
 interface FamilyEvent {
   id: string
@@ -23,6 +27,8 @@ interface FamilyEvent {
   all_day: boolean
   colour: string | null
   notes: string | null
+  location: string | null
+  child_ids: string[] | null
   created_by?: string | null
 }
 
@@ -50,21 +56,42 @@ function hhmm(d: Date): string {
 function fmtTime(d: Date): string {
   return d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '')
 }
+function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.getDate() + n); return x }
+// Monday of the week containing d (matches the app's Mon→Sun week convention).
+function mondayOf(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7))
+  return x
+}
 
-type View = 'month' | 'agenda'
+// Colours that make up an event's bar: the assigned children's colours (a
+// gradient when several), else the event's own colour, else the theme.
+function eventBar(e: FamilyEvent, childMap: Record<string, Child>): string {
+  const kids = (e.child_ids || []).map(id => childMap[id]).filter(Boolean) as Child[]
+  const colours = kids.length ? kids.map(k => k.colour || 'var(--theme-from)') : [e.colour || 'var(--theme-from)']
+  return colours.length === 1 ? colours[0] : `linear-gradient(180deg, ${colours.join(', ')})`
+}
+function eventDot(e: FamilyEvent, childMap: Record<string, Child>): string {
+  const kids = (e.child_ids || []).map(id => childMap[id]).filter(Boolean) as Child[]
+  return (kids[0]?.colour) || e.colour || 'var(--theme-from)'
+}
+
+type View = 'week' | 'month' | 'agenda'
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<FamilyEvent[]>([])
+  const [children, setChildren] = useState<Child[]>([])
   const [familyId, setFamilyId] = useState('')
   const [guardianId, setGuardianId] = useState<string | null>(null)
   const [pageLoading, setPageLoading] = useState(true)
   const [needsMigration, setNeedsMigration] = useState(false)
-  const [view, setView] = useState<View>('month')
+  const [view, setView] = useState<View>('week')
 
   const today = new Date()
   const todayStr = ymdLocal(today)
-  const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() }) // m: 0-indexed
-  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() }) // month view
+  const [selectedDate, setSelectedDate] = useState(todayStr)                              // month day-list
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()))                  // week view
 
   // Form state
   const [showForm, setShowForm] = useState(false)
@@ -76,7 +103,9 @@ export default function CalendarPage() {
   const [endTime, setEndTime] = useState('')
   const [endDate, setEndDate] = useState('')
   const [colour, setColour] = useState(DEFAULT_COLOUR)
+  const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
+  const [assignedChildren, setAssignedChildren] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -90,20 +119,30 @@ export default function CalendarPage() {
     if (!fam) return
     setFamilyId(fam.familyId)
 
-    const [{ data: eventsData, error }, { data: guardian }] = await Promise.all([
+    const [{ data: eventsData, error }, { data: childrenData }, { data: guardian }] = await Promise.all([
       supabase.from('family_events').select('*').eq('family_id', fam.familyId).order('starts_at'),
+      supabase.from('children').select('id, name, avatar, colour, avatar_url').eq('family_id', fam.familyId).order('name'),
       supabase.from('guardians').select('id').eq('auth_user_id', fam.userId).maybeSingle(),
     ])
     // Table won't exist until the migration is run in Supabase — degrade to an
     // empty calendar with a gentle hint rather than crashing.
     if (error) { setNeedsMigration(true); setEvents([]) }
     else setEvents((eventsData as FamilyEvent[]) || [])
+    // Private-bucket child photos → short-lived signed URLs before render.
+    await signAvatarUrls(supabase, childrenData || [])
+    setChildren((childrenData as Child[]) || [])
     setGuardianId(guardian?.id || null)
     setPageLoading(false)
   }
 
+  const childMap = useMemo(() => {
+    const m: Record<string, Child> = {}
+    children.forEach(c => { m[c.id] = c })
+    return m
+  }, [children])
+
   // Decorate each event with its local start/end date + parsed start Date, so
-  // month dots and day lists can be computed with cheap string comparisons.
+  // dots and day lists can be computed with cheap string comparisons.
   const decorated = useMemo(() => events.map(e => {
     const start = new Date(e.starts_at)
     const startDate = ymdLocal(start)
@@ -122,7 +161,7 @@ export default function CalendarPage() {
         a.all_day === b.all_day ? a._start.getTime() - b._start.getTime() : (a.all_day ? -1 : 1))
   }
 
-  // Month grid: Mon→Sun weeks (matches the app's week convention).
+  // ── Month grid: Mon→Sun weeks ──
   const grid = useMemo(() => {
     const { y, m } = cursor
     const firstDow = (new Date(y, m, 1).getDay() + 6) % 7 // Mon = 0
@@ -138,23 +177,31 @@ export default function CalendarPage() {
     .toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
 
   function shiftMonth(delta: number) {
-    setCursor(c => {
-      const d = new Date(c.y, c.m + delta, 1)
-      return { y: d.getFullYear(), m: d.getMonth() }
-    })
+    setCursor(c => { const d = new Date(c.y, c.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() } })
   }
   function goToday() {
     setCursor({ y: today.getFullYear(), m: today.getMonth() })
     setSelectedDate(todayStr)
   }
 
+  // ── Week view ──
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
+  const weekLabel = useMemo(() => {
+    const end = addDays(weekStart, 6)
+    const sameMonth = weekStart.getMonth() === end.getMonth()
+    const mon = (d: Date) => d.toLocaleDateString('en-AU', { month: 'short' })
+    return sameMonth
+      ? `${weekStart.getDate()}–${end.getDate()} ${mon(end)}`
+      : `${weekStart.getDate()} ${mon(weekStart)} – ${end.getDate()} ${mon(end)}`
+  }, [weekStart])
+
   // ── Form ──
   function openNewForm(forDate?: string) {
     setEditingId(null)
     setTitle(''); setAllDay(false)
-    setDate(forDate || selectedDate || todayStr)
+    setDate(forDate || todayStr)
     setStartTime('09:00'); setEndTime(''); setEndDate('')
-    setColour(DEFAULT_COLOUR); setNotes('')
+    setColour(DEFAULT_COLOUR); setLocation(''); setNotes(''); setAssignedChildren([])
     setFormError(''); setShowForm(true)
   }
 
@@ -168,7 +215,9 @@ export default function CalendarPage() {
     setEndTime(e.all_day || !end ? '' : hhmm(end))
     setEndDate(e.all_day && end ? ymdLocal(end) : '')
     setColour(e.colour || DEFAULT_COLOUR)
+    setLocation(e.location || '')
     setNotes(e.notes || '')
+    setAssignedChildren(e.child_ids || [])
     setFormError(''); setShowForm(true)
   }
 
@@ -200,11 +249,24 @@ export default function CalendarPage() {
       }
     }
 
-    const payload = { title: title.trim(), starts_at, ends_at, all_day: allDay, colour, notes: notes.trim() || null }
+    const payload = {
+      title: title.trim(), starts_at, ends_at, all_day: allDay, colour,
+      location: location.trim() || null, notes: notes.trim() || null,
+      child_ids: assignedChildren.length ? assignedChildren : null,
+    }
     const supabase = createClient()
-    const { error } = editingId
-      ? await supabase.from('family_events').update(payload).eq('id', editingId)
-      : await supabase.from('family_events').insert({ ...payload, family_id: familyId, created_by: guardianId })
+    const attempt = (p: Record<string, unknown>) => editingId
+      ? supabase.from('family_events').update(p).eq('id', editingId)
+      : supabase.from('family_events').insert({ ...p, family_id: familyId, created_by: guardianId })
+
+    // Resilient save: if the location/child_ids columns don't exist yet (the
+    // enhancement migration hasn't been run), drop them and save the rest —
+    // same pattern as the tasks form. The event still saves without those fields.
+    let { error } = await attempt(payload)
+    if (error && /location|child_ids/.test(error.message || '')) {
+      const { location: _l, child_ids: _c, ...basePayload } = payload
+      ;({ error } = await attempt(basePayload))
+    }
 
     if (error) { setFormError(error.message || 'Failed to save.'); setSaving(false); return }
     setSaving(false)
@@ -231,7 +293,6 @@ export default function CalendarPage() {
     const upcoming = decorated.filter(e => e._endDate >= todayStr)
     const byDay = new Map<string, DecoratedEvent[]>()
     for (const e of upcoming) {
-      // A multi-day event appears on each of its days from today onward.
       let d = e._startDate < todayStr ? todayStr : e._startDate
       while (d <= e._endDate) {
         if (!byDay.has(d)) byDay.set(d, [])
@@ -246,7 +307,7 @@ export default function CalendarPage() {
   }, [decorated, todayStr])
 
   function dayLabel(iso: string): string {
-    const tomorrow = ymdLocal(new Date(Date.now() + 86400000))
+    const tomorrow = ymdLocal(addDays(today, 1))
     if (iso === todayStr) return 'Today'
     if (iso === tomorrow) return 'Tomorrow'
     return new Date(iso + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
@@ -270,7 +331,7 @@ export default function CalendarPage() {
 
         <div className="bg-white px-4 pt-2.5 pb-2">
           <div className="max-w-sm lg:max-w-3xl mx-auto flex bg-gray-100 rounded-2xl p-1 gap-1">
-            {([['month', '📅 Month'], ['agenda', '📋 Agenda']] as const).map(([v, label]) => (
+            {([['week', '🗓️ Week'], ['month', '📅 Month'], ['agenda', '📋 Agenda']] as const).map(([v, label]) => (
               <button key={v} onClick={() => setView(v)}
                 className={`flex-1 py-1.5 rounded-xl text-sm font-semibold transition ${view === v ? 'text-white shadow' : 'text-gray-400'}`}
                 style={view === v ? { background: 'var(--theme-gradient)' } : {}}>
@@ -287,6 +348,53 @@ export default function CalendarPage() {
             <p className="text-sm font-bold text-amber-700">📅 Almost ready</p>
             <p className="text-xs text-amber-600">Run the latest <span className="font-mono">supabase_migration.sql</span> in Supabase to enable the calendar.</p>
           </div>
+        )}
+
+        {/* ── WEEK VIEW ── */}
+        {view === 'week' && (
+          <>
+            <div className="flex items-center justify-between">
+              <button onClick={() => setWeekStart(w => addDays(w, -7))} aria-label="Previous week"
+                className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">‹</button>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-gray-800 text-lg">{weekLabel}</span>
+                <button onClick={() => setWeekStart(mondayOf(new Date()))}
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 active:scale-95 transition">This week</button>
+              </div>
+              <button onClick={() => setWeekStart(w => addDays(w, 7))} aria-label="Next week"
+                className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">›</button>
+            </div>
+
+            <div className="space-y-3">
+              {weekDays.map(d => {
+                const ds = ymdLocal(d)
+                const isToday = ds === todayStr
+                const evs = eventsOnDate(ds)
+                return (
+                  <div key={ds}>
+                    <div className="flex items-center justify-between mb-1.5 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-black ${isToday ? 'text-white' : 'text-gray-700'}`}
+                          style={isToday ? { background: 'var(--theme-gradient)' } : {}}>{d.getDate()}</span>
+                        <span className={`text-sm font-bold ${isToday ? '' : 'text-gray-500'}`} style={isToday ? { color: 'var(--theme-from)' } : {}}>
+                          {d.toLocaleDateString('en-AU', { weekday: 'long' })}
+                        </span>
+                      </div>
+                      <button onClick={() => openNewForm(ds)} aria-label="Add event"
+                        className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-lg leading-none active:scale-90 transition">+</button>
+                    </div>
+                    {evs.length > 0 ? (
+                      <div className="space-y-2">
+                        {evs.map(e => <EventRow key={e.id + ds} e={e} childMap={childMap} onClick={() => openEditForm(e)} />)}
+                      </div>
+                    ) : (
+                      <div className="h-px bg-gray-100 mx-1" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
 
         {/* ── MONTH VIEW ── */}
@@ -327,7 +435,7 @@ export default function CalendarPage() {
                       </span>
                       <div className="flex gap-0.5 h-1.5 items-center">
                         {dots.slice(0, 3).map(e => (
-                          <span key={e.id} className="w-1.5 h-1.5 rounded-full" style={{ background: e.colour || 'var(--theme-from)' }} />
+                          <span key={e.id} className="w-1.5 h-1.5 rounded-full" style={{ background: eventDot(e, childMap) }} />
                         ))}
                         {dots.length > 3 && <span className="text-[7px] font-black text-gray-400 leading-none">+</span>}
                       </div>
@@ -349,7 +457,7 @@ export default function CalendarPage() {
               </div>
               {selectedEvents.length > 0 ? (
                 <div className="space-y-2">
-                  {selectedEvents.map(e => <EventRow key={e.id} e={e} onClick={() => openEditForm(e)} />)}
+                  {selectedEvents.map(e => <EventRow key={e.id} e={e} childMap={childMap} onClick={() => openEditForm(e)} />)}
                 </div>
               ) : (
                 <div className="text-center py-8 bg-white rounded-3xl shadow-sm">
@@ -369,7 +477,7 @@ export default function CalendarPage() {
                 <div key={day}>
                   <p className="font-black text-gray-700 text-sm mb-2 px-1">{dayLabel(day)}</p>
                   <div className="space-y-2">
-                    {evs.map(e => <EventRow key={e.id + day} e={e} onClick={() => openEditForm(e)} />)}
+                    {evs.map(e => <EventRow key={e.id + day} e={e} childMap={childMap} onClick={() => openEditForm(e)} />)}
                   </div>
                 </div>
               ))}
@@ -443,9 +551,43 @@ export default function CalendarPage() {
               )}
             </div>
 
+            {/* Location */}
+            <div>
+              <p className="text-xs text-gray-500 mb-2">📍 Location (optional)</p>
+              <input type="text" value={location} onChange={e => setLocation(e.target.value)}
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                placeholder="e.g. Community Pool, 12 Main St" />
+            </div>
+
+            {/* Assign to children */}
+            {children.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Who's it for? <span className="text-gray-300">(optional — leave blank for a family event)</span></p>
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(children.length, 1), 4)}, minmax(0, 1fr))` }}>
+                  {children.map(child => {
+                    const sel = assignedChildren.includes(child.id)
+                    return (
+                      <button key={child.id}
+                        onClick={() => setAssignedChildren(prev => prev.includes(child.id) ? prev.filter(id => id !== child.id) : [...prev, child.id])}
+                        className="flex flex-col items-center gap-1 active:scale-95 transition">
+                        {child.avatar_url
+                          ? <img src={child.avatar_url} alt={child.name} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                              style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }} />
+                          : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-[36px] leading-none overflow-hidden bg-white transition ${sel ? '' : 'opacity-40 grayscale'}`}
+                              style={{ border: `2px solid ${child.colour}`, boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>
+                              {child.avatar}
+                            </div>}
+                        <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Colour picker */}
             <div>
-              <p className="text-xs text-gray-500 mb-2">Colour</p>
+              <p className="text-xs text-gray-500 mb-2">Event colour <span className="text-gray-300">(used when no child is assigned)</span></p>
               <div className="flex gap-2 flex-wrap">
                 {BRAND_COLOURS.map(c => (
                   <button key={c.hex} onClick={() => setColour(c.hex)} aria-label={c.name}
@@ -487,7 +629,7 @@ export default function CalendarPage() {
 
       {/* Add FAB */}
       {!showForm && (
-        <button onClick={() => openNewForm()} aria-label="Add event"
+        <button onClick={() => openNewForm(view === 'month' ? selectedDate : todayStr)} aria-label="Add event"
           className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-90 transition z-40"
           style={{ background: 'var(--theme-gradient)' }}>
           <span className="text-3xl leading-none mb-0.5">+</span>
@@ -497,17 +639,32 @@ export default function CalendarPage() {
   )
 }
 
-// A single event row — colour bar + time + title, tap to edit.
-function EventRow({ e, onClick }: { e: FamilyEvent & { _start: Date }; onClick: () => void }) {
+// A single event row — colour bar (mixed for multiple kids) + time/location +
+// assigned kids' avatars, tap to edit.
+function EventRow({ e, childMap, onClick }: {
+  e: FamilyEvent & { _start: Date }; childMap: Record<string, Child>; onClick: () => void
+}) {
   const time = e.all_day ? 'All day' : fmtTime(e._start)
+  const kids = (e.child_ids || []).map(id => childMap[id]).filter(Boolean) as Child[]
+  const sub = [time, e.location ? `📍 ${e.location}` : ''].filter(Boolean).join('  ·  ')
   return (
     <button onClick={onClick}
       className="w-full bg-white rounded-2xl shadow-sm flex items-stretch gap-3 pr-3 overflow-hidden active:scale-[0.98] transition text-left">
-      <span className="w-1.5 flex-shrink-0" style={{ background: e.colour || 'var(--theme-from)' }} />
+      <span className="w-1.5 flex-shrink-0" style={{ background: eventBar(e, childMap) }} />
       <div className="flex-1 min-w-0 py-2.5">
         <p className="font-bold text-gray-800 text-sm truncate">{e.title}</p>
-        <p className="text-xs text-gray-400">{time}{e.notes ? ` · ${e.notes}` : ''}</p>
+        <p className="text-xs text-gray-400 truncate">{sub}</p>
       </div>
+      {kids.length > 0 && (
+        <div className="flex -space-x-1.5 items-center flex-shrink-0">
+          {kids.slice(0, 4).map(child => (
+            child.avatar_url
+              ? <img key={child.id} src={child.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt={child.name} />
+              : <div key={child.id} className="w-7 h-7 rounded-full flex items-center justify-center text-[17px] leading-none overflow-hidden bg-white"
+                  style={{ border: `2px solid ${child.colour}` }}>{child.avatar}</div>
+          ))}
+        </div>
+      )}
       <span className="self-center text-gray-300 text-lg">›</span>
     </button>
   )
