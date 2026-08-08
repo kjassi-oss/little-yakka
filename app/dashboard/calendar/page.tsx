@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
@@ -9,9 +9,9 @@ import { signAvatarUrls } from '@/lib/avatarUrls'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
 // ── Family Calendar (in-app calendar) ────────────────────────────────────────
-// Month grid (default, Apple-style event chips) + Week time-grid + Agenda, and a
-// full Day view opened by tapping any date. Events can be assigned to one or more
-// children — their avatars show on the entry and their colours make up the
+// Month grid (default, Apple-style chips) + Week time-grid + Agenda, and a full
+// Day view opened by tapping any date. Events assign to one or more children —
+// each child has a unique, persistent colour that drives their avatars + the
 // entry's colour bar (a gradient when several). Family-scoped by RLS.
 //
 // PHASE 2 (NOT built — needs inbound-email infrastructure): emailing an invite
@@ -20,16 +20,9 @@ import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string | null }
 
 interface FamilyEvent {
-  id: string
-  title: string
-  starts_at: string
-  ends_at: string | null
-  all_day: boolean
-  colour: string | null
-  notes: string | null
-  location: string | null
-  child_ids: string[] | null
-  created_by?: string | null
+  id: string; title: string; starts_at: string; ends_at: string | null
+  all_day: boolean; colour: string | null; notes: string | null
+  location: string | null; child_ids: string[] | null; created_by?: string | null
 }
 
 type Ev = FamilyEvent & { _start: Date; _startDate: string; _endDate: string }
@@ -44,17 +37,14 @@ const BRAND_COLOURS = [
 const DEFAULT_COLOUR = BRAND_COLOURS[0].hex
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-// App heading style (display font + brand gradient text) — matches other pages.
 const HEADING = { fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as const
 
 function ymdLocal(d: Date): string { return new Intl.DateTimeFormat('en-CA').format(d) }
 function hhmm(d: Date): string { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 function fmtTime(d: Date): string { return d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '') }
-// Compact "10 AM" / "1:45 PM" (calendar-block style).
 function fmtTimeShort(d: Date): string {
   const h = d.getHours(), m = d.getMinutes()
-  const ampm = h < 12 ? 'AM' : 'PM'
-  const h12 = h % 12 === 0 ? 12 : h % 12
+  const ampm = h < 12 ? 'AM' : 'PM'; const h12 = h % 12 === 0 ? 12 : h % 12
   return m === 0 ? `${h12} ${ampm}` : `${h12}:${String(m).padStart(2, '0')} ${ampm}`
 }
 function fmtHour(h: number): string {
@@ -66,8 +56,18 @@ function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.
 function dateAtNoon(iso: string): Date { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d, 12, 0, 0) }
 function mondayOf(d: Date): Date {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7))
-  return x
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x
+}
+
+// Give every child a distinct colour, keeping their existing one where unique
+// and filling the rest from the palette (so defaults never collide).
+function initChildColours(kids: Child[]): Record<string, string> {
+  const map: Record<string, string> = {}; const used = new Set<string>()
+  for (const c of kids) { if (c.colour && !used.has(c.colour)) { map[c.id] = c.colour; used.add(c.colour) } }
+  for (const c of kids) {
+    if (!map[c.id]) { const free = BRAND_COLOURS.find(b => !used.has(b.hex))?.hex || c.colour || DEFAULT_COLOUR; map[c.id] = free; used.add(free) }
+  }
+  return map
 }
 
 function eventColours(e: FamilyEvent, cm: ChildMap): string[] {
@@ -75,27 +75,20 @@ function eventColours(e: FamilyEvent, cm: ChildMap): string[] {
   return kids.length ? kids.map(k => k.colour || 'var(--theme-from)') : [e.colour || 'var(--theme-from)']
 }
 function eventBar(e: FamilyEvent, cm: ChildMap): string {
-  const c = eventColours(e, cm)
-  return c.length === 1 ? c[0] : `linear-gradient(180deg, ${c.join(', ')})`
+  const c = eventColours(e, cm); return c.length === 1 ? c[0] : `linear-gradient(180deg, ${c.join(', ')})`
 }
 
-// Lay a day's events out for a time-grid: all-day list + timed blocks (start/end
-// minutes + overlap lanes) + the hour window to render.
+// Lay a day's events out: all-day list + timed blocks (start/end min + overlap lanes).
 function layoutDay(evs: Ev[]) {
   const allDay = evs.filter(e => e.all_day)
   const raw = evs.filter(e => !e.all_day).map(e => {
-    const s = e._start
-    const startMin = s.getHours() * 60 + s.getMinutes()
+    const s = e._start; const startMin = s.getHours() * 60 + s.getMinutes()
     const ed = e.ends_at ? new Date(e.ends_at) : new Date(s.getTime() + 30 * 60000)
     let endMin = ed.getHours() * 60 + ed.getMinutes()
     if (ymdLocal(ed) !== ymdLocal(s)) endMin = 24 * 60
     if (endMin <= startMin) endMin = Math.min(startMin + 30, 24 * 60)
     return { e, startMin, endMin, lane: 0, lanes: 1 }
   }).sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin)
-
-  let startH = 7, endH = 19
-  raw.forEach(t => { startH = Math.min(startH, Math.floor(t.startMin / 60)); endH = Math.max(endH, Math.ceil(t.endMin / 60)) })
-  startH = Math.max(0, Math.min(startH, 23)); endH = Math.min(24, Math.max(endH, startH + 1))
 
   const timed: typeof raw = []
   let cluster: typeof raw = []; let clusterEnd = -1
@@ -106,13 +99,11 @@ function layoutDay(evs: Ev[]) {
       for (let i = 0; i < laneEnds.length; i++) { if (item.startMin >= laneEnds[i]) { item.lane = i; laneEnds[i] = item.endMin; placed = true; break } }
       if (!placed) { item.lane = laneEnds.length; laneEnds.push(item.endMin) }
     })
-    cluster.forEach(item => timed.push({ ...item, lanes: laneEnds.length }))
-    cluster = []; clusterEnd = -1
+    cluster.forEach(item => timed.push({ ...item, lanes: laneEnds.length })); cluster = []; clusterEnd = -1
   }
   raw.forEach(item => { if (cluster.length && item.startMin >= clusterEnd) flush(); cluster.push(item); clusterEnd = Math.max(clusterEnd, item.endMin) })
   if (cluster.length) flush()
-
-  return { allDay, timed, startH, endH }
+  return { allDay, timed }
 }
 
 type View = 'month' | 'week' | 'agenda'
@@ -141,7 +132,8 @@ export default function CalendarPage() {
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [colour, setColour] = useState(DEFAULT_COLOUR)
+  const [colour, setColour] = useState(DEFAULT_COLOUR)          // family-event colour (no child)
+  const [childColours, setChildColours] = useState<Record<string, string>>({})
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
@@ -174,20 +166,17 @@ export default function CalendarPage() {
   }, [children])
 
   const decorated: Ev[] = useMemo(() => events.map(e => {
-    const start = new Date(e.starts_at)
-    const startDate = ymdLocal(start)
+    const start = new Date(e.starts_at); const startDate = ymdLocal(start)
     let endDate = e.ends_at ? ymdLocal(new Date(e.ends_at)) : startDate
     if (endDate < startDate) endDate = startDate
     return { ...e, _start: start, _startDate: startDate, _endDate: endDate }
   }), [events])
 
   function eventsOnDate(dateStr: string): Ev[] {
-    return decorated
-      .filter(e => e._startDate <= dateStr && dateStr <= e._endDate)
+    return decorated.filter(e => e._startDate <= dateStr && dateStr <= e._endDate)
       .sort((a, b) => a.all_day === b.all_day ? a._start.getTime() - b._start.getTime() : (a.all_day ? -1 : 1))
   }
 
-  // Month grid (Mon→Sun)
   const grid = useMemo(() => {
     const { y, m } = cursor
     const firstDow = (new Date(y, m, 1).getDay() + 6) % 7
@@ -202,8 +191,7 @@ export default function CalendarPage() {
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
   const weekLabel = useMemo(() => {
-    const end = addDays(weekStart, 6)
-    const mon = (d: Date) => d.toLocaleDateString('en-AU', { month: 'short' })
+    const end = addDays(weekStart, 6); const mon = (d: Date) => d.toLocaleDateString('en-AU', { month: 'short' })
     return weekStart.getMonth() === end.getMonth()
       ? `${weekStart.getDate()}–${end.getDate()} ${mon(end)}`
       : `${weekStart.getDate()} ${mon(weekStart)} – ${end.getDate()} ${mon(end)}`
@@ -213,7 +201,7 @@ export default function CalendarPage() {
   function openNewForm(forDate?: string) {
     setEditingId(null); setTitle(''); setAllDay(false)
     setDate(forDate || todayStr); setStartTime('09:00'); setEndTime(''); setEndDate('')
-    setColour(DEFAULT_COLOUR); setLocation(''); setNotes(''); setAssignedChildren([])
+    setColour(DEFAULT_COLOUR); setChildColours(initChildColours(children)); setLocation(''); setNotes(''); setAssignedChildren([])
     setFormError(''); setShowForm(true)
   }
   function openEditForm(e: FamilyEvent) {
@@ -221,14 +209,20 @@ export default function CalendarPage() {
     const s = new Date(e.starts_at); setDate(ymdLocal(s)); setStartTime(e.all_day ? '09:00' : hhmm(s))
     const end = e.ends_at ? new Date(e.ends_at) : null
     setEndTime(e.all_day || !end ? '' : hhmm(end)); setEndDate(e.all_day && end ? ymdLocal(end) : '')
-    setColour(e.colour || DEFAULT_COLOUR); setLocation(e.location || ''); setNotes(e.notes || '')
-    setAssignedChildren(e.child_ids || []); setFormError(''); setShowForm(true)
+    setColour(e.colour || DEFAULT_COLOUR); setChildColours(initChildColours(children))
+    setLocation(e.location || ''); setNotes(e.notes || ''); setAssignedChildren(e.child_ids || [])
+    setFormError(''); setShowForm(true)
   }
   function closeForm() { setShowForm(false); setEditingId(null) }
 
   async function saveEvent() {
-    if (!title.trim()) { setFormError('Please enter an event name.'); return }
+    if (!title.trim()) { setFormError('Please enter a title.'); return }
     if (!date) { setFormError('Please pick a date.'); return }
+    // Each selected child must have a unique colour.
+    const chosen = assignedChildren.map(id => childColours[id])
+    if (assignedChildren.length && (chosen.some(c => !c) || new Set(chosen).size !== chosen.length)) {
+      setFormError('Each child needs a different colour.'); return
+    }
     setSaving(true); setFormError('')
     const [y, mo, dd] = date.split('-').map(Number)
     let starts_at: string; let ends_at: string | null = null
@@ -246,6 +240,14 @@ export default function CalendarPage() {
       child_ids: assignedChildren.length ? assignedChildren : null,
     }
     const supabase = createClient()
+
+    // Persist any child colour changes first (unique + becomes their default everywhere).
+    for (const id of assignedChildren) {
+      if (childColours[id] && childColours[id] !== childMap[id]?.colour) {
+        await supabase.from('children').update({ colour: childColours[id] }).eq('id', id)
+      }
+    }
+
     const attempt = (p: Record<string, unknown>) => editingId
       ? supabase.from('family_events').update(p).eq('id', editingId)
       : supabase.from('family_events').insert({ ...p, family_id: familyId, created_by: guardianId })
@@ -278,18 +280,20 @@ export default function CalendarPage() {
     }))
   }, [decorated, todayStr])
 
+  // Agenda labels include the real date next to Today/Tomorrow.
   function dayLabel(iso: string): string {
+    const dt = dateAtNoon(iso)
+    const short = dt.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
     const tomorrow = ymdLocal(addDays(today, 1))
-    if (iso === todayStr) return 'Today'
-    if (iso === tomorrow) return 'Tomorrow'
-    return dateAtNoon(iso).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
+    if (iso === todayStr) return `Today · ${short}`
+    if (iso === tomorrow) return `Tomorrow · ${short}`
+    return dt.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
   }
 
   if (pageLoading) return <LoadingLogo />
 
   return (
     <div className="h-[100dvh] flex flex-col bg-gray-50">
-      {/* Header + view toggle */}
       <div className="bg-white shadow-sm flex-shrink-0">
         <div className="pt-14 pb-2.5 px-4 border-b border-gray-100">
           <div className="max-w-sm lg:max-w-4xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
@@ -309,7 +313,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Content fills remaining screen */}
       <div className="flex-1 min-h-0 flex flex-col max-w-sm lg:max-w-4xl mx-auto w-full">
         {needsMigration && (
           <div className="mx-3 mt-2 rounded-2xl p-3 border-2 border-dashed border-amber-300 bg-amber-50 flex-shrink-0">
@@ -325,27 +328,21 @@ export default function CalendarPage() {
               <button onClick={() => shiftMonth(-1)} aria-label="Previous month" className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">‹</button>
               <div className="flex items-center gap-2">
                 <span className="text-3xl font-black leading-none" style={HEADING}>{monthLabel}</span>
-                <button onClick={() => setCursor({ y: today.getFullYear(), m: today.getMonth() })}
-                  className="text-[11px] font-black px-3 py-1 rounded-full text-white active:scale-95 transition" style={{ background: 'var(--theme-gradient)' }}>Today</button>
+                <button onClick={() => setCursor({ y: today.getFullYear(), m: today.getMonth() })} className="text-[11px] font-black px-3 py-1 rounded-full text-white active:scale-95 transition" style={{ background: 'var(--theme-gradient)' }}>Today</button>
               </div>
               <button onClick={() => shiftMonth(1)} aria-label="Next month" className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">›</button>
             </div>
             <div className="grid grid-cols-7 flex-shrink-0">
               {WEEKDAY_LETTERS.map((d, i) => <div key={i} className="text-center text-[11px] font-black text-gray-400 pb-1">{d}</div>)}
             </div>
-            <div className="flex-1 min-h-0 grid grid-cols-7 bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100"
-              style={{ gridTemplateRows: `repeat(${grid.weeks}, minmax(0, 1fr))` }}>
+            <div className="flex-1 min-h-0 grid grid-cols-7 bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100" style={{ gridTemplateRows: `repeat(${grid.weeks}, minmax(0, 1fr))` }}>
               {grid.cells.map((d, i) => {
-                const ds = ymdLocal(d)
-                const inMonth = d.getMonth() === cursor.m
-                const isToday = ds === todayStr
+                const ds = ymdLocal(d); const inMonth = d.getMonth() === cursor.m; const isToday = ds === todayStr
                 const evs = eventsOnDate(ds)
                 return (
-                  <button key={i} onClick={() => setDayViewDate(ds)}
-                    className="border-r border-b border-gray-100 p-0.5 flex flex-col items-stretch overflow-hidden text-left active:bg-gray-50 transition min-h-0">
+                  <button key={i} onClick={() => setDayViewDate(ds)} className="border-r border-b border-gray-100 p-0.5 flex flex-col items-stretch overflow-hidden text-left active:bg-gray-50 transition min-h-0">
                     <div className="flex justify-center flex-shrink-0">
-                      <span className={`min-w-6 h-6 px-1 flex items-center justify-center rounded-full text-xs font-black ${isToday ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'}`}
-                        style={isToday ? { background: 'var(--theme-gradient)' } : {}}>{d.getDate()}</span>
+                      <span className={`min-w-[24px] h-6 px-1 flex items-center justify-center rounded-full text-xs font-black ${isToday ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'}`} style={isToday ? { background: 'var(--theme-gradient)' } : {}}>{d.getDate()}</span>
                     </div>
                     <div className="mt-0.5 space-y-0.5 overflow-hidden">
                       {evs.slice(0, 3).map(e => (
@@ -362,20 +359,18 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* ── WEEK (time grid) ── */}
+        {/* ── WEEK ── */}
         {view === 'week' && (
           <div className="flex-1 min-h-0 flex flex-col px-3 pt-2">
             <div className="flex items-center justify-between mb-2 flex-shrink-0">
               <button onClick={() => setWeekStart(w => addDays(w, -7))} aria-label="Previous week" className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">‹</button>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black leading-none" style={HEADING}>{weekLabel}</span>
-                <button onClick={() => setWeekStart(mondayOf(new Date()))}
-                  className="text-[11px] font-black px-3 py-1 rounded-full text-white active:scale-95 transition" style={{ background: 'var(--theme-gradient)' }}>This week</button>
+                <button onClick={() => setWeekStart(mondayOf(new Date()))} className="text-[11px] font-black px-3 py-1 rounded-full text-white active:scale-95 transition" style={{ background: 'var(--theme-gradient)' }}>This week</button>
               </div>
               <button onClick={() => setWeekStart(w => addDays(w, 7))} aria-label="Next week" className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">›</button>
             </div>
-            <WeekGrid weekDays={weekDays} eventsOnDate={eventsOnDate} childMap={childMap} todayStr={todayStr}
-              onOpenDay={setDayViewDate} onOpenEvent={openEditForm} />
+            <WeekGrid weekDays={weekDays} eventsOnDate={eventsOnDate} childMap={childMap} todayStr={todayStr} onOpenDay={setDayViewDate} onOpenEvent={openEditForm} />
           </div>
         )}
 
@@ -386,7 +381,7 @@ export default function CalendarPage() {
               <div className="space-y-4">
                 {agendaDays.map(({ day, events: evs }) => (
                   <div key={day}>
-                    <button onClick={() => setDayViewDate(day)} className="text-xl font-black mb-2 px-1 active:opacity-60 transition" style={HEADING}>{dayLabel(day)} ›</button>
+                    <button onClick={() => setDayViewDate(day)} className="text-lg font-black mb-2 px-1 active:opacity-60 transition" style={HEADING}>{dayLabel(day)} ›</button>
                     <div className="space-y-2">{evs.map(e => <EventCard key={e.id + day} e={e} childMap={childMap} onClick={() => openEditForm(e)} allDay={e.all_day} />)}</div>
                   </div>
                 ))}
@@ -398,7 +393,6 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Day view */}
       {dayViewDate && (
         <DayView dateStr={dayViewDate} todayStr={todayStr} events={eventsOnDate(dayViewDate)} childMap={childMap}
           onClose={() => setDayViewDate(null)}
@@ -415,18 +409,17 @@ export default function CalendarPage() {
               <h2 className="text-4xl font-black leading-none text-center" style={HEADING}>{editingId ? 'Edit Event' : 'New Event'}</h2>
               <button onClick={closeForm} aria-label="Close" className="absolute right-0 w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-12 h-12 rounded-xl flex-shrink-0" style={{ background: colour }} />
-              <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Event name" />
-            </div>
+
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Title" />
+
             <div className="rounded-2xl p-3 bg-gray-50 flex items-center justify-between gap-2">
               <div className="min-w-0"><p className="text-sm font-medium text-gray-700">All day 🗓️</p><p className="text-xs text-gray-400">{allDay ? 'No specific time' : 'Set a start and end time'}</p></div>
-              <button onClick={() => setAllDay(v => !v)} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${allDay ? '' : 'bg-gray-200'}`}
-                style={allDay ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
+              <button onClick={() => setAllDay(v => !v)} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${allDay ? '' : 'bg-gray-200'}`} style={allDay ? { background: 'linear-gradient(90deg, var(--theme-from), var(--theme-to))' } : {}}>
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${allDay ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>
             </div>
+
             {allDay ? (
               <div className="grid grid-cols-2 gap-2">
                 <div className="min-w-0"><p className="text-xs text-gray-500 mb-2 truncate">Start date</p><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full min-w-0 border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" /></div>
@@ -441,7 +434,9 @@ export default function CalendarPage() {
                 </div>
               </>
             )}
+
             <div><p className="text-xs text-gray-500 mb-2">📍 Location (optional)</p><input type="text" value={location} onChange={e => setLocation(e.target.value)} className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="e.g. Community Pool, 12 Main St" /></div>
+
             {children.length > 0 && (
               <div>
                 <p className="text-xs text-gray-500 mb-2">Who's it for? <span className="text-gray-300">(optional — leave blank for a family event)</span></p>
@@ -451,23 +446,59 @@ export default function CalendarPage() {
                     return (
                       <button key={child.id} onClick={() => setAssignedChildren(prev => prev.includes(child.id) ? prev.filter(id => id !== child.id) : [...prev, child.id])} className="flex flex-col items-center gap-1 active:scale-95 transition">
                         {child.avatar_url
-                          ? <img src={child.avatar_url} alt={child.name} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`} style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }} />
-                          : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-[36px] leading-none overflow-hidden bg-white transition ${sel ? '' : 'opacity-40 grayscale'}`} style={{ border: `2px solid ${child.colour}`, boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${child.colour}` : 'none' }}>{child.avatar}</div>}
-                        <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? child.colour : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
+                          ? <img src={child.avatar_url} alt={child.name} className={`w-14 h-14 rounded-full object-cover transition ${sel ? '' : 'opacity-40 grayscale'}`} style={{ boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${childColours[child.id] || child.colour}` : 'none' }} />
+                          : <div className={`w-14 h-14 rounded-full flex items-center justify-center text-[36px] leading-none overflow-hidden bg-white transition ${sel ? '' : 'opacity-40 grayscale'}`} style={{ border: `2px solid ${childColours[child.id] || child.colour}`, boxShadow: sel ? `0 0 0 3px white, 0 0 0 5px ${childColours[child.id] || child.colour}` : 'none' }}>{child.avatar}</div>}
+                        <span className="text-[11px] font-bold truncate max-w-[56px]" style={{ color: sel ? (childColours[child.id] || child.colour) : '#9ca3af' }}>{child.name.split(' ')[0]}</span>
                       </button>
                     )
                   })}
                 </div>
               </div>
             )}
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Event colour <span className="text-gray-300">(used when no child is assigned)</span></p>
-              <div className="flex gap-2 flex-wrap">
-                {BRAND_COLOURS.map(c => (
-                  <button key={c.hex} onClick={() => setColour(c.hex)} aria-label={c.name} className="w-9 h-9 rounded-full active:scale-90 transition" style={{ background: c.hex, boxShadow: colour === c.hex ? `0 0 0 3px white, 0 0 0 5px ${c.hex}` : 'none' }} />
-                ))}
+
+            {/* Colour — per selected child (unique), or the family-event colour when none selected */}
+            {assignedChildren.length > 0 ? (
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Each child's colour <span className="text-gray-300">(must be different — used everywhere)</span></p>
+                <div className="space-y-2.5">
+                  {assignedChildren.map(cid => {
+                    const child = childMap[cid]; if (!child) return null
+                    return (
+                      <div key={cid} className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 w-20 flex-shrink-0">
+                          {child.avatar_url
+                            ? <img src={child.avatar_url} className="w-6 h-6 rounded-full object-cover" alt="" />
+                            : <div className="w-6 h-6 rounded-full flex items-center justify-center text-[15px] leading-none overflow-hidden bg-white" style={{ border: `2px solid ${childColours[cid] || child.colour}` }}>{child.avatar}</div>}
+                          <span className="text-xs font-bold text-gray-700 truncate">{child.name.split(' ')[0]}</span>
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap flex-1">
+                          {BRAND_COLOURS.map(c => {
+                            const takenByOther = assignedChildren.some(o => o !== cid && childColours[o] === c.hex)
+                            const selected = childColours[cid] === c.hex
+                            return (
+                              <button key={c.hex} disabled={takenByOther} aria-label={c.name}
+                                onClick={() => setChildColours(m => ({ ...m, [cid]: c.hex }))}
+                                className={`w-7 h-7 rounded-full transition ${takenByOther ? 'opacity-20' : 'active:scale-90'}`}
+                                style={{ background: c.hex, boxShadow: selected ? `0 0 0 2px white, 0 0 0 4px ${c.hex}` : 'none' }} />
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Event colour</p>
+                <div className="flex gap-2 flex-wrap">
+                  {BRAND_COLOURS.map(c => (
+                    <button key={c.hex} onClick={() => setColour(c.hex)} aria-label={c.name} className="w-9 h-9 rounded-full active:scale-90 transition" style={{ background: c.hex, boxShadow: colour === c.hex ? `0 0 0 3px white, 0 0 0 5px ${c.hex}` : 'none' }} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div><p className="text-xs text-gray-500 mb-2">Notes (optional)</p><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" placeholder="Add any details…" /></div>
             {formError && <p className="text-red-500 text-sm">{formError}</p>}
             <div className="flex gap-2">
@@ -490,22 +521,21 @@ export default function CalendarPage() {
   )
 }
 
-// ── Week time-grid: 7 day columns sharing one hour window ─────────────────────
+// ── Week time-grid: full 24h, scrollable (default 7am), 7 day columns ─────────
 function WeekGrid({ weekDays, eventsOnDate, childMap, todayStr, onOpenDay, onOpenEvent }: {
   weekDays: Date[]; eventsOnDate: (d: string) => Ev[]; childMap: ChildMap; todayStr: string
   onOpenDay: (d: string) => void; onOpenEvent: (e: FamilyEvent) => void
 }) {
-  const HOURPX = 48
+  const HOURPX = 44
   const perDay = weekDays.map(d => layoutDay(eventsOnDate(ymdLocal(d))))
-  const startH = Math.min(...perDay.map(p => p.startH))
-  const endH = Math.max(...perDay.map(p => p.endH))
-  const hours = Array.from({ length: endH - startH + 1 }, (_, i) => startH + i)
+  const hours = Array.from({ length: 25 }, (_, i) => i) // 0..24
   const anyAllDay = perDay.some(p => p.allDay.length > 0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOURPX }, [])
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto pb-24">
+    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto pb-24">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Day headers */}
         <div className="flex sticky top-0 bg-white z-10 border-b border-gray-100">
           <div className="w-10 flex-shrink-0" />
           {weekDays.map((d, i) => {
@@ -519,7 +549,6 @@ function WeekGrid({ weekDays, eventsOnDate, childMap, todayStr, onOpenDay, onOpe
           })}
         </div>
 
-        {/* All-day row */}
         {anyAllDay && (
           <div className="flex border-b border-gray-100 bg-gray-50/50">
             <div className="w-10 flex-shrink-0 text-[8px] text-gray-400 font-bold flex items-center justify-end pr-1">all-day</div>
@@ -535,19 +564,18 @@ function WeekGrid({ weekDays, eventsOnDate, childMap, todayStr, onOpenDay, onOpe
           </div>
         )}
 
-        {/* Hour grid */}
-        <div className="relative" style={{ height: (endH - startH) * HOURPX }}>
+        <div className="relative" style={{ height: 24 * HOURPX }}>
           {hours.map(h => (
             <div key={h}>
-              <div className="absolute left-10 right-0 border-t border-gray-100" style={{ top: (h - startH) * HOURPX }} />
-              <span className="absolute left-0 w-10 text-right pr-1 text-[8px] text-gray-400 -mt-1.5" style={{ top: (h - startH) * HOURPX }}>{fmtHour(h)}</span>
+              <div className="absolute left-10 right-0 border-t border-gray-100" style={{ top: h * HOURPX }} />
+              <span className="absolute left-0 w-10 text-right pr-1 text-[8px] text-gray-400 -mt-1.5" style={{ top: h * HOURPX }}>{fmtHour(h)}</span>
             </div>
           ))}
           <div className="absolute top-0 bottom-0 left-10 right-0 flex">
             {weekDays.map((d, i) => (
               <div key={i} className="flex-1 min-w-0 relative border-l border-gray-100">
                 {perDay[i].timed.map(({ e, startMin, endMin, lane, lanes }) => {
-                  const top = (startMin - startH * 60) / 60 * HOURPX
+                  const top = startMin / 60 * HOURPX
                   const height = Math.max((endMin - startMin) / 60 * HOURPX, 22)
                   const w = 100 / lanes
                   return (
@@ -566,58 +594,67 @@ function WeekGrid({ weekDays, eventsOnDate, childMap, todayStr, onOpenDay, onOpe
   )
 }
 
-// ── Full-screen Day page: heading + all-day strip + hour time-grid ────────────
+// ── Full-screen Day page: Back + always-visible nav + full 24h scroll ─────────
 function DayView({ dateStr, todayStr, events, childMap, onClose, onPrev, onNext, onAdd, onOpenEvent }: {
   dateStr: string; todayStr: string; events: Ev[]; childMap: ChildMap
   onClose: () => void; onPrev: () => void; onNext: () => void; onAdd: () => void; onOpenEvent: (e: FamilyEvent) => void
 }) {
-  const { allDay, timed, startH, endH } = layoutDay(events)
-  const HOURPX = 56
-  const hours = Array.from({ length: endH - startH + 1 }, (_, i) => startH + i)
+  const { allDay, timed } = layoutDay(events)
+  const HOURPX = 52
+  const hours = Array.from({ length: 25 }, (_, i) => i)
   const d = dateAtNoon(dateStr)
   const isToday = dateStr === todayStr
   const bigHeading = isToday ? 'Today' : d.toLocaleDateString('en-AU', { weekday: 'long' })
   const subHeading = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOURPX }, [])
 
+  // z-40 sits BELOW the bottom nav (z-50) so the nav stays visible.
   return (
-    <div className="fixed inset-0 z-[55] bg-white overflow-y-auto">
-      <div className="max-w-sm lg:max-w-2xl mx-auto px-4 pt-12 pb-28">
-        <div className="relative flex items-center justify-between mb-3">
+    <div className="fixed inset-0 z-40 bg-white flex flex-col">
+      <div className="flex-shrink-0 px-4 pt-12 pb-2 border-b border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={onClose} className="flex items-center gap-0.5 text-sm font-black active:scale-95 transition" style={{ color: 'var(--theme-from)' }}>‹ Back</button>
+          <button onClick={onAdd} className="text-xs font-black px-3 py-1.5 rounded-full text-white active:scale-95 transition" style={{ background: 'var(--theme-gradient)' }}>+ Add</button>
+        </div>
+        <div className="flex items-center justify-between">
           <button onClick={onPrev} aria-label="Previous day" className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">‹</button>
           <div className="text-center">
-            <p className="text-4xl font-black leading-none" style={HEADING}>{bigHeading}</p>
+            <p className="text-3xl font-black leading-none" style={HEADING}>{bigHeading}</p>
             <p className="text-sm font-bold text-gray-400 mt-1">{subHeading}</p>
           </div>
           <button onClick={onNext} aria-label="Next day" className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">›</button>
-          <button onClick={onClose} aria-label="Close" className="absolute -top-9 right-0 w-9 h-9 flex items-center justify-center text-3xl leading-none text-gray-400 active:scale-90 transition">×</button>
         </div>
+        {allDay.length > 0 && <div className="space-y-2 mt-3">{allDay.map(e => <EventCard key={e.id} e={e} childMap={childMap} onClick={() => onOpenEvent(e)} allDay />)}</div>}
+      </div>
 
-        {allDay.length > 0 && <div className="space-y-2 mb-4">{allDay.map(e => <EventCard key={e.id} e={e} childMap={childMap} onClick={() => onOpenEvent(e)} allDay />)}</div>}
-
-        <div className="relative" style={{ height: (endH - startH) * HOURPX }}>
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 pb-24">
+        <div className="relative" style={{ height: 24 * HOURPX }}>
           {hours.map(h => (
             <div key={h}>
-              <div className="absolute left-12 right-0 border-t border-gray-100" style={{ top: (h - startH) * HOURPX }} />
-              <span className="absolute left-0 w-12 text-right pr-2 text-[10px] text-gray-400 -mt-1.5" style={{ top: (h - startH) * HOURPX }}>{fmtHour(h)}</span>
+              <div className="absolute left-12 right-0 border-t border-gray-100" style={{ top: h * HOURPX }} />
+              <span className="absolute left-0 w-12 text-right pr-2 text-[10px] text-gray-400 -mt-1.5" style={{ top: h * HOURPX }}>{fmtHour(h)}</span>
             </div>
           ))}
           <div className="absolute top-0 bottom-0 left-12 right-0">
             {timed.map(({ e, startMin, endMin, lane, lanes }) => {
-              const top = (startMin - startH * 60) / 60 * HOURPX
-              const height = Math.max((endMin - startMin) / 60 * HOURPX, 32)
+              const top = startMin / 60 * HOURPX
+              const height = Math.max((endMin - startMin) / 60 * HOURPX, 34)
               const w = 100 / lanes
               const kids = (e.child_ids || []).map(id => childMap[id]).filter(Boolean) as Child[]
               return (
-                <button key={e.id} onClick={() => onOpenEvent(e)} className="absolute rounded-lg px-2 py-1 text-left overflow-hidden active:scale-[0.98] transition flex flex-col"
+                <button key={e.id} onClick={() => onOpenEvent(e)} className="absolute rounded-lg px-2 py-1 text-left overflow-hidden active:scale-[0.98] transition flex items-start gap-1"
                   style={{ top, height, left: `calc(${lane * w}% + 2px)`, width: `calc(${w}% - 4px)`, background: eventBar(e, childMap) }}>
-                  <p className="text-[12px] font-black text-white leading-tight break-words" style={{ textShadow: '0 1px 1px rgba(0,0,0,.3)' }}>{e.title}</p>
-                  <p className="text-[10px] text-white/90 leading-tight truncate">{fmtTimeShort(e._start)}{e.location ? ` · 📍${e.location}` : ''}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-black text-white leading-tight break-words" style={{ textShadow: '0 1px 1px rgba(0,0,0,.3)' }}>{e.title}</p>
+                    <p className="text-[10px] text-white/90 leading-tight truncate">{fmtTimeShort(e._start)}{e.location ? ` · 📍${e.location}` : ''}</p>
+                  </div>
                   {kids.length > 0 && (
-                    <div className="flex -space-x-1 mt-auto pt-0.5">
+                    <div className="flex -space-x-1.5 items-center flex-shrink-0">
                       {kids.slice(0, 4).map(c => (
                         c.avatar_url
-                          ? <img key={c.id} src={c.avatar_url} className="w-5 h-5 rounded-full object-cover border border-white" alt={c.name} />
-                          : <div key={c.id} className="w-5 h-5 rounded-full flex items-center justify-center text-[12px] leading-none overflow-hidden bg-white border border-white" style={{ borderColor: c.colour }}>{c.avatar}</div>
+                          ? <img key={c.id} src={c.avatar_url} className="w-7 h-7 rounded-full object-cover border-2 border-white" alt={c.name} />
+                          : <div key={c.id} className="w-7 h-7 rounded-full flex items-center justify-center text-[17px] leading-none overflow-hidden bg-white border-2 border-white" style={{ borderColor: c.colour }}>{c.avatar}</div>
                       ))}
                     </div>
                   )}
@@ -626,20 +663,12 @@ function DayView({ dateStr, todayStr, events, childMap, onClose, onPrev, onNext,
             })}
           </div>
         </div>
-
-        {allDay.length === 0 && timed.length === 0 && (
-          <div className="text-center py-10"><div className="text-5xl mb-2">📅</div><p className="text-gray-400 text-sm font-medium">Nothing planned</p></div>
-        )}
       </div>
-
-      <button onClick={onAdd} aria-label="Add event" className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-90 transition z-[56]" style={{ background: 'var(--theme-gradient)' }}>
-        <span className="text-3xl leading-none mb-0.5">+</span>
-      </button>
     </div>
   )
 }
 
-// Rich card for all-day events (Day view) and the Agenda list.
+// Rich card for all-day events (Day view) and the Agenda list — avatars on the right.
 function EventCard({ e, childMap, onClick, allDay }: { e: Ev; childMap: ChildMap; onClick: () => void; allDay?: boolean }) {
   const kids = (e.child_ids || []).map(id => childMap[id]).filter(Boolean) as Child[]
   const sub = [allDay ? 'All day' : fmtTime(e._start), e.location ? `📍 ${e.location}` : ''].filter(Boolean).join('  ·  ')
