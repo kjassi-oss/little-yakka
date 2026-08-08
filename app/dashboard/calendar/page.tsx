@@ -408,11 +408,12 @@ export default function CalendarPage() {
             <input type="text" value={title} onChange={e => setTitle(e.target.value)}
               className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Title" />
 
-            {/* Date + All-day on one row */}
-            <div className="flex items-end gap-3">
-              <div className="flex-1 min-w-0">
+            {/* Date + All-day on one row — Date is a fixed, smaller width so the
+                toggle always has clear space (native date inputs otherwise grow). */}
+            <div className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
                 <p className="text-xs text-gray-500 mb-2">Date</p>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full min-w-0 border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-40 max-w-full min-w-0 border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" />
               </div>
               <div className="flex-shrink-0 text-center pb-1">
                 <p className="text-xs text-gray-500 mb-2">All day</p>
