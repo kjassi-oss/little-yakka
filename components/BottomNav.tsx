@@ -38,7 +38,7 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg z-50"
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex items-end justify-around px-2 pt-2.5 pb-4 max-w-sm mx-auto">
         <Link href="/dashboard"

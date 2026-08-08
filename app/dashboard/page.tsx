@@ -183,6 +183,9 @@ export default async function DashboardPage() {
   const rankMap: Record<string, number> = {}
   leaderboard.forEach((cd, i) => { rankMap[cd.child.id] = i })
   const MEDALS = ['🥇', '🥈', '🥉']
+  // Tablet+ "this week" side panel derives from the same childData.
+  const maxWeekStars = Math.max(1, ...childData.map(cd => cd.weekStars))
+  const spinReadyCount = childData.filter(cd => cd.canSpin).length
 
   // Today's completions (with id + date) so the shared task view can show ✓ ticks.
   const windowComps = (completions || [])
@@ -202,19 +205,19 @@ export default async function DashboardPage() {
       {/* Frozen header + kids tiles — stay pinned while the task preview scrolls */}
       <div className="sticky top-0 z-30" style={{ background: '#f8fafc' }}>
       {/* Header — logo left, centred title, settings right */}
-      <div className="px-4 pt-14 pb-2 bg-white border-b border-gray-100">
-        <div className="max-w-sm lg:max-w-3xl mx-auto grid grid-cols-[1fr_auto_1fr] items-center">
-          <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto justify-self-start"/>
-          <span className="text-5xl font-black justify-self-center leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
+      <div className="px-4 pt-14 md:pt-6 pb-2 bg-white border-b border-gray-100">
+        <div className="max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto grid grid-cols-[1fr_auto_1fr] md:grid-cols-[1fr_auto] items-center">
+          <img src="/logo.png" alt="Little Yakka" className="h-20 w-auto justify-self-start md:hidden"/>
+          <span className="text-5xl md:text-4xl font-black justify-self-center md:justify-self-start leading-none" style={{ fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Home</span>
           <div className="justify-self-end"><ProfileButton/></div>
         </div>
       </div>
 
-      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 pt-3 pb-2">
+      <div className="max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 pt-3 pb-2">
 
-        {/* Kids tiles — comfortable centred width for 1-2, fill for 3, scroll for more */}
+        {/* Kids tiles — phone: centred/scroll row (unchanged). Tablet+: a grid so all kids show at once. */}
         {childData.length > 0 ? (
-          <div className={tileScroll ? 'flex gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'}>
+          <div className={`${tileScroll ? 'flex gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1' : 'flex gap-2.5 justify-center'} md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-3 md:overflow-x-visible md:mx-0 md:px-0 md:pb-0`}>
             {childData.map(({ child, balance, weekStars, streak, myTasks, myDone, weekPct }) => {
               const total = myTasks.length
               const allDone = total > 0 && myDone === total
@@ -224,7 +227,7 @@ export default async function DashboardPage() {
               const showMedal = childData.length > 1 && rank < 3 && weekStars > 0
               return (
                 <div key={child.id}
-                  className={`relative rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px] lg:w-[200px]' : 'flex-1 min-w-0 max-w-[150px] lg:max-w-[220px]'}`}
+                  className={`relative rounded-2xl shadow-sm ${tileScroll ? 'flex-shrink-0 w-[31%] min-w-[108px] lg:w-[200px]' : 'flex-1 min-w-0 max-w-[150px] lg:max-w-[220px]'} md:flex-none md:w-auto md:min-w-0 md:max-w-none lg:w-auto lg:max-w-none`}
                   // Faint wash of the active theme so the tiles lift off the page
                   // without competing with the avatars.
                   style={{ backgroundColor: 'rgba(var(--theme-from-rgb), 0.08)', border: '1px solid rgba(var(--theme-from-rgb), 0.15)' }}>
@@ -293,10 +296,52 @@ export default async function DashboardPage() {
       </div>
       </div>
 
-      <div className="max-w-sm lg:max-w-3xl mx-auto px-4 pt-4 space-y-4">
-        {/* Task view — the SAME shared UpcomingTaskList as the Tasks page, next 2 days */}
+      <div className="max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 pt-4">
         {childData.length > 0 && (
-          <HomeTaskPreview tasks={tasks || []} childrenList={children || []} assignments={assignmentMap} windowComps={windowComps} ufgClaims={ufgClaims} />
+          <div className="md:grid md:grid-cols-3 md:gap-4 md:items-start">
+            {/* Task view — the SAME shared UpcomingTaskList as the Tasks page, next 2 days */}
+            <div className="md:col-span-2">
+              <HomeTaskPreview tasks={tasks || []} childrenList={children || []} assignments={assignmentMap} windowComps={windowComps} ufgClaims={ufgClaims} />
+            </div>
+
+            {/* This-week snapshot — tablet+ only. Phone already conveys this via the kid tiles. */}
+            <aside className="hidden md:flex md:flex-col md:gap-4">
+              <div className="bg-white rounded-3xl shadow-sm p-4">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">⭐ This week</p>
+                <div className="space-y-3">
+                  {leaderboard.map((cd, i) => {
+                    const first = cd.child.name.split(' ')[0]
+                    const showMedal = i < 3 && cd.weekStars > 0
+                    return (
+                      <div key={cd.child.id} className="flex items-center gap-3">
+                        <div className="relative w-8 h-8 flex-shrink-0">
+                          {cd.child.avatar_url
+                            ? <img src={cd.child.avatar_url} className="w-8 h-8 rounded-full object-cover" alt=""/>
+                            : <div className="w-8 h-8 rounded-full flex items-center justify-center text-[20px] leading-none overflow-hidden bg-white" style={{ border: `2px solid ${cd.child.colour}` }}>{cd.child.avatar}</div>}
+                          {showMedal && <span className="absolute -bottom-1.5 -right-1.5 text-xs leading-none">{MEDALS[i]}</span>}
+                        </div>
+                        <span className="text-sm font-bold text-gray-700 flex-1 truncate">{first}</span>
+                        <div className="w-24 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${Math.max(6, (cd.weekStars / maxWeekStars) * 100)}%`, backgroundColor: cd.child.colour }}/>
+                        </div>
+                        <span className="text-xs font-black text-yellow-500 w-8 text-right">{cd.weekStars}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {spinReadyCount > 0 && (
+                <div className="bg-white rounded-3xl shadow-sm p-4 flex items-center gap-3">
+                  <span className="text-3xl leading-none">⭐</span>
+                  <div className="min-w-0">
+                    <p className="font-black text-gray-800 leading-tight">Bonus spin ready</p>
+                    <p className="text-xs text-gray-400">{spinReadyCount} {spinReadyCount === 1 ? 'child' : 'children'} can spin the wheel</p>
+                  </div>
+                </div>
+              )}
+            </aside>
+          </div>
         )}
       </div>
     </div>

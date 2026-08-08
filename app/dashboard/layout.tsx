@@ -28,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="min-h-screen bg-gray-50">
       <SideNav />
-      <div className="lg:pl-56">
+      <div className="md:pl-20 lg:pl-56">
         {children}
       </div>
       <BottomNav />

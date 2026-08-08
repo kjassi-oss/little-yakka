@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-// Desktop-only left sidebar. Hidden on mobile (BottomNav takes over there).
+// Tablet + desktop left nav. Hidden on phone (BottomNav takes over below md).
+// md: a compact icon-only rail (w-20); lg+: full width (w-56) with labels.
 export default function SideNav() {
   const pathname = usePathname()
   const [pendingCount, setPendingCount] = useState(0)
@@ -33,22 +34,24 @@ export default function SideNav() {
   const isActive = (href: string, exact = false) => exact ? pathname === href : pathname.startsWith(href)
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-56 flex-col bg-white border-r border-gray-100 p-4 z-40">
-      <img src="/logo.png" alt="Little Yakka" className="h-16 w-auto mx-auto mb-6"/>
+    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-20 lg:w-56 flex-col bg-white border-r border-gray-100 px-2 lg:px-4 py-4 z-40">
+      <img src="/logo.png" alt="Little Yakka" className="h-10 lg:h-16 w-auto mx-auto mb-4 lg:mb-6"/>
       <nav className="flex flex-col gap-1">
         {items.map(item => {
           const active = isActive(item.href, item.exact)
           return (
-            <Link key={item.href} href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition ${active ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}
+            <Link key={item.href} href={item.href} title={item.label}
+              className={`relative flex items-center justify-center lg:justify-start gap-3 px-0 lg:px-4 py-3 rounded-2xl font-bold text-sm transition ${active ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}
               style={active ? { background: 'var(--theme-gradient)' } : {}}>
               <span className="text-xl">{item.icon}</span>
-              <span className="flex-1">{item.label}</span>
-              {!!item.badge && item.badge > 0 && (
-                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
+              <span className="hidden lg:block flex-1">{item.label}</span>
+              {!!item.badge && item.badge > 0 && (<>
+                {/* Full sidebar (lg): inline count. Compact rail (md): a dot on the icon. */}
+                <span className="hidden lg:flex w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black items-center justify-center">
                   {item.badge > 9 ? '9+' : item.badge}
                 </span>
-              )}
+                <span className="lg:hidden absolute top-1.5 right-2 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white"/>
+              </>)}
             </Link>
           )
         })}
