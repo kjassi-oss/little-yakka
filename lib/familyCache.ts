@@ -19,3 +19,10 @@ export async function getCachedFamily(supabase: SupabaseClient): Promise<{ userI
   try { localStorage.setItem('ly-fam', JSON.stringify({ userId, familyId: g.family_id })) } catch {}
   return { userId, familyId: g.family_id }
 }
+
+// Sign-out (or switching accounts) must not leave the previous guardian's
+// family id behind — getCachedFamily only compares the user id, so a stale
+// entry for another user is harmless, but clearing keeps it honest.
+export function clearCachedFamily() {
+  try { localStorage.removeItem('ly-fam') } catch {}
+}

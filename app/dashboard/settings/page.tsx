@@ -1,13 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { markDataChanged } from '@/lib/dataChanged'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 import LoadingLogo from '@/components/LoadingLogo'
 import GuideContent from '@/components/GuideContent'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
+import { deleteChild as deleteChildAction } from '@/app/actions/deleteChild'
+import { clearCachedFamily } from '@/lib/familyCache'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
@@ -42,6 +46,7 @@ interface Child {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [children, setChildren] = useState<Child[]>([])
   const [familyName, setFamilyName] = useState('')
   const [familyId, setFamilyId] = useState('')
@@ -117,6 +122,15 @@ export default function SettingsPage() {
       setTimezone(detected)
     }
   }, [])
+
+  // Re-read this page AND invalidate the server-rendered ones (Home, Summary,
+  // Kid Mode). loadData() alone only ever fixed this screen — that's why a
+  // removed child kept showing up on Home. See lib/dataChanged.ts.
+  function reloadEverywhere() {
+    markDataChanged()
+    router.refresh()
+    loadData()
+  }
 
   async function loadData() {
     const supabase = createClient()
@@ -232,6 +246,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from('families').update({ ...base, bonus_award_pct: bonusAwardPct }).eq('id', familyId)
     if (error) await supabase.from('families').update(base).eq('id', familyId)
     setSavingBonus(false); setBonusSaved(true)
+    markDataChanged(); router.refresh()   // Home's bonus-wheel timing is server-rendered
     setTimeout(() => setBonusSaved(false), 2000)
   }
 
@@ -248,6 +263,7 @@ export default function SettingsPage() {
     setPinSaving(false)
     if (error) { setPinMsg(error.message); return }
     setParentPin(pinDraft); setPinDraft(''); setPinConfirm(''); setPinMsg('Saved ✓')
+    markDataChanged(); router.refresh()   // Kid Mode's exit gate is server-rendered
     setTimeout(() => { setPinMsg(''); setPinOpen(false) }, 1200)
   }
 
@@ -264,6 +280,7 @@ export default function SettingsPage() {
     if (!user) return
     await supabase.from('guardians').update({ parent_pin: '' }).eq('auth_user_id', user.id)
     setParentPin(''); setPinDraft(''); setPinConfirm('')
+    markDataChanged(); router.refresh()
     setConfirmAsk({ alert: true, emoji: '🔓', title: 'Parent PIN removed', sub: 'Kids can now leave Kid Mode without a PIN.' })
   }
 
@@ -271,6 +288,7 @@ export default function SettingsPage() {
     setSavingFamily(true)
     await createClient().from('families').update({ name: familyName }).eq('id', familyId)
     setSavingFamily(false)
+    markDataChanged(); router.refresh()
   }
 
   async function addChild() {
@@ -305,7 +323,7 @@ export default function SettingsPage() {
       }
     }
     setNewChild({ name: '', age: '', avatar: '/avatars/kid-g1.webp', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
-    setShowAddForm(false); setSaving(false); loadData()
+    setShowAddForm(false); setSaving(false); reloadEverywhere()
   }
 
   async function changePassword() {
@@ -345,7 +363,7 @@ export default function SettingsPage() {
     }
     if (error) { setAdjustError(error.message); setAdjustSaving(false); return }
     setAdjustChild(null); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustSaving(false)
-    loadData()
+    reloadEverywhere()
   }
 
   // Reverse a past manual adjustment by posting the opposite entry (audit-preserving)
@@ -361,7 +379,7 @@ export default function SettingsPage() {
         const base = { child_id: entry.child_id, delta: -entry.delta, reason: `Reversed: ${entry.reason || 'adjustment'}` }
         let { error } = await supabase.from('star_ledger').insert({ ...base, source_type: 'manual' })
         if (error) await supabase.from('star_ledger').insert({ ...base, source_type: entry.delta > 0 ? 'undo' : 'completion' })
-        loadData()
+        reloadEverywhere()
       },
     })
   }
@@ -371,6 +389,7 @@ export default function SettingsPage() {
     setDeleting(true); setDeleteError('')
     const result = await deleteMyAccount()
     if (result.error) { setDeleteError(result.error); setDeleting(false); return }
+    clearCachedFamily()
     await createClient().auth.signOut()
     window.location.href = '/login'
   }
@@ -405,7 +424,7 @@ export default function SettingsPage() {
       if (paths.length) await supabase.storage.from('kid-avatars').remove(paths)
     }
 
-    setEditingChild(null); setSaving(false); loadData()
+    setEditingChild(null); setSaving(false); reloadEverywhere()
   }
 
   function deleteChild(child: Child) {
@@ -416,8 +435,15 @@ export default function SettingsPage() {
       danger: true, confirmLabel: 'Remove', cancelLabel: 'Keep them',
       onConfirm: async () => {
         setConfirmAsk(null)
-        await createClient().from('children').delete().eq('id', child.id)
-        loadData()
+        // Server action, not a bare client delete: the child's completions,
+        // stars, redemptions and assignments have to go first or the FKs reject
+        // it — which used to fail silently and look like the child "came back".
+        const { error } = await deleteChildAction(child.id)
+        if (error) {
+          setConfirmAsk({ alert: true, emoji: '⚠️', title: `Couldn't remove ${child.name.split(' ')[0]}`, sub: error })
+          return
+        }
+        reloadEverywhere()
       },
     })
   }
@@ -443,7 +469,7 @@ export default function SettingsPage() {
         const old = (data || []).map(f => `${familyId}/${childId}/${f.name}`).filter(p => p !== path)
         if (old.length) supabase.storage.from('kid-avatars').remove(old)
       })
-      loadData()
+      reloadEverywhere()
     }
     setUploadingPhotoId(null)
   }
@@ -955,7 +981,7 @@ export default function SettingsPage() {
         )}
 
         {/* Sign out */}
-        <button onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login' }}
+        <button onClick={async () => { clearCachedFamily(); await createClient().auth.signOut(); window.location.href = '/login' }}
           className="w-full bg-white rounded-2xl p-4 text-red-500 font-semibold shadow-sm text-center active:scale-95 transition">
           Sign Out
         </button>

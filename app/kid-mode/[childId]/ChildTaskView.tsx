@@ -11,6 +11,7 @@ import TrophyShelf from '@/components/TrophyShelf'
 import UpcomingTaskList, { type UChild, type UComp } from '@/components/UpcomingTaskList'
 import PinModal from '@/components/PinModal'
 import { verifyParentPin } from '@/app/actions/parentPin'
+import { markDataChanged } from '@/lib/dataChanged'
 
 interface Child {
   id: string; name: string; avatar: string; colour: string; avatar_url?: string
@@ -213,7 +214,7 @@ export default function ChildTaskView({
     if (existing && existing.length > 0) {
       setComps(prev => prev.some(c => c.task_id === task.id && c.date === ds && c.child_id === child.id)
         ? prev : [...prev, { id: existing[0].id, task_id: task.id, child_id: child.id, date: ds }])
-      router.refresh()
+      markDataChanged(); router.refresh()
       return
     }
     const { data: completion } = await supabase.from('completions').insert({
@@ -225,7 +226,7 @@ export default function ChildTaskView({
     })
     // Purge the client router cache so Home/kid pages show this immediately
     // (staleTimes would otherwise serve a pre-completion page for up to 30s)
-    router.refresh()
+    markDataChanged(); router.refresh()
     // Nudge the family's subscribed devices (fire-and-forget)
     fetch('/api/push/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -286,7 +287,7 @@ export default function ChildTaskView({
     if (!task.up_for_grabs && comp.date >= mondayStr && comp.date <= weekEndStr) {
       setClaimableDone(prev => Math.max(0, prev - 1))
     }
-    router.refresh()
+    markDataChanged(); router.refresh()
   }
 
   async function handleSpinWin(stars: number) {
@@ -298,7 +299,7 @@ export default function ChildTaskView({
     })
     setStarBalance(prev => prev + stars)
     setCanSpin(false)
-    router.refresh()
+    markDataChanged(); router.refresh()
   }
 
   // Redeem immediately: stars come off now, and it lands in My Rewards + the
@@ -331,7 +332,7 @@ export default function ChildTaskView({
     setJustRequestedId(reward.id)
     setTimeout(() => setJustRequestedId(null), 2000)
     setRequestingId(null)
-    router.refresh()
+    markDataChanged(); router.refresh()
   }
 
   // ── Celebration screen ──

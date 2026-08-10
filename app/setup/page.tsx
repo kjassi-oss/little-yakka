@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { clearCachedFamily } from '@/lib/familyCache'
 import { compressImage } from '@/lib/imageCompress'
 import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS, isBrushTeeth, type TaskPreset } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
@@ -206,6 +207,7 @@ export default function SetupPage() {
   // Back from step 1 leaves setup entirely — sign out so /login doesn't bounce
   // an authenticated user straight back here.
   async function backToLogin() {
+    clearCachedFamily()
     await createClient().auth.signOut()
     router.push('/login'); router.refresh()
   }

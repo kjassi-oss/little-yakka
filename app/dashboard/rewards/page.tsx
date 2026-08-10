@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
 import { redeemFeedback } from '@/lib/feedback'
 import { getCachedFamily } from '@/lib/familyCache'
+import { markDataChanged } from '@/lib/dataChanged'
 import { DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 import { signAvatarUrls } from '@/lib/avatarUrls'
@@ -54,6 +56,7 @@ interface Redemption {
 }
 
 export default function RewardsPage() {
+  const router = useRouter()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [pending, setPending] = useState<Redemption[]>([])
@@ -81,6 +84,14 @@ export default function RewardsPage() {
   const [showEmojiSearch, setShowEmojiSearch] = useState(false)
 
   useEffect(() => { loadData() }, [])
+
+  // Re-read this page AND invalidate the server-rendered ones (Home, Summary,
+  // Kid Mode) — loadData() alone only refreshes this screen. See lib/dataChanged.ts.
+  function reloadEverywhere() {
+    markDataChanged()
+    router.refresh()
+    loadData()
+  }
 
   async function loadData() {
     const supabase = createClient()
@@ -158,7 +169,7 @@ export default function RewardsPage() {
     if (error) await attempt(base)
     resetForm()
     setShowForm(false); setSaving(false)
-    loadData()
+    reloadEverywhere()
   }
 
   // Parent redeems a reward directly for a child (deducts stars now).
@@ -183,7 +194,7 @@ export default function RewardsPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: '🎁 Reward redeemed!', body: `${child?.name.split(' ')[0] || 'Someone'} redeemed "${reward.title}" (−${reward.star_cost} ⭐)` }),
     }).catch(() => {})
-    loadData()
+    reloadEverywhere()
   }
 
   function undoRedemption(r: Redemption) {
@@ -201,7 +212,7 @@ export default function RewardsPage() {
           child_id: r.child_id, delta: r.rewards?.star_cost || 0,
           reason: `Undo redeem: ${r.rewards?.title}`, source_type: 'undo',
         })
-        loadData()
+        reloadEverywhere()
       },
     })
   }
@@ -216,19 +227,19 @@ export default function RewardsPage() {
       source_type: 'redemption',
       source_id: r.id,
     })
-    loadData()
+    reloadEverywhere()
   }
 
   async function denyRedemption(id: string) {
     const supabase = createClient()
     await supabase.from('redemptions').update({ status: 'denied' }).eq('id', id)
-    loadData()
+    reloadEverywhere()
   }
 
   async function deleteReward(id: string) {
     const supabase = createClient()
     await supabase.from('rewards').delete().eq('id', id)
-    loadData()
+    reloadEverywhere()
   }
 
   if (loading) return <LoadingLogo />
