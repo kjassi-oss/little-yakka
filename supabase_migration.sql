@@ -252,3 +252,16 @@ end $$;
 -- Both additive; existing rows keep NULL (⇒ a family event with no child).
 alter table family_events add column if not exists location text;
 alter table family_events add column if not exists child_ids uuid[];
+
+-- ── 2026-08-10: live sync for family setup changes ───────────────────────────
+-- Realtime already carried completions/star_ledger/redemptions/family_events,
+-- but NOT the tables you edit in Settings — so removing a child (or adding a
+-- task/reward) never reached the other parent's phone, and even on the same
+-- device the server-rendered pages kept a cached copy until the app restarted.
+-- Publication-only; no table, column or policy is touched.
+do $$
+begin
+  begin alter publication supabase_realtime add table children; exception when duplicate_object then null; when undefined_object then null; end;
+  begin alter publication supabase_realtime add table tasks;    exception when duplicate_object then null; when undefined_object then null; end;
+  begin alter publication supabase_realtime add table rewards;  exception when duplicate_object then null; when undefined_object then null; end;
+end $$;

@@ -6,13 +6,13 @@ export default function LoadingLogo() {
       <img
         src="/logo.png"
         alt="Little Yakka"
-        className="h-20 w-auto"
+        className="h-28 w-auto"
         style={{ animation: 'logoBouncePulse 0.9s ease-in-out infinite alternate' }}
       />
       <style>{`
         @keyframes logoBouncePulse {
           0%   { transform: translateY(0px) scale(1); opacity: 1; }
-          100% { transform: translateY(-18px) scale(1.06); opacity: 0.85; }
+          100% { transform: translateY(-22px) scale(1.06); opacity: 0.85; }
         }
       `}</style>
     </div>

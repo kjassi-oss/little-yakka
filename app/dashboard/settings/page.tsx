@@ -1,13 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { markDataChanged } from '@/lib/dataChanged'
 import { THEMES, type ThemeKey, getStoredTheme, setStoredTheme } from '@/components/ThemeProvider'
 import LoadingLogo from '@/components/LoadingLogo'
 import GuideContent from '@/components/GuideContent'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
+import { clearCachedFamily } from '@/lib/familyCache'
+import { shareInviteLink } from '@/lib/shareInvite'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
@@ -42,6 +46,7 @@ interface Child {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [children, setChildren] = useState<Child[]>([])
   const [familyName, setFamilyName] = useState('')
   const [familyId, setFamilyId] = useState('')
@@ -59,7 +64,9 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
+  const [sharingInvite, setSharingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [inviteError, setInviteError] = useState('')
   const [parentPin, setParentPin] = useState('')      // current stored PIN ('' = none)
   const [pinInfoOpen, setPinInfoOpen] = useState(false)
   const [pinCheckOpen, setPinCheckOpen] = useState(false) // verify current PIN before removing
@@ -117,6 +124,15 @@ export default function SettingsPage() {
       setTimezone(detected)
     }
   }, [])
+
+  // Re-read this page AND invalidate the server-rendered ones (Home, Summary,
+  // Kid Mode). loadData() alone only ever fixed this screen — that's why a
+  // removed child kept showing up on Home. See lib/dataChanged.ts.
+  function reloadEverywhere() {
+    markDataChanged()
+    router.refresh()
+    loadData()
+  }
 
   async function loadData() {
     const supabase = createClient()
@@ -232,6 +248,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from('families').update({ ...base, bonus_award_pct: bonusAwardPct }).eq('id', familyId)
     if (error) await supabase.from('families').update(base).eq('id', familyId)
     setSavingBonus(false); setBonusSaved(true)
+    markDataChanged(); router.refresh()   // Home's bonus-wheel timing is server-rendered
     setTimeout(() => setBonusSaved(false), 2000)
   }
 
@@ -248,6 +265,7 @@ export default function SettingsPage() {
     setPinSaving(false)
     if (error) { setPinMsg(error.message); return }
     setParentPin(pinDraft); setPinDraft(''); setPinConfirm(''); setPinMsg('Saved ✓')
+    markDataChanged(); router.refresh()   // Kid Mode's exit gate is server-rendered
     setTimeout(() => { setPinMsg(''); setPinOpen(false) }, 1200)
   }
 
@@ -264,6 +282,7 @@ export default function SettingsPage() {
     if (!user) return
     await supabase.from('guardians').update({ parent_pin: '' }).eq('auth_user_id', user.id)
     setParentPin(''); setPinDraft(''); setPinConfirm('')
+    markDataChanged(); router.refresh()
     setConfirmAsk({ alert: true, emoji: '🔓', title: 'Parent PIN removed', sub: 'Kids can now leave Kid Mode without a PIN.' })
   }
 
@@ -271,6 +290,7 @@ export default function SettingsPage() {
     setSavingFamily(true)
     await createClient().from('families').update({ name: familyName }).eq('id', familyId)
     setSavingFamily(false)
+    markDataChanged(); router.refresh()
   }
 
   async function addChild() {
@@ -305,7 +325,7 @@ export default function SettingsPage() {
       }
     }
     setNewChild({ name: '', age: '', avatar: '/avatars/kid-g1.webp', colour: COLOURS[(children.length) % COLOURS.length] }); setNewChildPhoto(null)
-    setShowAddForm(false); setSaving(false); loadData()
+    setShowAddForm(false); setSaving(false); reloadEverywhere()
   }
 
   async function changePassword() {
@@ -345,7 +365,7 @@ export default function SettingsPage() {
     }
     if (error) { setAdjustError(error.message); setAdjustSaving(false); return }
     setAdjustChild(null); setAdjustAmount(''); setAdjustReason(''); setAdjustPin(''); setAdjustSaving(false)
-    loadData()
+    reloadEverywhere()
   }
 
   // Reverse a past manual adjustment by posting the opposite entry (audit-preserving)
@@ -361,7 +381,7 @@ export default function SettingsPage() {
         const base = { child_id: entry.child_id, delta: -entry.delta, reason: `Reversed: ${entry.reason || 'adjustment'}` }
         let { error } = await supabase.from('star_ledger').insert({ ...base, source_type: 'manual' })
         if (error) await supabase.from('star_ledger').insert({ ...base, source_type: entry.delta > 0 ? 'undo' : 'completion' })
-        loadData()
+        reloadEverywhere()
       },
     })
   }
@@ -371,6 +391,7 @@ export default function SettingsPage() {
     setDeleting(true); setDeleteError('')
     const result = await deleteMyAccount()
     if (result.error) { setDeleteError(result.error); setDeleting(false); return }
+    clearCachedFamily()
     await createClient().auth.signOut()
     window.location.href = '/login'
   }
@@ -405,7 +426,7 @@ export default function SettingsPage() {
       if (paths.length) await supabase.storage.from('kid-avatars').remove(paths)
     }
 
-    setEditingChild(null); setSaving(false); loadData()
+    setEditingChild(null); setSaving(false); reloadEverywhere()
   }
 
   function deleteChild(child: Child) {
@@ -416,8 +437,30 @@ export default function SettingsPage() {
       danger: true, confirmLabel: 'Remove', cancelLabel: 'Keep them',
       onConfirm: async () => {
         setConfirmAsk(null)
-        await createClient().from('children').delete().eq('id', child.id)
-        loadData()
+        const supabase = createClient()
+
+        // Their photos, and their id inside any calendar event's child_ids —
+        // neither is reachable by a foreign key, so nothing else would clear them.
+        const dir = `${familyId}/${child.id}`
+        const { data: photos } = await supabase.storage.from('kid-avatars').list(dir)
+        const paths = (photos || []).map(f => `${dir}/${f.name}`)
+        if (paths.length) await supabase.storage.from('kid-avatars').remove(paths)
+
+        const { data: events } = await supabase.from('family_events')
+          .select('id, child_ids').eq('family_id', familyId).contains('child_ids', [child.id])
+        for (const ev of events || []) {
+          const left = ((ev.child_ids as string[]) || []).filter(id => id !== child.id)
+          await supabase.from('family_events').update({ child_ids: left.length ? left : null }).eq('id', ev.id)
+        }
+
+        // The rest (stars, completions, assignments, redemptions, spins) is
+        // handled by ON DELETE CASCADE — verified against the live database.
+        const { error } = await supabase.from('children').delete().eq('id', child.id)
+        if (error) {
+          setConfirmAsk({ alert: true, emoji: '⚠️', title: `Couldn't remove ${child.name.split(' ')[0]}`, sub: error.message })
+          return
+        }
+        reloadEverywhere()
       },
     })
   }
@@ -443,22 +486,30 @@ export default function SettingsPage() {
         const old = (data || []).map(f => `${familyId}/${childId}/${f.name}`).filter(p => p !== path)
         if (old.length) supabase.storage.from('kid-avatars').remove(old)
       })
-      loadData()
+      reloadEverywhere()
     }
     setUploadingPhotoId(null)
   }
 
   async function sendInvite() {
-    if (!inviteEmail.trim()) return
     setSendingInvite(true)
+    setInviteError('')
     const supabase = createClient()
-    const { data } = await supabase.from('guardian_invitations')
-      .insert({ family_id: familyId, invited_email: inviteEmail.trim() })
+    const email = inviteEmail.trim()
+    // The token IS the credential — accept_invitation never checks the address,
+    // it only prefills the join form. So the email is optional: you can create a
+    // link and text it without knowing which address they'll sign up with.
+    let { data, error } = await supabase.from('guardian_invitations')
+      .insert({ family_id: familyId, invited_email: email || null })
       .select('token').single()
-    if (data) {
-      const link = `${window.location.origin}/join/${data.token}`
-      setInviteLink(link)
+    if (error && !email) {   // column may be NOT NULL on older projects
+      const retry = await supabase.from('guardian_invitations')
+        .insert({ family_id: familyId, invited_email: '' })
+        .select('token').single()
+      data = retry.data; error = retry.error
     }
+    if (data) setInviteLink(`${window.location.origin}/join/${data.token}`)
+    else setInviteError(error?.message || "Couldn't create the invite link.")
     setSendingInvite(false)
   }
 
@@ -466,6 +517,14 @@ export default function SettingsPage() {
     await navigator.clipboard.writeText(inviteLink)
     setInviteCopied(true)
     setTimeout(() => setInviteCopied(false), 2500)
+  }
+
+  // Native share sheet if this build has it, Web Share next, else open Messages
+  // with the invite already written out.
+  async function textInviteLink() {
+    setSharingInvite(true)
+    try { await shareInviteLink(inviteLink, familyName) }
+    finally { setSharingInvite(false) }
   }
 
   if (loading) return <LoadingLogo />
@@ -741,31 +800,40 @@ export default function SettingsPage() {
           <h2 className="font-bold text-gray-800 mb-1">Invite Co-Parent</h2>
           <p className="text-xs text-gray-400 mb-3">Give another parent access to the same family account</p>
           {!inviteLink ? (
-            <div className="flex gap-2">
-              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                placeholder="partner@email.com"/>
-              <button onClick={sendInvite} disabled={sendingInvite || !inviteEmail.trim()}
-                className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
-                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-                {sendingInvite ? '...' : 'Invite'}
-              </button>
-            </div>
+            <>
+              <div className="flex gap-2">
+                <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                  className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                  placeholder="partner@email.com (optional)"/>
+                <button onClick={sendInvite} disabled={sendingInvite}
+                  className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition shrink-0"
+                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                  {sendingInvite ? '...' : 'Create link'}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-2">Leave the email blank if you'd rather just text them the link.</p>
+              {inviteError && <p className="text-xs text-red-500 mt-2">{inviteError}</p>}
+            </>
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-green-600 font-semibold">✓ Invite link created!</p>
               <div className="bg-gray-50 rounded-2xl px-4 py-3 text-xs text-gray-500 break-all">{inviteLink}</div>
+              <button onClick={textInviteLink} disabled={sharingInvite}
+                className="w-full py-3 rounded-2xl text-sm font-bold text-white active:scale-95 transition disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                {sharingInvite ? 'Opening…' : '💬 Send by text'}
+              </button>
               <div className="flex gap-2">
                 <button onClick={copyInviteLink}
-                  className="flex-1 py-2.5 rounded-2xl text-sm font-semibold text-white active:scale-95 transition"
-                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                  className="flex-1 py-2.5 rounded-2xl text-sm font-semibold text-gray-600 bg-gray-100 active:scale-95 transition">
                   {inviteCopied ? '✓ Copied!' : 'Copy link'}
                 </button>
-                <button onClick={() => { setInviteLink(''); setInviteEmail('') }}
-                  className="px-4 py-2.5 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100">
+                <button onClick={() => { setInviteLink(''); setInviteEmail(''); setInviteError('') }}
+                  className="px-4 py-2.5 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100 active:scale-95 transition">
                   New invite
                 </button>
               </div>
+              <p className="text-[11px] text-gray-400">This link works once — anyone who opens it joins your family.</p>
             </div>
           )}
         </div>
@@ -955,7 +1023,7 @@ export default function SettingsPage() {
         )}
 
         {/* Sign out */}
-        <button onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login' }}
+        <button onClick={async () => { clearCachedFamily(); await createClient().auth.signOut(); window.location.href = '/login' }}
           className="w-full bg-white rounded-2xl p-4 text-red-500 font-semibold shadow-sm text-center active:scale-95 transition">
           Sign Out
         </button>

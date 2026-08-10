@@ -8,6 +8,7 @@ import { occursOn } from '@/lib/recurrence'
 import LoadingLogo from '@/components/LoadingLogo'
 import CelebrationBurst from '@/components/CelebrationBurst'
 import { getCachedFamily } from '@/lib/familyCache'
+import { markDataChanged } from '@/lib/dataChanged'
 import { completionFeedback } from '@/lib/feedback'
 import UpcomingTaskList from '@/components/UpcomingTaskList'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
@@ -108,6 +109,14 @@ export default function ChoresPage() {
   }, [])
 
 
+  // Re-read this page AND invalidate the server-rendered ones (Home, Summary,
+  // Kid Mode) — loadData() alone only refreshes this screen. See lib/dataChanged.ts.
+  function reloadEverywhere() {
+    markDataChanged()
+    router.refresh()
+    loadData()
+  }
+
   async function loadData() {
     const supabase = createClient()
     // Cached family lookup (no auth/guardian round trips), then ONE parallel
@@ -199,7 +208,7 @@ export default function ChoresPage() {
           child_id: comp.child_id, delta: -(task.star_value || 0),
           reason: `Undo: ${task.title}`, source_type: 'undo',
         })
-        loadData()
+        reloadEverywhere()
       },
     })
   }
@@ -220,7 +229,7 @@ export default function ChoresPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: '⭐ Task done!', body: `${child?.name.split(' ')[0] || 'Someone'} finished "${task.title}" (+${task.star_value} ⭐)` }),
     }).catch(() => {})
-    loadData()
+    reloadEverywhere()
   }
 
   // "Ava, Johnny and Sofia have" / "Sofia has"
@@ -272,7 +281,7 @@ export default function ChoresPage() {
       source_type: 'completion',
       source_id: row.id,
     })
-    loadData()
+    reloadEverywhere()
   }
 
   function rejectCompletion(row: HistoryRow) {
@@ -284,7 +293,7 @@ export default function ChoresPage() {
       onConfirm: async () => {
         setConfirmAsk(null)
         await createClient().from('completions').delete().eq('id', row.id)
-        loadData()
+        reloadEverywhere()
       },
     })
   }
@@ -399,7 +408,7 @@ export default function ChoresPage() {
       }
     }
 
-    closeForm(); setSaving(false); loadData()
+    closeForm(); setSaving(false); reloadEverywhere()
   }
 
   function deleteTask(taskId: string) {
@@ -413,7 +422,7 @@ export default function ChoresPage() {
         setConfirmAsk(null)
         await createClient().from('tasks').delete().eq('id', taskId)
         closeForm()
-        loadData()
+        reloadEverywhere()
       },
     })
   }
@@ -435,7 +444,7 @@ export default function ChoresPage() {
           reason: `Undo: ${row.tasks?.title}`,
           source_type: 'undo',
         })
-        loadData()
+        reloadEverywhere()
       },
     })
   }

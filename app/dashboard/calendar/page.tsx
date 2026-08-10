@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ProfileButton from '@/components/ProfileButton'
 import LoadingLogo from '@/components/LoadingLogo'
 import { getCachedFamily } from '@/lib/familyCache'
+import { markDataChanged } from '@/lib/dataChanged'
 import { signAvatarUrls } from '@/lib/avatarUrls'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 
@@ -106,6 +108,7 @@ function layoutDay(evs: Ev[]) {
 type View = 'day' | 'week' | 'month' | 'agenda'
 
 export default function CalendarPage() {
+  const router = useRouter()
   const [events, setEvents] = useState<FamilyEvent[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [familyId, setFamilyId] = useState('')
@@ -139,6 +142,14 @@ export default function CalendarPage() {
   const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
 
   useEffect(() => { loadData() }, [])
+
+  // Re-read this page AND invalidate the server-rendered ones — saving a child's
+  // colour here changes their avatar app-wide. See lib/dataChanged.ts.
+  function reloadEverywhere() {
+    markDataChanged()
+    router.refresh()
+    loadData()
+  }
 
   async function loadData() {
     const supabase = createClient()
@@ -253,14 +264,14 @@ export default function CalendarPage() {
       ;({ error } = await attempt(basePayload))
     }
     if (error) { setFormError(error.message || 'Failed to save.'); setSaving(false); return }
-    setSaving(false); closeForm(); loadData()
+    setSaving(false); closeForm(); reloadEverywhere()
   }
 
   function deleteEvent(e: FamilyEvent) {
     setConfirmAsk({
       emoji: '🗑', title: `Delete "${e.title}"?`, sub: 'This removes it from the family calendar.',
       danger: true, confirmLabel: 'Delete', cancelLabel: 'Keep it',
-      onConfirm: async () => { setConfirmAsk(null); await createClient().from('family_events').delete().eq('id', e.id); closeForm(); loadData() },
+      onConfirm: async () => { setConfirmAsk(null); await createClient().from('family_events').delete().eq('id', e.id); closeForm(); reloadEverywhere() },
     })
   }
 
