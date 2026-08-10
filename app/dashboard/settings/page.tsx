@@ -12,6 +12,7 @@ import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
 import { deleteChild as deleteChildAction } from '@/app/actions/deleteChild'
 import { clearCachedFamily } from '@/lib/familyCache'
+import { shareInviteLink } from '@/lib/shareInvite'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
 import { isNativePush, nativePermissionState, registerNativePush, cachedNativeToken, clearNativeToken } from '@/lib/nativePush'
 import { compressImage } from '@/lib/imageCompress'
@@ -64,7 +65,9 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
+  const [sharingInvite, setSharingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [inviteError, setInviteError] = useState('')
   const [parentPin, setParentPin] = useState('')      // current stored PIN ('' = none)
   const [pinInfoOpen, setPinInfoOpen] = useState(false)
   const [pinCheckOpen, setPinCheckOpen] = useState(false) // verify current PIN before removing
@@ -475,16 +478,24 @@ export default function SettingsPage() {
   }
 
   async function sendInvite() {
-    if (!inviteEmail.trim()) return
     setSendingInvite(true)
+    setInviteError('')
     const supabase = createClient()
-    const { data } = await supabase.from('guardian_invitations')
-      .insert({ family_id: familyId, invited_email: inviteEmail.trim() })
+    const email = inviteEmail.trim()
+    // The token IS the credential — accept_invitation never checks the address,
+    // it only prefills the join form. So the email is optional: you can create a
+    // link and text it without knowing which address they'll sign up with.
+    let { data, error } = await supabase.from('guardian_invitations')
+      .insert({ family_id: familyId, invited_email: email || null })
       .select('token').single()
-    if (data) {
-      const link = `${window.location.origin}/join/${data.token}`
-      setInviteLink(link)
+    if (error && !email) {   // column may be NOT NULL on older projects
+      const retry = await supabase.from('guardian_invitations')
+        .insert({ family_id: familyId, invited_email: '' })
+        .select('token').single()
+      data = retry.data; error = retry.error
     }
+    if (data) setInviteLink(`${window.location.origin}/join/${data.token}`)
+    else setInviteError(error?.message || "Couldn't create the invite link.")
     setSendingInvite(false)
   }
 
@@ -492,6 +503,14 @@ export default function SettingsPage() {
     await navigator.clipboard.writeText(inviteLink)
     setInviteCopied(true)
     setTimeout(() => setInviteCopied(false), 2500)
+  }
+
+  // Native share sheet if this build has it, Web Share next, else open Messages
+  // with the invite already written out.
+  async function textInviteLink() {
+    setSharingInvite(true)
+    try { await shareInviteLink(inviteLink, familyName) }
+    finally { setSharingInvite(false) }
   }
 
   if (loading) return <LoadingLogo />
@@ -767,31 +786,40 @@ export default function SettingsPage() {
           <h2 className="font-bold text-gray-800 mb-1">Invite Co-Parent</h2>
           <p className="text-xs text-gray-400 mb-3">Give another parent access to the same family account</p>
           {!inviteLink ? (
-            <div className="flex gap-2">
-              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
-                placeholder="partner@email.com"/>
-              <button onClick={sendInvite} disabled={sendingInvite || !inviteEmail.trim()}
-                className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition"
-                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-                {sendingInvite ? '...' : 'Invite'}
-              </button>
-            </div>
+            <>
+              <div className="flex gap-2">
+                <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                  className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                  placeholder="partner@email.com (optional)"/>
+                <button onClick={sendInvite} disabled={sendingInvite}
+                  className="text-white font-semibold px-4 py-2.5 rounded-2xl text-sm disabled:opacity-60 active:scale-95 transition shrink-0"
+                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                  {sendingInvite ? '...' : 'Create link'}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-2">Leave the email blank if you'd rather just text them the link.</p>
+              {inviteError && <p className="text-xs text-red-500 mt-2">{inviteError}</p>}
+            </>
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-green-600 font-semibold">✓ Invite link created!</p>
               <div className="bg-gray-50 rounded-2xl px-4 py-3 text-xs text-gray-500 break-all">{inviteLink}</div>
+              <button onClick={textInviteLink} disabled={sharingInvite}
+                className="w-full py-3 rounded-2xl text-sm font-bold text-white active:scale-95 transition disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                {sharingInvite ? 'Opening…' : '💬 Send by text'}
+              </button>
               <div className="flex gap-2">
                 <button onClick={copyInviteLink}
-                  className="flex-1 py-2.5 rounded-2xl text-sm font-semibold text-white active:scale-95 transition"
-                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                  className="flex-1 py-2.5 rounded-2xl text-sm font-semibold text-gray-600 bg-gray-100 active:scale-95 transition">
                   {inviteCopied ? '✓ Copied!' : 'Copy link'}
                 </button>
-                <button onClick={() => { setInviteLink(''); setInviteEmail('') }}
-                  className="px-4 py-2.5 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100">
+                <button onClick={() => { setInviteLink(''); setInviteEmail(''); setInviteError('') }}
+                  className="px-4 py-2.5 rounded-2xl text-sm font-semibold text-gray-500 bg-gray-100 active:scale-95 transition">
                   New invite
                 </button>
               </div>
+              <p className="text-[11px] text-gray-400">This link works once — anyone who opens it joins your family.</p>
             </div>
           )}
         </div>
