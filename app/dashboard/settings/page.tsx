@@ -10,7 +10,6 @@ import GuideContent from '@/components/GuideContent'
 import ProfileButton from '@/components/ProfileButton'
 import { setTimezone } from '@/app/actions/setTimezone'
 import { deleteMyAccount } from '@/app/actions/deleteAccount'
-import { deleteChild as deleteChildAction } from '@/app/actions/deleteChild'
 import { clearCachedFamily } from '@/lib/familyCache'
 import { shareInviteLink } from '@/lib/shareInvite'
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/pushKeys'
@@ -438,12 +437,27 @@ export default function SettingsPage() {
       danger: true, confirmLabel: 'Remove', cancelLabel: 'Keep them',
       onConfirm: async () => {
         setConfirmAsk(null)
-        // Server action, not a bare client delete: the child's completions,
-        // stars, redemptions and assignments have to go first or the FKs reject
-        // it — which used to fail silently and look like the child "came back".
-        const { error } = await deleteChildAction(child.id)
+        const supabase = createClient()
+
+        // Their photos, and their id inside any calendar event's child_ids —
+        // neither is reachable by a foreign key, so nothing else would clear them.
+        const dir = `${familyId}/${child.id}`
+        const { data: photos } = await supabase.storage.from('kid-avatars').list(dir)
+        const paths = (photos || []).map(f => `${dir}/${f.name}`)
+        if (paths.length) await supabase.storage.from('kid-avatars').remove(paths)
+
+        const { data: events } = await supabase.from('family_events')
+          .select('id, child_ids').eq('family_id', familyId).contains('child_ids', [child.id])
+        for (const ev of events || []) {
+          const left = ((ev.child_ids as string[]) || []).filter(id => id !== child.id)
+          await supabase.from('family_events').update({ child_ids: left.length ? left : null }).eq('id', ev.id)
+        }
+
+        // The rest (stars, completions, assignments, redemptions, spins) is
+        // handled by ON DELETE CASCADE — verified against the live database.
+        const { error } = await supabase.from('children').delete().eq('id', child.id)
         if (error) {
-          setConfirmAsk({ alert: true, emoji: '⚠️', title: `Couldn't remove ${child.name.split(' ')[0]}`, sub: error })
+          setConfirmAsk({ alert: true, emoji: '⚠️', title: `Couldn't remove ${child.name.split(' ')[0]}`, sub: error.message })
           return
         }
         reloadEverywhere()
