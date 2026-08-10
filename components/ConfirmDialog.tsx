@@ -18,6 +18,12 @@ export interface DialogAsk {
   danger?: boolean
   alert?: boolean
   onConfirm?: () => void
+  // Optional third choice, shown above Cancel/Confirm — for the cases with two
+  // real answers plus "no thanks" (e.g. delete one occurrence vs the whole
+  // repeating series). Cancel stays a pure dismiss, so tapping the backdrop
+  // can never trigger an action.
+  extraLabel?: string
+  onExtra?: () => void
 }
 
 export default function ConfirmDialog({ ask, onClose }: { ask: DialogAsk | null; onClose: () => void }) {
@@ -36,6 +42,14 @@ export default function ConfirmDialog({ ask, onClose }: { ask: DialogAsk | null;
             Got it!
           </button>
         ) : (
+          <>
+          {ask.extraLabel && ask.onExtra && (
+            <button onClick={ask.onExtra}
+              className="w-full mb-2 py-3 rounded-2xl font-black text-sm border-2 active:scale-95 transition"
+              style={{ borderColor: '#FCA5A5', color: '#EF4444', background: '#FEF2F2' }}>
+              {ask.extraLabel}
+            </button>
+          )}
           <div className="flex gap-2">
             <button onClick={onClose}
               className="px-5 py-3 rounded-2xl font-black text-sm text-gray-500 border-2 border-gray-200 bg-white active:scale-95 transition">
@@ -47,6 +61,7 @@ export default function ConfirmDialog({ ask, onClose }: { ask: DialogAsk | null;
               {ask.confirmLabel || 'Yes'}
             </button>
           </div>
+          </>
         )}
       </div>
     </div>

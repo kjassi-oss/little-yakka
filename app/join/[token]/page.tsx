@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { isNative } from '@/lib/nativeAuth'
+import { APP_STORE_URL, isIOSDevice } from '@/lib/storeLinks'
 
 const THEME = 'var(--theme-gradient)'
 const DISPLAY = 'var(--font-display), system-ui, sans-serif'
@@ -19,6 +21,9 @@ export default function JoinPage() {
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
+  // Joined in a phone browser without the app? Send them to the App Store
+  // instead of dropping them on the web dashboard.
+  const [joined, setJoined] = useState(false)
 
   useEffect(() => { loadInvite() }, [token])
 
@@ -74,8 +79,14 @@ export default function JoinPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    // Already inside the app, or on a desktop browser — nothing to install.
+    if (isNative() || !isIOSDevice()) {
+      router.push('/dashboard')
+      router.refresh()
+      return
+    }
+    setSaving(false)
+    setJoined(true)
   }
 
   return (
@@ -87,6 +98,37 @@ export default function JoinPage() {
       <div className="flex-1 w-full max-w-sm mx-auto px-5 pb-12">
         {loading ? (
           <p className="text-center text-gray-400 mt-10">Checking your invite…</p>
+        ) : joined ? (
+          // The account exists and is linked to the family now. The app loads the
+          // same site and the same session, so all they have to do is install it
+          // and sign in with what they just chose — no second invite needed.
+          <div className="text-center mt-8">
+            <div className="text-5xl mb-3">🎉</div>
+            <h1 className="text-3xl font-black mb-2" style={{ fontFamily: DISPLAY, background: THEME, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              You're in!
+            </h1>
+            <p className="text-gray-500 text-sm mb-6">
+              You've joined <span className="font-bold text-gray-700">{invite?.family_name}</span>. Now get the app.
+            </p>
+
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer"
+              className="block w-full text-white font-black py-3.5 rounded-2xl shadow active:scale-95 transition"
+              style={{ background: THEME }}>
+              Get Little Yakka 📲
+            </a>
+
+            <div className="text-left bg-gray-50 rounded-2xl p-4 mt-5 space-y-2">
+              <p className="text-xs font-bold text-gray-600">Once it's installed:</p>
+              <p className="text-xs text-gray-500">1. Open Little Yakka and tap <span className="font-semibold">Sign in</span>.</p>
+              <p className="text-xs text-gray-500">2. Use <span className="font-semibold text-gray-700">{email}</span> and the password you just set.</p>
+              <p className="text-xs text-gray-500">3. The family is already waiting for you — no code to enter.</p>
+            </div>
+
+            <button onClick={() => { router.push('/dashboard'); router.refresh() }}
+              className="mt-5 text-sm font-bold text-gray-400 active:scale-95 transition">
+              Skip — use it in my browser
+            </button>
+          </div>
         ) : error && !invite ? (
           <div className="text-center mt-10">
             <div className="text-5xl mb-4">😕</div>
@@ -102,6 +144,11 @@ export default function JoinPage() {
                 You're invited!
               </h1>
               <p className="text-gray-500 text-sm">Join <span className="font-bold text-gray-700">{invite?.family_name}</span> on Little Yakka</p>
+              {/* The link often arrives by text from someone who never explained
+                  what the app is — one line so it isn't a leap of faith. */}
+              <p className="text-xs text-gray-400 mt-2 px-4">
+                Little Yakka turns chores into stars and rewards for kids. Set up your account below — it takes a minute.
+              </p>
             </div>
 
             <div className="flex bg-gray-100 rounded-2xl p-1 mb-5">
