@@ -11,9 +11,13 @@
 
 export type ShareResult = 'shared' | 'sms'
 
+// Written for someone who may never have heard of the app: it says what it is,
+// and the link itself handles the rest — the join page creates their account in
+// the browser and then points them at the App Store, so there's no chicken-and-egg
+// where they'd need the app installed before the invite works.
 export function inviteMessage(link: string, familyName?: string): string {
-  const family = familyName?.trim() ? ` to ${familyName.trim()}` : ''
-  return `Join our family${family} on Little Yakka! Tap this link to set yourself up: ${link}`
+  const family = familyName?.trim() ? ` (${familyName.trim()})` : ''
+  return `I'm using Little Yakka to run the kids' chores, stars and rewards — join our family${family} here: ${link}\n\nOpen the link first to set up your login, then it'll help you get the app.`
 }
 
 // iOS wants `sms:&body=`; Android and the rest want `sms:?body=`.

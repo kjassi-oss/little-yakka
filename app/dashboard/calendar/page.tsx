@@ -9,6 +9,7 @@ import { getCachedFamily } from '@/lib/familyCache'
 import { markDataChanged } from '@/lib/dataChanged'
 import { signAvatarUrls } from '@/lib/avatarUrls'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
+import { occurrenceDates, repeatLabel, hasRepeat, daysBetween, shiftDate, type RepeatSpec, type RepeatFreq } from '@/lib/eventRecurrence'
 
 // ── Family Calendar (in-app calendar) ────────────────────────────────────────
 // Tabs: Day · Week · Month (default) · Agenda. Events assign to one or more
@@ -20,12 +21,14 @@ import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 // to participants + syncing their RSVP will hang off the family_events table.
 
 interface Child { id: string; name: string; avatar: string; colour: string; avatar_url?: string | null }
-interface FamilyEvent {
+interface FamilyEvent extends RepeatSpec {
   id: string; title: string; starts_at: string; ends_at: string | null
   all_day: boolean; colour: string | null; notes: string | null
   location: string | null; child_ids: string[] | null; created_by?: string | null
 }
-type Ev = FamilyEvent & { _start: Date; _startDate: string; _endDate: string }
+// One rendered occurrence. `_startDate` is THIS occurrence's date; the row it
+// came from still holds the series' own first date.
+type Ev = FamilyEvent & { _start: Date; _startDate: string; _endDate: string; _repeats: boolean }
 type ChildMap = Record<string, Child>
 
 // 7 brand colours — one row in the picker, one colour per child.
@@ -37,6 +40,16 @@ const BRAND_COLOURS = [
 ]
 const DEFAULT_COLOUR = BRAND_COLOURS[0].hex
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+// The repeat row, in Apple's order. "Custom days" is handled separately because
+// it's weekly with an explicit day list rather than a fixed interval.
+const REPEAT_PRESETS: { label: string; freq: RepeatFreq | null; interval: number }[] = [
+  { label: 'Never', freq: null, interval: 1 },
+  { label: 'Daily', freq: 'daily', interval: 1 },
+  { label: 'Weekly', freq: 'weekly', interval: 1 },
+  { label: 'Fortnightly', freq: 'weekly', interval: 2 },
+  { label: 'Monthly', freq: 'monthly', interval: 1 },
+  { label: 'Yearly', freq: 'yearly', interval: 1 },
+]
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const HEADING = { fontFamily: 'var(--font-display), system-ui, sans-serif', background: 'var(--theme-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as const
 
@@ -136,6 +149,15 @@ export default function CalendarPage() {
   const [childColours, setChildColours] = useState<Record<string, string>>({})
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
+  // Repeat. `repeatFreq` null = never; `repeatDays` only applies to weekly and
+  // is what "Custom" fills in. `editingOccDate` remembers which occurrence was
+  // tapped so "delete this one" knows what to exclude.
+  const [repeatFreq, setRepeatFreq] = useState<RepeatFreq | null>(null)
+  const [repeatInterval, setRepeatInterval] = useState(1)
+  const [repeatDays, setRepeatDays] = useState<number[]>([])
+  const [repeatUntil, setRepeatUntil] = useState('')
+  const [repeatCustom, setRepeatCustom] = useState(false)
+  const [editingOccDate, setEditingOccDate] = useState<string | null>(null)
   const [assignedChildren, setAssignedChildren] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -171,12 +193,52 @@ export default function CalendarPage() {
 
   const childMap: ChildMap = useMemo(() => { const m: ChildMap = {}; children.forEach(c => { m[c.id] = c }); return m }, [children])
 
-  const decorated: Ev[] = useMemo(() => events.map(e => {
-    const start = new Date(e.starts_at); const startDate = ymdLocal(start)
-    let endDate = e.ends_at ? ymdLocal(new Date(e.ends_at)) : startDate
-    if (endDate < startDate) endDate = startDate
-    return { ...e, _start: start, _startDate: startDate, _endDate: endDate }
-  }), [events])
+  // How far the expansion has to reach: whatever the four views can currently
+  // show, plus half a year forward for the agenda. Recomputed as you navigate,
+  // so a repeating event fills months you scroll to without ever being written
+  // out as rows.
+  const range = useMemo(() => {
+    const monthFirst = new Date(cursor.y, cursor.m, 1, 12, 0, 0)
+    const now = new Date()
+    const lows = [addDays(monthFirst, -45), addDays(weekStart, -14), addDays(dateAtNoon(focusedDate), -14), addDays(now, -30)]
+    const highs = [addDays(monthFirst, 75), addDays(weekStart, 28), addDays(dateAtNoon(focusedDate), 28), addDays(now, 180)]
+    return {
+      start: ymdLocal(lows.reduce((a, b) => (a < b ? a : b))),
+      end: ymdLocal(highs.reduce((a, b) => (a > b ? a : b))),
+    }
+  }, [cursor, weekStart, focusedDate])
+
+  const decorated: Ev[] = useMemo(() => {
+    const out: Ev[] = []
+    for (const e of events) {
+      const start = new Date(e.starts_at)
+      const seriesDate = ymdLocal(start)
+      const end = e.ends_at ? new Date(e.ends_at) : null
+      // All-day events span whole days; timed ones keep their exact length.
+      const spanDays = end ? Math.max(0, daysBetween(seriesDate, ymdLocal(end))) : 0
+      const durationMs = end ? Math.max(0, end.getTime() - start.getTime()) : 0
+      const repeats = hasRepeat(e)
+
+      for (const ds of occurrenceDates(seriesDate, e, range.start, range.end)) {
+        const [y, mo, d] = ds.split('-').map(Number)
+        const s = new Date(y, mo - 1, d, start.getHours(), start.getMinutes(), 0)
+        const en = end ? (e.all_day ? null : new Date(s.getTime() + durationMs)) : null
+        const endDate = e.all_day ? shiftDate(ds, spanDays) : (en ? ymdLocal(en) : ds)
+        out.push({
+          ...e,
+          starts_at: s.toISOString(),
+          ends_at: e.all_day
+            ? (end ? new Date(y, mo - 1, d + spanDays, 0, 0, 0).toISOString() : null)
+            : (en ? en.toISOString() : null),
+          _start: s,
+          _startDate: ds,
+          _endDate: endDate < ds ? ds : endDate,
+          _repeats: repeats,
+        })
+      }
+    }
+    return out
+  }, [events, range])
 
   function eventsOnDate(dateStr: string): Ev[] {
     return decorated.filter(e => e._startDate <= dateStr && dateStr <= e._endDate)
@@ -205,22 +267,37 @@ export default function CalendarPage() {
   }, [weekStart])
 
   // Form
+  function resetRepeat() {
+    setRepeatFreq(null); setRepeatInterval(1); setRepeatDays([]); setRepeatUntil(''); setRepeatCustom(false)
+  }
+
   function openNewForm(forDate?: string) {
-    setEditingId(null); setTitle(''); setAllDay(false)
+    setEditingId(null); setEditingOccDate(null); setTitle(''); setAllDay(false)
     setDate(forDate || todayStr); setStartTime('09:00'); setEndTime(''); setEndDate('')
     setColour(DEFAULT_COLOUR); setChildColours(initChildColours(children)); setLocation(''); setNotes(''); setAssignedChildren([])
+    resetRepeat()
     setFormError(''); setShowForm(true)
   }
-  function openEditForm(e: FamilyEvent) {
-    setEditingId(e.id); setTitle(e.title); setAllDay(e.all_day)
+  function openEditForm(occurrence: FamilyEvent) {
+    // Editing always works on the SERIES, so read the stored row rather than the
+    // expanded occurrence handed to us by a list (its dates have been shifted).
+    const e = events.find(x => x.id === occurrence.id) || occurrence
+    setEditingId(e.id)
+    setEditingOccDate(ymdLocal(new Date(occurrence.starts_at)))
+    setTitle(e.title); setAllDay(e.all_day)
     const s = new Date(e.starts_at); setDate(ymdLocal(s)); setStartTime(e.all_day ? '09:00' : hhmm(s))
     const end = e.ends_at ? new Date(e.ends_at) : null
     setEndTime(e.all_day || !end ? '' : hhmm(end)); setEndDate(e.all_day && end ? ymdLocal(end) : '')
     setColour(e.colour || DEFAULT_COLOUR); setChildColours(initChildColours(children))
     setLocation(e.location || ''); setNotes(e.notes || ''); setAssignedChildren(e.child_ids || [])
+    setRepeatFreq((e.repeat_freq as RepeatFreq) || null)
+    setRepeatInterval(Math.max(1, e.repeat_interval || 1))
+    setRepeatDays(e.repeat_days || [])
+    setRepeatUntil(e.repeat_until || '')
+    setRepeatCustom(e.repeat_freq === 'weekly' && !!e.repeat_days?.length)
     setFormError(''); setShowForm(true)
   }
-  function closeForm() { setShowForm(false); setEditingId(null) }
+  function closeForm() { setShowForm(false); setEditingId(null); setEditingOccDate(null) }
 
   async function saveEvent() {
     if (!title.trim()) { setFormError('Please enter a title.'); return }
@@ -249,6 +326,16 @@ export default function CalendarPage() {
       location: location.trim() || null, notes: notes.trim() || null,
       child_ids: assignedChildren.length ? assignedChildren : null,
     }
+    // Repeat is stored separately so a project that hasn't run the migration yet
+    // can still save everything else (see the retry below).
+    const repeatPayload = {
+      repeat_freq: repeatFreq,
+      repeat_interval: repeatFreq ? repeatInterval : null,
+      repeat_days: repeatFreq === 'weekly' && repeatDays.length ? [...repeatDays].sort((a, b) => a - b) : null,
+      repeat_until: repeatFreq && repeatUntil ? repeatUntil : null,
+      // Changing the rule invalidates the old one-off skips.
+      excluded_dates: null,
+    }
     const supabase = createClient()
     for (const id of assignedChildren) {
       if (childColours[id] && childColours[id] !== childMap[id]?.colour) {
@@ -258,7 +345,11 @@ export default function CalendarPage() {
     const attempt = (p: Record<string, unknown>) => editingId
       ? supabase.from('family_events').update(p).eq('id', editingId)
       : supabase.from('family_events').insert({ ...p, family_id: familyId, created_by: guardianId })
-    let { error } = await attempt(payload)
+    let { error } = await attempt({ ...payload, ...repeatPayload })
+    if (error && /repeat_|excluded_dates/.test(error.message || '')) {
+      if (repeatFreq) { setFormError('Repeating events need the latest database update — run supabase_migration.sql.'); setSaving(false); return }
+      ;({ error } = await attempt(payload))
+    }
     if (error && /location|child_ids/.test(error.message || '')) {
       const { location: _l, child_ids: _c, ...basePayload } = payload
       ;({ error } = await attempt(basePayload))
@@ -267,11 +358,44 @@ export default function CalendarPage() {
     setSaving(false); closeForm(); reloadEverywhere()
   }
 
-  function deleteEvent(e: FamilyEvent) {
+  async function deleteSeries(id: string) {
+    await createClient().from('family_events').delete().eq('id', id)
+    closeForm(); reloadEverywhere()
+  }
+
+  // Skipping one occurrence adds its date to the series' exclusion list — the
+  // rule stays intact, that day just stops being generated.
+  async function skipOccurrence(e: FamilyEvent, occDate: string) {
+    const master = events.find(x => x.id === e.id)
+    const next = [...new Set([...(master?.excluded_dates || []), occDate])]
+    const { error } = await createClient().from('family_events').update({ excluded_dates: next }).eq('id', e.id)
+    if (error) { setFormError(error.message); return }
+    closeForm(); reloadEverywhere()
+  }
+
+  function deleteEvent(e: FamilyEvent, occDate?: string | null) {
+    const repeats = hasRepeat(events.find(x => x.id === e.id) || e)
+    if (!repeats) {
+      setConfirmAsk({
+        emoji: '🗑', title: `Delete "${e.title}"?`, sub: 'This removes it from the family calendar.',
+        danger: true, confirmLabel: 'Delete', cancelLabel: 'Keep it',
+        onConfirm: async () => { setConfirmAsk(null); await deleteSeries(e.id) },
+      })
+      return
+    }
+    // Repeating: offer the same choice Apple does — just this day, or the lot.
+    const pretty = occDate
+      ? new Date(occDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+      : null
     setConfirmAsk({
-      emoji: '🗑', title: `Delete "${e.title}"?`, sub: 'This removes it from the family calendar.',
-      danger: true, confirmLabel: 'Delete', cancelLabel: 'Keep it',
-      onConfirm: async () => { setConfirmAsk(null); await createClient().from('family_events').delete().eq('id', e.id); closeForm(); reloadEverywhere() },
+      emoji: '🔁', title: `Delete "${e.title}"?`,
+      sub: pretty ? `This repeats. Remove just ${pretty}, or every occurrence?` : 'This repeats. Remove every occurrence?',
+      danger: true,
+      confirmLabel: 'Delete all',
+      cancelLabel: 'Keep it',
+      extraLabel: pretty ? `Only ${pretty}` : undefined,
+      onExtra: pretty ? async () => { setConfirmAsk(null); await skipOccurrence(e, occDate!) } : undefined,
+      onConfirm: async () => { setConfirmAsk(null); await deleteSeries(e.id) },
     })
   }
 
@@ -443,6 +567,75 @@ export default function CalendarPage() {
               </div>
             )}
 
+            {/* Repeat — Apple's shape: a row of presets, then Custom reveals the
+                weekday letters, then an optional end date. */}
+            <div>
+              <p className="text-xs text-gray-500 mb-2">🔁 Repeat</p>
+              <div className="flex flex-wrap gap-1.5">
+                {REPEAT_PRESETS.map(p => {
+                  const active = !repeatCustom && repeatFreq === p.freq && (p.freq === null || repeatInterval === p.interval)
+                  return (
+                    <button key={p.label}
+                      onClick={() => {
+                        setRepeatCustom(false); setRepeatFreq(p.freq)
+                        setRepeatInterval(p.interval); setRepeatDays([])
+                        if (!p.freq) setRepeatUntil('')
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition ${active ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                      style={active ? { background: 'var(--theme-gradient)' } : {}}>
+                      {p.label}
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={() => {
+                    setRepeatCustom(true); setRepeatFreq('weekly'); setRepeatInterval(1)
+                    setRepeatDays(d => (d.length ? d : [(new Date(date + 'T12:00:00').getDay() + 6) % 7]))
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition ${repeatCustom ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                  style={repeatCustom ? { background: 'var(--theme-gradient)' } : {}}>
+                  Custom days
+                </button>
+              </div>
+
+              {repeatCustom && (
+                <div className="mt-3">
+                  <div className="flex gap-1.5 justify-between">
+                    {WEEKDAY_LETTERS.map((letter, i) => {
+                      const on = repeatDays.includes(i)
+                      return (
+                        <button key={i} aria-label={WEEKDAYS[i]}
+                          onClick={() => setRepeatDays(d => (d.includes(i) ? d.filter(x => x !== i) : [...d, i]))}
+                          className={`flex-1 h-10 rounded-xl text-sm font-black active:scale-95 transition ${on ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                          style={on ? { background: 'var(--theme-gradient)' } : {}}>
+                          {letter}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1.5">Pick the days of the week it happens on.</p>
+                </div>
+              )}
+
+              {repeatFreq && (
+                <div className="mt-3 flex items-end gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 mb-1.5">Ends</p>
+                    <input type="date" value={repeatUntil} min={date} onChange={e => setRepeatUntil(e.target.value)}
+                      className="w-40 max-w-full min-w-0 border border-gray-200 rounded-2xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                  </div>
+                  {repeatUntil
+                    ? <button onClick={() => setRepeatUntil('')} className="pb-3 text-xs font-semibold text-gray-400 active:scale-95 transition">Clear</button>
+                    : <p className="pb-3 text-xs text-gray-400">Leave blank to repeat forever</p>}
+                </div>
+              )}
+
+              <p className="text-[11px] text-gray-400 mt-2">
+                {repeatLabel({ repeat_freq: repeatFreq, repeat_interval: repeatInterval, repeat_days: repeatDays, repeat_until: repeatUntil || null })}
+                {editingId && repeatFreq ? ' · edits apply to every occurrence' : ''}
+              </p>
+            </div>
+
             <div><p className="text-xs text-gray-500 mb-2">📍 Location (optional)</p><input type="text" value={location} onChange={e => setLocation(e.target.value)} className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="e.g. Community Pool, 12 Main St" /></div>
 
             {children.length > 0 && (
@@ -514,7 +707,7 @@ export default function CalendarPage() {
               <button onClick={closeForm} className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-500 font-semibold active:scale-95 transition">Cancel</button>
               <button onClick={saveEvent} disabled={saving} className="flex-1 text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60" style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>{saving ? 'Saving…' : editingId ? 'Update Event ✓' : 'Save Event ✓'}</button>
             </div>
-            {editingId && <button onClick={() => { const e = events.find(x => x.id === editingId); if (e) deleteEvent(e) }} className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">🗑 Delete event</button>}
+            {editingId && <button onClick={() => { const e = events.find(x => x.id === editingId); if (e) deleteEvent(e, editingOccDate) }} className="w-full text-red-500 font-semibold py-2.5 rounded-2xl bg-red-50 active:scale-95 transition text-sm">🗑 Delete event</button>}
           </div>
         </div>
       )}
@@ -677,7 +870,7 @@ function WeekGrid({ weekDays, eventsOnDate, childMap, todayStr, onOpenDay, onOpe
 // Rich card for all-day events (Day) and the Agenda list — avatars on the right.
 function EventCard({ e, childMap, onClick, allDay }: { e: Ev; childMap: ChildMap; onClick: () => void; allDay?: boolean }) {
   const kids = (e.child_ids || []).map(id => childMap[id]).filter(Boolean) as Child[]
-  const sub = [allDay ? 'All day' : fmtTime(e._start), e.location ? `📍 ${e.location}` : ''].filter(Boolean).join('  ·  ')
+  const sub = [allDay ? 'All day' : fmtTime(e._start), e._repeats ? '🔁 Repeats' : '', e.location ? `📍 ${e.location}` : ''].filter(Boolean).join('  ·  ')
   return (
     <button onClick={onClick} className="w-full bg-white rounded-2xl shadow-sm flex items-stretch gap-3 pr-3 overflow-hidden active:scale-[0.98] transition text-left border border-gray-100">
       <span className="w-1.5 flex-shrink-0" style={{ background: eventBar(e, childMap) }} />

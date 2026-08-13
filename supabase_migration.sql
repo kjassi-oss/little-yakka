@@ -265,3 +265,39 @@ begin
   begin alter publication supabase_realtime add table tasks;    exception when duplicate_object then null; when undefined_object then null; end;
   begin alter publication supabase_realtime add table rewards;  exception when duplicate_object then null; when undefined_object then null; end;
 end $$;
+
+-- ── 2026-08-10: repeating calendar events ────────────────────────────────────
+-- One row holds the whole series: the first occurrence plus a rule. Repeats are
+-- expanded when the calendar renders (lib/eventRecurrence.ts), so "move swimming
+-- to 4pm" stays a single UPDATE and "every week forever" costs one row.
+--   repeat_freq     daily | weekly | monthly | yearly   (null = doesn't repeat)
+--   repeat_interval every N of those units (2 = fortnightly / every 2 months)
+--   repeat_days     weekly only: 0=Mon … 6=Sun, e.g. {0,3} = Mon + Thu
+--   repeat_until    inclusive last date; null = no end
+--   excluded_dates  occurrences deleted one at a time ("Only Thu 13 Aug")
+-- All additive; existing rows keep NULL and behave exactly as before.
+alter table family_events add column if not exists repeat_freq text;
+alter table family_events add column if not exists repeat_interval integer;
+alter table family_events add column if not exists repeat_days integer[];
+alter table family_events add column if not exists repeat_until date;
+alter table family_events add column if not exists excluded_dates date[];
+
+-- ── 2026-08-10: Contact Us enquiries from Settings ───────────────────────────
+-- Durable copy of every message, written before we try to email it on, so a
+-- missing mail provider can never lose one. Read them in the Supabase table
+-- editor (or wire RESEND_API_KEY to get them by email).
+create table if not exists support_enquiries (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid references families(id) on delete set null,
+  guardian_id uuid references guardians(id) on delete set null,
+  email       text,
+  topic       text,
+  message     text not null,
+  created_at  timestamptz default now()
+);
+alter table support_enquiries enable row level security;
+-- Guardians can file an enquiry for their own family; nothing reads them back
+-- through the app, so there is deliberately no select/update/delete policy.
+drop policy if exists support_enquiries_insert on support_enquiries;
+create policy support_enquiries_insert on support_enquiries for insert
+  with check (family_id in (select family_id from guardians where auth_user_id = auth.uid()));

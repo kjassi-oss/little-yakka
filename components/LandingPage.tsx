@@ -14,8 +14,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isNative } from '@/lib/nativeAuth'
-
-const APP_STORE_URL = 'https://apps.apple.com/app/id6787948287'
+import { APP_STORE_URL } from '@/lib/storeLinks'
 
 export default function LandingPage() {
   const router = useRouter()

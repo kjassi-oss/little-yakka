@@ -134,7 +134,16 @@ export default function UpcomingTaskList({
 
       {showUpForGrabs && (() => {
         const claimMap = new Map(ufgClaims.map(c => [c.task_id, c]))
-        const ufgList = tasks.filter((t: any) => t.up_for_grabs && (!t.expires_on || t.expires_on >= todayL))
+        // A claimed bounty is finished — nobody else can take it — so it drops
+        // off Home and the Upcoming list rather than sitting there struck out.
+        // It stays on the Tasks page's "All" tab, and in the Kids Zone of the
+        // child who claimed it so they keep the ✓ and can still undo.
+        const ufgList = tasks.filter((t: any) => {
+          if (!t.up_for_grabs) return false
+          const claim = claimMap.get(t.id)
+          if (claim) return singleChildId === claim.child_id
+          return !t.expires_on || t.expires_on >= todayL
+        })
         if (!ufgList.length) return null
         return (
           <div>
