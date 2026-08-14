@@ -18,14 +18,13 @@ export const metadata: Metadata = {
     title: "Little Yakka",
   },
   // Browser-tab favicon = the Little Yakka star (app/icon.png); the home-screen
-  // (apple-touch) icon uses the app badge. Declaring `icon` here is required
-  // because setting `icons` at all suppresses Next's automatic app/icon.png
-  // favicon link. Apple-touch must be OPAQUE — iOS composites transparency
-  // onto black — so it points at icon-512 rather than the transparent logo.
+  // (apple-touch) icon uses the uploaded wordmark logo. Declaring `icon` here is
+  // required because setting `icons` at all suppresses Next's automatic
+  // app/icon.png favicon link.
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",
-    apple: "/icon-512.png",
+    apple: "/logo.png",
   },
 }
 
