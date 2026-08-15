@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { setTimezone } from '@/app/actions/setTimezone'
+import { navColour, HomeIcon, TasksIcon, CalendarIcon, RewardsIcon, SummaryIcon } from './NavIcons'
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -37,57 +38,38 @@ export default function BottomNav() {
     setApprovalCount(approveCount || 0)
   }
 
+  const items = [
+    { href: '/dashboard', label: 'Home', Icon: HomeIcon, colour: navColour.home, exact: true },
+    { href: '/dashboard/chores', label: 'Tasks', Icon: TasksIcon, colour: navColour.tasks },
+    { href: '/dashboard/calendar', label: 'Calendar', Icon: CalendarIcon, colour: navColour.calendar },
+    { href: '/dashboard/rewards', label: 'Rewards', Icon: RewardsIcon, colour: navColour.rewards, badge: pendingCount },
+    { href: '/dashboard/report', label: 'Summary', Icon: SummaryIcon, colour: navColour.summary },
+  ]
+
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex items-end justify-around px-2 pt-2.5 pb-4 max-w-sm mx-auto">
-        <Link href="/dashboard"
-          className={`flex flex-col items-center gap-1 transition ${active('/dashboard', true) ? '' : 'text-gray-400'}`}
-          style={active('/dashboard', true) ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-3xl">🏠</span>
-          <span className="text-[11px] font-semibold">Home</span>
-        </Link>
-
-        <Link href="/dashboard/chores"
-          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/chores') ? '' : 'text-gray-400'}`}
-          style={active('/dashboard/chores') ? { color: 'var(--theme-from)' } : {}}>
-          {/* Clipboard with a green tick — reads as "tasks done" */}
-          <div className="relative">
-            <span className="text-3xl">📋</span>
-            <span className="absolute -bottom-0.5 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
-              <span className="text-white text-[8px] font-black leading-none">✓</span>
-            </span>
-          </div>
-          <span className="text-[11px] font-semibold">Tasks</span>
-        </Link>
-
-        <Link href="/dashboard/calendar"
-          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/calendar') ? '' : 'text-gray-400'}`}
-          style={active('/dashboard/calendar') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-3xl">📅</span>
-          <span className="text-[11px] font-semibold">Calendar</span>
-        </Link>
-
-        <Link href="/dashboard/rewards"
-          className={`flex flex-col items-center gap-1 transition relative ${active('/dashboard/rewards') ? '' : 'text-gray-400'}`}
-          style={active('/dashboard/rewards') ? { color: 'var(--theme-from)' } : {}}>
-          <div className="relative">
-            <span className="text-3xl">🎁</span>
-            {pendingCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-[9px] font-black">{pendingCount > 9 ? '9+' : pendingCount}</span>
+        {items.map(({ href, label, Icon, colour, exact, badge }) => {
+          const on = active(href, exact)
+          return (
+            <Link key={href} href={href} className="flex flex-col items-center gap-1.5 transition">
+              <div className="relative">
+                {/* Sticker badge: solid section colour when active, a 12% tint when not */}
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center transition"
+                  style={{ background: on ? colour : `${colour}1F`, color: on ? '#fff' : colour }}>
+                  <Icon className="w-5 h-5" />
+                </span>
+                {!!badge && badge > 0 && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-[9px] font-black">{badge > 9 ? '9+' : badge}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <span className="text-[11px] font-semibold">Rewards</span>
-        </Link>
-
-        <Link href="/dashboard/report"
-          className={`flex flex-col items-center gap-1 transition ${active('/dashboard/report') ? '' : 'text-gray-400'}`}
-          style={active('/dashboard/report') ? { color: 'var(--theme-from)' } : {}}>
-          <span className="text-3xl">🏆</span>
-          <span className="text-[11px] font-semibold">Summary</span>
-        </Link>
+              <span className="text-[11px] font-semibold" style={{ color: on ? colour : '#8C93AB' }}>{label}</span>
+            </Link>
+          )
+        })}
       </div>
     </nav>
   )
