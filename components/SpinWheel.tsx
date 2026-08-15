@@ -121,8 +121,9 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
 
   const isJackpot = result !== null && result.stars === maxPrize && maxPrize > 5
 
+  // pb-28 keeps the end of the content clear of the fixed Close pill.
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-start px-6 pb-10 overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-start px-6 pb-28 overflow-y-auto"
       style={{ background: SKY, paddingTop: 'calc(env(safe-area-inset-top) + 4.5rem)' }}>
       {/* Twinkling starfield */}
       {STARS.map((s, i) => (
@@ -140,10 +141,13 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
         </div>
       )}
 
-      {/* Close — big + high-contrast so it's easy to see and tap; clear of the notch */}
+      {/* Close — fixed so it never scrolls out of reach, and pushed well clear of
+          the notch/Dynamic Island. The max() floor matters: inside the native
+          WKWebView env(safe-area-inset-top) can resolve to 0, which used to park
+          this button underneath the status bar where it can't be tapped. */}
       <button onClick={onClose} aria-label="Close"
-        className="absolute right-4 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 text-3xl leading-none font-bold active:scale-90 transition z-20"
-        style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}>
+        className="fixed right-4 w-14 h-14 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 text-3xl leading-none font-bold active:scale-90 transition z-30"
+        style={{ top: 'max(3.25rem, calc(env(safe-area-inset-top) + 1rem))' }}>
         ×
       </button>
 
@@ -229,13 +233,6 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
             style={{ background: spinning ? '#4a5399' : GOLD, color: spinning ? '#fff' : GOLD_TEXT }}>
             {spinning ? '🌀 Spinning...' : '🎯 SPIN!'}
           </button>
-          {/* Cancel — only before spinning; hidden once the wheel is turning */}
-          {!spinning && (
-            <button onClick={onClose}
-              className="px-8 py-2.5 rounded-2xl border border-white/25 text-white/80 font-bold text-sm active:scale-95 transition">
-              Cancel
-            </button>
-          )}
         </div>
       ) : (
         <div className="text-center pop-in relative z-10">
@@ -248,6 +245,18 @@ export default function SpinWheel({ childColour, childAvatar, childAvatarUrl, ch
             {result.stars === 0 ? 'Better Luck Next Week!' : 'Awesome! 🚀'}
           </button>
         </div>
+      )}
+
+      {/* Thumb-reachable Close. The page is taller than a phone screen, so the
+          in-flow Cancel this replaces sat below the fold. Same visibility rule as
+          before: hidden while the wheel turns (closing mid-spin would still let
+          the pending onWin fire) and once the result's own button takes over. */}
+      {!spinning && !result && (
+        <button onClick={onClose}
+          className="fixed left-1/2 -translate-x-1/2 px-10 py-3.5 rounded-2xl bg-white/15 border border-white/30 text-white font-bold text-base active:scale-95 transition z-30 backdrop-blur-sm"
+          style={{ bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}>
+          ✕ Close
+        </button>
       )}
     </div>
   )

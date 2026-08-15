@@ -72,7 +72,6 @@ export default function SettingsPage() {
   const [inviteError, setInviteError] = useState('')
   const [contactOpen, setContactOpen] = useState(false)
   const [enquiryTopic, setEnquiryTopic] = useState(ENQUIRY_TOPICS[0])
-  const [enquiryEmail, setEnquiryEmail] = useState('')
   const [enquiryMessage, setEnquiryMessage] = useState('')
   const [enquirySending, setEnquirySending] = useState(false)
   const [enquirySent, setEnquirySent] = useState(false)
@@ -149,7 +148,6 @@ export default function SettingsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setAccount({ email: user.email || '', provider: (user.app_metadata as any)?.provider || 'email' })
-    setEnquiryEmail(prev => prev || user.email || '')
     const { data: guardian } = await supabase.from('guardians').select('family_id, parent_pin').eq('auth_user_id', user.id).single()
     if (!guardian) return
     setFamilyId(guardian.family_id)
@@ -526,7 +524,9 @@ export default function SettingsPage() {
 
   async function submitEnquiry() {
     setEnquirySending(true); setEnquiryError('')
-    const res = await sendEnquiry({ topic: enquiryTopic, message: enquiryMessage, replyTo: enquiryEmail })
+    // No reply-to field is shown — the action falls back to the signed-in
+    // user's own email, so replies still reach them.
+    const res = await sendEnquiry({ topic: enquiryTopic, message: enquiryMessage, replyTo: '' })
     setEnquirySending(false)
     if (!res.ok) { setEnquiryError(res.error); return }
     setEnquirySent(true)
@@ -857,70 +857,6 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Contact us */}
-        <div className="bg-white rounded-3xl shadow-sm p-5">
-          <button onClick={() => setContactOpen(o => !o)} className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">💬</span>
-              <div className="text-left">
-                <h2 className="font-bold text-gray-800 leading-tight">Contact Us</h2>
-                <p className="text-xs text-gray-400">Questions, bugs or ideas — we read every one</p>
-              </div>
-            </div>
-            <span className={`text-gray-300 text-xl transition-transform ${contactOpen ? 'rotate-90' : ''}`}>›</span>
-          </button>
-
-          {contactOpen && (
-            enquirySent ? (
-              <div className="mt-4 text-center py-4">
-                <div className="text-4xl mb-2">🎉</div>
-                <p className="font-bold text-gray-800">Thanks — message sent!</p>
-                <p className="text-xs text-gray-400 mt-1">We'll reply to {enquiryEmail || 'your email'} as soon as we can.</p>
-                <button onClick={() => { setEnquirySent(false); setEnquiryMessage('') }}
-                  className="mt-4 text-sm font-semibold text-gray-500 bg-gray-100 rounded-2xl px-4 py-2 active:scale-95 transition">
-                  Send another
-                </button>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1.5">What's it about?</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ENQUIRY_TOPICS.map(t => (
-                      <button key={t} onClick={() => setEnquiryTopic(t)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition ${enquiryTopic === t ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-                        style={enquiryTopic === t ? { background: 'var(--theme-gradient)' } : {}}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1.5">Reply to</p>
-                  <input type="email" value={enquiryEmail} onChange={e => setEnquiryEmail(e.target.value)}
-                    className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    placeholder="you@email.com"/>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1.5">Message</p>
-                  <textarea value={enquiryMessage} onChange={e => setEnquiryMessage(e.target.value)} rows={4}
-                    className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
-                    placeholder="Tell us what's on your mind…"/>
-                </div>
-                {enquiryError && <p className="text-xs text-red-500">{enquiryError}</p>}
-                <button onClick={submitEnquiry} disabled={enquirySending || !enquiryMessage.trim()}
-                  className="w-full text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
-                  {enquirySending ? 'Sending…' : 'Send message'}
-                </button>
-                <p className="text-[11px] text-gray-400 text-center">
-                  Or email us any time at <span className="font-semibold text-gray-500">contact@littleyakka.com</span>
-                </p>
-              </div>
-            )
-          )}
-        </div>
-
         {/* Family name */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <h2 className="font-bold text-gray-800 mb-3">Family Name</h2>
@@ -1065,6 +1001,64 @@ export default function SettingsPage() {
                 Turn off
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Contact us — sits directly under Push notifications */}
+        <div className="bg-white rounded-3xl shadow-sm p-5">
+          <button onClick={() => setContactOpen(o => !o)} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">💬</span>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-800 leading-tight">Contact Us</h2>
+                <p className="text-xs text-gray-400">Questions, bugs or ideas — we read every one</p>
+              </div>
+            </div>
+            <span className={`text-gray-300 text-xl transition-transform ${contactOpen ? 'rotate-90' : ''}`}>›</span>
+          </button>
+
+          {contactOpen && (
+            enquirySent ? (
+              <div className="mt-4 text-center py-4">
+                <div className="text-4xl mb-2">🎉</div>
+                <p className="font-bold text-gray-800">Thanks — message sent!</p>
+                <p className="text-xs text-gray-400 mt-1">We'll reply to your email as soon as we can.</p>
+                <button onClick={() => { setEnquirySent(false); setEnquiryMessage('') }}
+                  className="mt-4 text-sm font-semibold text-gray-500 bg-gray-100 rounded-2xl px-4 py-2 active:scale-95 transition">
+                  Send another
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1.5">What's it about?</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ENQUIRY_TOPICS.map(t => (
+                      <button key={t} onClick={() => setEnquiryTopic(t)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition ${enquiryTopic === t ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                        style={enquiryTopic === t ? { background: 'var(--theme-gradient)' } : {}}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1.5">Message</p>
+                  <textarea value={enquiryMessage} onChange={e => setEnquiryMessage(e.target.value)} rows={4}
+                    className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+                    placeholder="Tell us what's on your mind…"/>
+                </div>
+                {enquiryError && <p className="text-xs text-red-500">{enquiryError}</p>}
+                <button onClick={submitEnquiry} disabled={enquirySending || !enquiryMessage.trim()}
+                  className="w-full text-white font-bold py-3 rounded-2xl shadow active:scale-95 transition disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg, var(--theme-from), var(--theme-to))' }}>
+                  {enquirySending ? 'Sending…' : 'Send message'}
+                </button>
+                <p className="text-[11px] text-gray-400 text-center">
+                  Or email us any time at <span className="font-semibold text-gray-500">contact@littleyakka.com</span>
+                </p>
+              </div>
+            )
           )}
         </div>
 

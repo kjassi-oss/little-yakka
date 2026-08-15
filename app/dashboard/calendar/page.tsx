@@ -10,6 +10,7 @@ import { markDataChanged } from '@/lib/dataChanged'
 import { signAvatarUrls } from '@/lib/avatarUrls'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 import { occurrenceDates, repeatLabel, hasRepeat, daysBetween, shiftDate, type RepeatSpec, type RepeatFreq } from '@/lib/eventRecurrence'
+import { groupByDay } from '@/lib/agendaGroups'
 
 // ── Family Calendar (in-app calendar) ────────────────────────────────────────
 // Tabs: Day · Week · Month (default) · Agenda. Events assign to one or more
@@ -258,7 +259,6 @@ export default function CalendarPage() {
   const monthLabel = new Date(cursor.y, cursor.m, 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
   function shiftMonth(delta: number) { setCursor(c => { const d = new Date(c.y, c.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() } }) }
 
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
   const weekLabel = useMemo(() => {
     const end = addDays(weekStart, 6); const mon = (d: Date) => d.toLocaleDateString('en-AU', { month: 'short' })
     return weekStart.getMonth() === end.getMonth()
@@ -399,17 +399,13 @@ export default function CalendarPage() {
     })
   }
 
-  const agendaDays = useMemo(() => {
-    const upcoming = decorated.filter(e => e._endDate >= todayStr)
-    const byDay = new Map<string, Ev[]>()
-    for (const e of upcoming) {
-      let d = e._startDate < todayStr ? todayStr : e._startDate
-      while (d <= e._endDate) { if (!byDay.has(d)) byDay.set(d, []); byDay.get(d)!.push(e); d = ymdLocal(addDays(dateAtNoon(d), 1)) }
-    }
-    return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, evs]) => ({
-      day, events: evs.sort((a, b) => a.all_day === b.all_day ? a._start.getTime() - b._start.getTime() : (a.all_day ? -1 : 1)),
-    }))
-  }, [decorated, todayStr])
+  // Everything upcoming, from today onwards.
+  const agendaDays = useMemo(() => groupByDay(decorated, todayStr, null), [decorated, todayStr])
+  // The same list, clipped to Monday–Sunday of the week being viewed.
+  const weekDaysList = useMemo(
+    () => groupByDay(decorated, ymdLocal(weekStart), ymdLocal(addDays(weekStart, 6))),
+    [decorated, weekStart],
+  )
 
   function dayLabel(iso: string): string {
     const dt = dateAtNoon(iso)
@@ -459,10 +455,10 @@ export default function CalendarPage() {
             onToday={() => setFocusedDate(todayStr)} onOpenEvent={openEditForm} />
         )}
 
-        {/* ── WEEK ── */}
+        {/* ── WEEK ── the Agenda list, clipped to the selected Mon–Sun ── */}
         {view === 'week' && (
-          <div className="flex-1 min-h-0 flex flex-col px-3 pt-2">
-            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+          <div className="flex-1 min-h-0 flex flex-col pt-2">
+            <div className="flex items-center justify-between mb-2 flex-shrink-0 px-3">
               <button onClick={() => setWeekStart(w => addDays(w, -7))} aria-label="Previous week" className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">‹</button>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black leading-none" style={HEADING}>{weekLabel}</span>
@@ -470,7 +466,8 @@ export default function CalendarPage() {
               </div>
               <button onClick={() => setWeekStart(w => addDays(w, 7))} aria-label="Next week" className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 text-xl active:scale-90 transition">›</button>
             </div>
-            <WeekGrid weekDays={weekDays} eventsOnDate={eventsOnDate} childMap={childMap} todayStr={todayStr} onOpenDay={openDay} onOpenEvent={openEditForm} />
+            <AgendaList days={weekDaysList} childMap={childMap} dayLabel={dayLabel} onOpenDay={openDay} onOpenEvent={openEditForm}
+              emptyTitle="No events this week" emptySub="Tap the + to add one" />
           </div>
         )}
 
@@ -514,20 +511,8 @@ export default function CalendarPage() {
 
         {/* ── AGENDA ── */}
         {view === 'agenda' && (
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-24">
-            {agendaDays.length > 0 ? (
-              <div className="space-y-4">
-                {agendaDays.map(({ day, events: evs }) => (
-                  <div key={day}>
-                    <button onClick={() => openDay(day)} className="text-lg font-black mb-2 px-1 active:opacity-60 transition" style={HEADING}>{dayLabel(day)} ›</button>
-                    <div className="space-y-2">{evs.map(e => <EventCard key={e.id + day} e={e} childMap={childMap} onClick={() => openEditForm(e)} allDay={e.all_day} />)}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500 font-medium">No upcoming events</p><p className="text-gray-400 text-sm mt-1">Tap the + to add one</p></div>
-            )}
-          </div>
+          <AgendaList days={agendaDays} childMap={childMap} dayLabel={dayLabel} onOpenDay={openDay} onOpenEvent={openEditForm}
+            emptyTitle="No upcoming events" emptySub="Tap the + to add one" />
         )}
       </div>
 
@@ -794,75 +779,28 @@ function DayView({ dateStr, todayStr, events, childMap, onPrev, onNext, onToday,
   )
 }
 
-// ── Week time-grid: full 24h, scrollable (default 7am), 7 day columns ─────────
-function WeekGrid({ weekDays, eventsOnDate, childMap, todayStr, onOpenDay, onOpenEvent }: {
-  weekDays: Date[]; eventsOnDate: (d: string) => Ev[]; childMap: ChildMap; todayStr: string
+// ── The day-grouped event list, shared by the Agenda and Week tabs ───────────
+// Identical rows and behaviour in both; only the day buckets handed in differ
+// (Agenda = everything upcoming, Week = the selected Monday–Sunday).
+function AgendaList({ days, childMap, dayLabel, onOpenDay, onOpenEvent, emptyTitle, emptySub }: {
+  days: { day: string; events: Ev[] }[]; childMap: ChildMap; dayLabel: (iso: string) => string
   onOpenDay: (d: string) => void; onOpenEvent: (e: FamilyEvent) => void
+  emptyTitle: string; emptySub: string
 }) {
-  const HOURPX = 44
-  const perDay = weekDays.map(d => layoutDay(eventsOnDate(ymdLocal(d))))
-  const hours = Array.from({ length: 25 }, (_, i) => i)
-  const anyAllDay = perDay.some(p => p.allDay.length > 0)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOURPX }, [])
-
   return (
-    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto pb-24">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex sticky top-0 bg-white z-10 border-b border-gray-100">
-          <div className="w-10 flex-shrink-0" />
-          {weekDays.map((d, i) => {
-            const ds = ymdLocal(d); const isToday = ds === todayStr
-            return (
-              <button key={ds} onClick={() => onOpenDay(ds)} className="flex-1 min-w-0 flex flex-col items-center py-1.5 active:bg-gray-50 transition">
-                <span className="text-[9px] font-bold text-gray-400 leading-none">{WEEKDAYS[i]}</span>
-                <span className={`w-6 h-6 mt-0.5 flex items-center justify-center rounded-full text-xs font-black ${isToday ? 'text-white' : 'text-gray-700'}`} style={isToday ? { background: 'var(--theme-gradient)' } : {}}>{d.getDate()}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {anyAllDay && (
-          <div className="flex border-b border-gray-100 bg-gray-50/50">
-            <div className="w-10 flex-shrink-0 text-[8px] text-gray-400 font-bold flex items-center justify-end pr-1">all-day</div>
-            {weekDays.map((d, i) => (
-              <div key={i} className="flex-1 min-w-0 border-l border-gray-100 p-0.5 space-y-0.5">
-                {perDay[i].allDay.map(e => (
-                  <button key={e.id} onClick={() => onOpenEvent(e)} className="w-full rounded px-0.5 text-left overflow-hidden active:scale-95 transition" style={{ background: eventBar(e, childMap) }}>
-                    <p className="text-[8px] font-bold text-white leading-[1.1] truncate" style={{ textShadow: '0 1px 1px rgba(0,0,0,.25)' }}>{e.title}</p>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="relative" style={{ height: 24 * HOURPX }}>
-          {hours.map(h => (
-            <div key={h}>
-              <div className="absolute left-10 right-0 border-t border-gray-100" style={{ top: h * HOURPX }} />
-              <span className="absolute left-0 w-10 text-right pr-1 text-[8px] text-gray-400 -mt-1.5" style={{ top: h * HOURPX }}>{fmtHour(h)}</span>
+    <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-24">
+      {days.length > 0 ? (
+        <div className="space-y-4">
+          {days.map(({ day, events: evs }) => (
+            <div key={day}>
+              <button onClick={() => onOpenDay(day)} className="text-lg font-black mb-2 px-1 active:opacity-60 transition" style={HEADING}>{dayLabel(day)} ›</button>
+              <div className="space-y-2">{evs.map(e => <EventCard key={e.id + day} e={e} childMap={childMap} onClick={() => onOpenEvent(e)} allDay={e.all_day} />)}</div>
             </div>
           ))}
-          <div className="absolute top-0 bottom-0 left-10 right-0 flex">
-            {weekDays.map((d, i) => (
-              <div key={i} className="flex-1 min-w-0 relative border-l border-gray-100">
-                {perDay[i].timed.map(({ e, startMin, endMin, lane, lanes }) => {
-                  const top = startMin / 60 * HOURPX
-                  const height = Math.max((endMin - startMin) / 60 * HOURPX, 22)
-                  const w = 100 / lanes
-                  return (
-                    <button key={e.id} onClick={() => onOpenEvent(e)} className="absolute rounded px-0.5 py-px text-left overflow-hidden active:opacity-80 transition"
-                      style={{ top, height, left: `calc(${lane * w}% + 1px)`, width: `calc(${w}% - 2px)`, background: eventBar(e, childMap) }}>
-                      <p className="text-[8px] font-bold text-white leading-[1.05] break-words" style={{ textShadow: '0 1px 1px rgba(0,0,0,.3)' }}>{fmtTimeShort(e._start)} {e.title}</p>
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
         </div>
-      </div>
+      ) : (
+        <div className="text-center py-16"><div className="text-6xl mb-4">📅</div><p className="text-gray-500 font-medium">{emptyTitle}</p><p className="text-gray-400 text-sm mt-1">{emptySub}</p></div>
+      )}
     </div>
   )
 }
