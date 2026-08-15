@@ -301,3 +301,37 @@ alter table support_enquiries enable row level security;
 drop policy if exists support_enquiries_insert on support_enquiries;
 create policy support_enquiries_insert on support_enquiries for insert
   with check (family_id in (select family_id from guardians where auth_user_id = auth.uid()));
+
+-- ── 2026-08-15: per-family notification preferences ──────────────────────────
+-- Until now all three push notifications were hardcoded and fired for every
+-- family. These columns let each family choose which ones they get and when
+-- the daily reminder arrives. Settings writes them; /api/push/notify and
+-- /api/push/reminders read them.
+--
+-- All additive, all defaulted to today's behaviour, so a family that has never
+-- opened the new Settings section is indistinguishable from before.
+--
+-- NO NEW RLS POLICY IS NEEDED. `families_select` / `families_update` (see
+-- rls-check.sql PART E) are already scoped to
+--   id in (select family_id from guardians where auth_user_id = auth.uid())
+-- and policies apply to the whole row, so they cover these columns the moment
+-- they exist. `last_reminder_on` is written only by the cron using the service
+-- role key, which bypasses RLS anyway.
+alter table families add column if not exists notify_task_done       boolean default true;
+alter table families add column if not exists notify_reward_redeemed boolean default true;
+alter table families add column if not exists notify_daily_reminder  boolean default true;
+
+-- 'HH:MM', 24-hour, read in the family's own timezone. Kept as text (not time)
+-- so what the <input type="time"> produces is exactly what is stored and
+-- compared — no '07:00' vs '07:00:00' mismatch.
+alter table families add column if not exists daily_reminder_time    text default '07:00';
+
+-- The family's IANA timezone. Previously this lived ONLY in a browser cookie,
+-- which the cron can't see — which is why the reminder was hardcoded to
+-- Australia/Sydney for everyone. Settings now mirrors the cookie here.
+alter table families add column if not exists timezone               text default 'Australia/Sydney';
+
+-- Set to the family's local date once the reminder has been considered for
+-- that day. Stops a second reminder if the cron is invoked more than once a
+-- day (hourly schedules, retries, manual test pings).
+alter table families add column if not exists last_reminder_on       date;

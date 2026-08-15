@@ -227,7 +227,7 @@ export default function ChoresPage() {
     // Nudge the family's subscribed devices (fire-and-forget)
     fetch('/api/push/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '⭐ Task done!', body: `${child?.name.split(' ')[0] || 'Someone'} finished "${task.title}" (+${task.star_value} ⭐)` }),
+      body: JSON.stringify({ kind: 'task_done', title: '⭐ Task done!', body: `${child?.name.split(' ')[0] || 'Someone'} finished "${task.title}" (+${task.star_value} ⭐)` }),
     }).catch(() => {})
     reloadEverywhere()
   }

@@ -22,6 +22,7 @@ import { isBundledAvatar } from '@/lib/kidAvatars'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 import PinModal from '@/components/PinModal'
 import { signAvatarUrls, canonicalAvatarUrl } from '@/lib/avatarUrls'
+import { DEFAULT_NOTIFY_PREFS, hhmm, type NotifyPrefs } from '@/lib/notifyPrefs'
 
 const COMMON_TIMEZONES = [
   { label: 'Sydney / Melbourne (AEST)', value: 'Australia/Sydney' },
@@ -46,6 +47,24 @@ const COLOURS = [
 interface Child {
   id: string; name: string; avatar: string; colour: string; avatar_url?: string
   goal_title?: string | null; goal_emoji?: string | null; goal_target?: number | null
+}
+
+// Same switch as the setup wizard's Toggle (app/setup/page.tsx), themed to the
+// family's chosen palette rather than the fixed rainbow.
+function NotifyToggle({ on, onToggle, label, sub }: { on: boolean; onToggle: () => void; label: string; sub: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-medium text-gray-700">{label}</p>
+        <p className="text-xs text-gray-400">{sub}</p>
+      </div>
+      <button onClick={onToggle} role="switch" aria-checked={on} aria-label={label}
+        className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${on ? '' : 'bg-gray-200'}`}
+        style={on ? { background: 'var(--theme-gradient)' } : {}}>
+        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-6' : 'translate-x-0.5'}`}/>
+      </button>
+    </div>
+  )
 }
 
 export default function SettingsPage() {
@@ -118,6 +137,14 @@ export default function SettingsPage() {
   const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
   const [notifStatus, setNotifStatus] = useState<'checking' | 'unsupported' | 'off' | 'on' | 'denied'>('checking')
   const [notifBusy, setNotifBusy] = useState(false)
+  // Family-wide notification preferences (columns on `families`). Unlike the
+  // enable/turn-off button above them, these apply to every parent's device.
+  const [notifPrefs, setNotifPrefs] = useState<NotifyPrefs>(DEFAULT_NOTIFY_PREFS)
+  const [prefsSaved, setPrefsSaved] = useState(false)
+  const [prefsUnavailable, setPrefsUnavailable] = useState(false)
+  // Mirrors notifPrefs so two quick taps compose instead of the second one
+  // overwriting the first with the state its render captured.
+  const prefsRef = useRef<NotifyPrefs>(DEFAULT_NOTIFY_PREFS)
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const newChildPhotoRef = useRef<HTMLInputElement>(null)
 
@@ -165,6 +192,20 @@ export default function SettingsPage() {
     if (familyData?.bonus_day != null) setBonusDay(familyData.bonus_day)
     if (familyData?.bonus_time) setBonusTime(String(familyData.bonus_time).slice(0, 5))
     if ((familyData as any)?.bonus_award_pct != null) setBonusAwardPct((familyData as any).bonus_award_pct)
+
+    // Notification preferences. `families.select('*')` simply omits these keys
+    // until the migration has run, so every field falls back to its default
+    // (all on, 7am) — which is exactly the old hardcoded behaviour.
+    const fam = familyData as Record<string, any> | null
+    const loadedPrefs: NotifyPrefs = {
+      notify_task_done:       fam?.notify_task_done       !== false,
+      notify_reward_redeemed: fam?.notify_reward_redeemed !== false,
+      notify_daily_reminder:  fam?.notify_daily_reminder  !== false,
+      daily_reminder_time:    hhmm(fam?.daily_reminder_time),
+      timezone:               fam?.timezone || DEFAULT_NOTIFY_PREFS.timezone,
+    }
+    prefsRef.current = loadedPrefs
+    setNotifPrefs(loadedPrefs)
 
     setLoading(false)
 
@@ -247,8 +288,41 @@ export default function SettingsPage() {
   async function saveTz(tz: string) {
     setTimezoneState(tz)
     await setTimezone(tz)
+    // Mirror it onto the family too. The cookie is invisible to the reminder
+    // cron, so without this copy it could only ever assume Sydney. Best-effort:
+    // if the column isn't there yet the cron just uses the default.
+    if (familyId) {
+      prefsRef.current = { ...prefsRef.current, timezone: tz }
+      setNotifPrefs(prefsRef.current)
+      await createClient().from('families').update({ timezone: tz }).eq('id', familyId)
+    }
     setTzSaved(true)
     setTimeout(() => setTzSaved(false), 2000)
+  }
+
+  // Toggles and the time picker save as you change them — no Save button.
+  // Takes a patch and applies it to the ref, so tapping two switches in quick
+  // succession saves both rather than only the last one.
+  async function saveNotifPrefs(patch: Partial<NotifyPrefs>) {
+    const next = { ...prefsRef.current, ...patch }
+    prefsRef.current = next
+    setNotifPrefs(next)
+    const supabase = createClient()
+    const payload = {
+      notify_task_done: next.notify_task_done,
+      notify_reward_redeemed: next.notify_reward_redeemed,
+      notify_daily_reminder: next.notify_daily_reminder,
+      daily_reminder_time: next.daily_reminder_time,
+      timezone: timezone || next.timezone,
+    }
+    const { error } = await supabase.from('families').update(payload).eq('id', familyId)
+    // Migration not run yet: nothing persists and every notification keeps
+    // firing exactly as it does today. Say so rather than showing a tick for a
+    // save that didn't happen.
+    setPrefsUnavailable(!!error)
+    if (error) return
+    setPrefsSaved(true)
+    setTimeout(() => setPrefsSaved(false), 2000)
   }
 
   async function saveBonus() {
@@ -1043,7 +1117,7 @@ export default function SettingsPage() {
         {/* Push notifications */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
           <h2 className="font-bold text-gray-800 mb-1">🔔 Notifications</h2>
-          <p className="text-xs text-gray-400 mb-3">Get a nudge on this device when tasks are done, rewards are redeemed, and when tasks are still waiting in the evening.</p>
+          <p className="text-xs text-gray-400 mb-3">Get a nudge on this device when tasks are done, rewards are redeemed, and when tasks are still waiting.</p>
           {notifStatus === 'unsupported' && (
             <p className="text-xs text-gray-400 bg-gray-50 rounded-2xl p-3">This browser doesn't support notifications. On iPhone, add Little Yakka to your Home Screen first (Share → Add to Home Screen), then enable here.</p>
           )}
@@ -1066,6 +1140,52 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+
+          {/* Which notifications — family-wide, unlike the on/off above which is
+              only this device. Shown even when this device has push off, since
+              the other parent's phone may still be receiving them. */}
+          <div className="border-t border-gray-100 mt-4 pt-4">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-gray-800 text-sm">Which notifications</h3>
+              {prefsSaved && <span className="text-green-600 text-xs font-semibold">Saved ✓</span>}
+            </div>
+            <p className="text-xs text-gray-400 mb-3">These apply to everyone in the family, on every device.</p>
+
+            <div className="space-y-3">
+              <NotifyToggle
+                label="Task completed" sub="When a child finishes a task"
+                on={notifPrefs.notify_task_done}
+                onToggle={() => saveNotifPrefs({ notify_task_done: !prefsRef.current.notify_task_done })}/>
+              <NotifyToggle
+                label="Reward redeemed" sub="When a child spends their stars"
+                on={notifPrefs.notify_reward_redeemed}
+                onToggle={() => saveNotifPrefs({ notify_reward_redeemed: !prefsRef.current.notify_reward_redeemed })}/>
+              <NotifyToggle
+                label="Daily reminder" sub="A nudge if tasks are still unfinished"
+                on={notifPrefs.notify_daily_reminder}
+                onToggle={() => saveNotifPrefs({ notify_daily_reminder: !prefsRef.current.notify_daily_reminder })}/>
+            </div>
+
+            {notifPrefs.notify_daily_reminder && (
+              <div className="flex items-center justify-between gap-3 mt-3 bg-gray-50 rounded-2xl px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Reminder time</p>
+                  <p className="text-xs text-gray-400">{timezone || notifPrefs.timezone}</p>
+                </div>
+                {/* Whole hours only — the reminder is sent by an hourly check,
+                    so offering 7:15 would promise precision we can't deliver. */}
+                <input type="time" step={3600} value={notifPrefs.daily_reminder_time}
+                  onChange={e => saveNotifPrefs({ daily_reminder_time: hhmm(e.target.value, prefsRef.current.daily_reminder_time) })}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+              </div>
+            )}
+
+            {prefsUnavailable && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-2xl p-3 mt-3">
+                These choices can't be saved yet — run <span className="font-semibold">supabase_migration.sql</span> in Supabase. Until then every notification keeps arriving as before.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Manual star history (audit) */}

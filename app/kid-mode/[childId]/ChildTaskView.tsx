@@ -230,7 +230,7 @@ export default function ChildTaskView({
     // Nudge the family's subscribed devices (fire-and-forget)
     fetch('/api/push/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '⭐ Task done!', body: `${child.name.split(' ')[0]} finished "${task.title}" (+${task.star_value} ⭐)` }),
+      body: JSON.stringify({ kind: 'task_done', title: '⭐ Task done!', body: `${child.name.split(' ')[0]} finished "${task.title}" (+${task.star_value} ⭐)` }),
     }).catch(() => {})
     setClaimBurst({
       emoji: task.emoji,
@@ -318,7 +318,7 @@ export default function ChildTaskView({
     })
     fetch('/api/push/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '🎁 Reward redeemed!', body: `${child.name.split(' ')[0]} redeemed "${reward.title}" (−${reward.star_cost} ⭐)` }),
+      body: JSON.stringify({ kind: 'reward_redeemed', title: '🎁 Reward redeemed!', body: `${child.name.split(' ')[0]} redeemed "${reward.title}" (−${reward.star_cost} ⭐)` }),
     }).catch(() => {})
     setMyRewardsList(prev => [{
       id: redemption?.id || String(Date.now()), title: reward.title, emoji: reward.emoji,
