@@ -42,24 +42,56 @@ export function isBrushTeeth(title: string): boolean {
   return /brush\w*\s*(my\s*|your\s*)?teeth/i.test(title.trim())
 }
 
-// 9 default quick-pick icons + the 🔍 search cell share ONE row of 10.
-// Star first by design. (Laundry Hamper was dropped to make room for the
-// search cell — Fold Laundry covers laundry.)
+// 20 default quick-pick icons — two rows of 10. The 🔍 search toggle lives
+// beside the name field (not in the grid), so all 20 cells are icons.
+// Star leads and is the default pick for a new task: it's the app's currency.
 export const DEFAULT_TASK_ICONS: { e: string; label: string }[] = [
   { e: '⭐', label: 'Star' },
-  { e: '🛏️', label: 'Make Bed' },
-  { e: '📚', label: 'Study' },
-  { e: '🎵', label: 'Music' },
-  { e: '✨', label: 'Clean Bedroom' },
-  { e: '🗑️', label: 'Trash Out' },
-  { e: '🍽️', label: 'Set Table' },
-  { e: '👕', label: 'Fold Laundry' },
+  { e: '🛁', label: 'Bath' },
+  { e: '🪣', label: 'Wash Car' },
   { e: '🧹', label: 'Vacuum' },
+  { e: '🎻', label: 'Violin' },
+  { e: '🐈', label: 'Feed Cat' },
+  { e: '🛍️', label: 'Carry Bags' },
+  { e: '🧺', label: 'Laundry' },
+  { e: '📝', label: 'School' },
+  { e: '🛏️', label: 'Make Bed' },
+  { e: '🎹', label: 'Piano' },
+  { e: '🎵', label: 'Music' },
+  { e: '🌱', label: 'Mow Lawn' },
+  { e: '🎒', label: 'Pack Bag' },
+  { e: '🐾', label: 'Feed Pet' },
+  { e: '📖', label: 'Reading' },
+  { e: '🍽️', label: 'Set Table' },
+  { e: '📚', label: 'Study' },
+  { e: '🪥', label: 'Brush Teeth' },
+  { e: '🗑️', label: 'Take Out Bins' },
 ]
 
-// Reward emoji picker — top 10 shown on one row; the 🔍 search reveals the rest.
-// Star leads (the app's currency); the trophy moved into search to keep it to 10.
-export const DEFAULT_REWARD_EMOJIS = ['⭐', '🎁', '🍦', '🎮', '📱', '🎬', '🍿', '🍔', '🍭', '🍰']
+// Reward quick-picks — same shape and layout as the task grid above, so the two
+// forms stay visually identical. Star leads and is the default for a new reward.
+export const DEFAULT_REWARD_ICONS: { e: string; label: string }[] = [
+  { e: '⭐', label: 'Star' },
+  { e: '🍔', label: 'Take Away' },
+  { e: '🎳', label: 'Bowling' },
+  { e: '🍰', label: 'Dessert' },
+  { e: '🍫', label: 'Choccy' },
+  { e: '🍪', label: 'Cookie' },
+  { e: '🍩', label: 'Donut' },
+  { e: '🎮', label: 'Game Time' },
+  { e: '📱', label: 'iPad Time' },
+  { e: '🎁', label: 'Present' },
+  { e: '🍭', label: 'Lolly' },
+  { e: '🎬', label: 'Movies' },
+  { e: '🍕', label: 'Pizza' },
+  { e: '🍨', label: 'Sundae' },
+  { e: '📺', label: 'TV Time' },
+  { e: '🎉', label: 'Party' },
+  { e: '🍿', label: 'Popcorn' },
+  { e: '🍦', label: 'Ice Cream' },
+  { e: '🧁', label: 'Cup Cake' },
+  { e: '🎡', label: 'Day Out' },
+]
 
 export const REWARD_EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '⭐', kw: 'star stars reward special bonus' },
@@ -102,6 +134,8 @@ export const EMOJI_OPTIONS: { e: string; kw: string }[] = [
   { e: '📚', kw: 'books read study homework school' }, { e: '🐕', kw: 'dog pet walk feed' },
   { e: '🐈', kw: 'cat pet feed litter' }, { e: '🐟', kw: 'fish pet feed tank' },
   { e: '🌿', kw: 'plant garden water weeds' }, { e: '🗑️', kw: 'bin rubbish trash garbage empty' },
+  // Both are quick-picks, so they must be findable by search too
+  { e: '🌱', kw: 'mow lawn grass garden seedling' }, { e: '🛍️', kw: 'groceries shopping bags carry help' },
   { e: '♻️', kw: 'recycle recycling bins' }, { e: '🛁', kw: 'bath wash clean' },
   { e: '🧼', kw: 'soap wash hands clean' }, { e: '🪥', kw: 'toothbrush teeth brush' },
   { e: '🍳', kw: 'cook breakfast egg kitchen help' }, { e: '🚿', kw: 'shower wash clean' },

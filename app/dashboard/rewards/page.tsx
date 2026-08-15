@@ -9,7 +9,7 @@ import CelebrationBurst from '@/components/CelebrationBurst'
 import { redeemFeedback } from '@/lib/feedback'
 import { getCachedFamily } from '@/lib/familyCache'
 import { markDataChanged } from '@/lib/dataChanged'
-import { DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
+import { DEFAULT_REWARD_ICONS, REWARD_EMOJI_OPTIONS } from '@/lib/taskPresets'
 import ConfirmDialog, { type DialogAsk } from '@/components/ConfirmDialog'
 import { signAvatarUrls } from '@/lib/avatarUrls'
 
@@ -74,7 +74,7 @@ export default function RewardsPage() {
   const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
 
   const [title, setTitle] = useState('')
-  const [emoji, setEmoji] = useState('🎁')
+  const [emoji, setEmoji] = useState('⭐')
   const [starCost, setStarCost] = useState(10)
   // Audience: empty = everyone (family scope); otherwise any subset of kids
   const [selectedChildIds, setSelectedChildIds] = useState<string[]>([])
@@ -135,7 +135,7 @@ export default function RewardsPage() {
   }
 
   function resetForm() {
-    setTitle(''); setEmoji('🎁'); setStarCost(10); setSelectedChildIds([])
+    setTitle(''); setEmoji('⭐'); setStarCost(10); setSelectedChildIds([])
     setEditingRewardId(null); setShowTemplates(false); setEmojiSearch(''); setShowEmojiSearch(false)
   }
 
@@ -323,12 +323,14 @@ export default function RewardsPage() {
               )}
               <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
                 {(emojiSearch.trim()
-                  ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
-                  : DEFAULT_REWARD_EMOJIS
-                ).map((e, i) => (
+                  ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20)
+                    .map(o => ({ e: o.e, label: '' }))
+                  : DEFAULT_REWARD_ICONS
+                ).map(({ e, label }, i) => (
                   <button key={`${e}-${i}`} onClick={() => setEmoji(e)}
-                    className={`text-xl p-1 rounded-lg transition ${emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>
-                    {e}
+                    className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
+                    <span className={`text-xl leading-none p-1 rounded-lg ${emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
+                    {label && <span className="w-full break-words text-[8px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
                   </button>
                 ))}
               </div>

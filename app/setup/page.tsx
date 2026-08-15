@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { clearCachedFamily } from '@/lib/familyCache'
 import { compressImage } from '@/lib/imageCompress'
-import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_EMOJIS, REWARD_EMOJI_OPTIONS, isBrushTeeth, type TaskPreset } from '@/lib/taskPresets'
+import { TASK_PRESETS as PREDEFINED_TASKS, EMOJI_OPTIONS, DEFAULT_TASK_ICONS, DEFAULT_REWARD_ICONS, REWARD_EMOJI_OPTIONS, isBrushTeeth, type TaskPreset } from '@/lib/taskPresets'
 import AvatarPicker from '@/components/AvatarPicker'
 import SpinWheel from '@/components/SpinWheel'
 import { isBundledAvatar } from '@/lib/kidAvatars'
@@ -122,7 +122,7 @@ export default function SetupPage() {
   const [bonusExampleOpen, setBonusExampleOpen] = useState(false)
   const [task, setTask] = useState<TaskDraft>(blankTask())
   const [taskFormOpen, setTaskFormOpen] = useState(false)
-  const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '🎁', star_cost: 10 })
+  const [reward, setReward] = useState<RewardDraft>({ title: '', emoji: '⭐', star_cost: 10 })
   const [rewardFormOpen, setRewardFormOpen] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
   const [confirmAsk, setConfirmAsk] = useState<DialogAsk | null>(null)
@@ -171,13 +171,13 @@ export default function SetupPage() {
   }
 
   function startReward(preset?: { title: string; emoji: string }) {
-    setReward({ title: preset?.title || '', emoji: preset?.emoji || '🎁', star_cost: 10 })
+    setReward({ title: preset?.title || '', emoji: preset?.emoji || '⭐', star_cost: 10 })
     setRewardFormOpen(true)
   }
   function saveReward() {
     if (!reward.title.trim()) { setError('Please give the reward a name.'); return }
     setRewards([...rewards, { ...reward, title: reward.title.trim() }])
-    setReward({ title: '', emoji: '🎁', star_cost: 10 }); setRewardFormOpen(false); setError('')
+    setReward({ title: '', emoji: '⭐', star_cost: 10 }); setRewardFormOpen(false); setError('')
   }
 
   // Create the family + guardian row (always needed so the dashboard works)
@@ -663,7 +663,7 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
         ))}
       </div>
 
-      {/* Name with the chosen icon beside it (matches the Tasks page) */}
+      {/* Name with the chosen icon beside it + 🔍 search toggle (matches the Tasks page) */}
       <div className="flex items-center gap-2">
         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-gray-50">{task.emoji}</div>
         <input type="text" value={task.title}
@@ -674,43 +674,32 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
           }}
           className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
           placeholder="Task name"/>
+        <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+          aria-label="Search icons"
+          className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+          style={showEmojiSearch ? { background: RAINBOW } : {}}>🔍</button>
       </div>
 
-      {/* Icon picker — 9 defaults + the 🔍 cell on one row */}
+      {/* Icon picker — 20 quick-picks in two rows of 10; search results replace them */}
       <div>
         {showEmojiSearch && (
-          <div className="flex items-center gap-2 mb-2">
-            <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
-              className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-              placeholder="Search icons (e.g. bed, teeth, dog)"/>
-            <button onClick={() => { setShowEmojiSearch(false); setEmojiSearch('') }} aria-label="Close search"
-              className="w-9 h-9 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center text-lg flex-shrink-0 active:scale-90 transition">×</button>
-          </div>
+          <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+            placeholder="Search icons (e.g. bed, teeth, dog)"/>
         )}
-        {emojiSearch.trim() ? (
-          <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
-            {EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map((o, i) => (
-              <button key={`${o.e}-${i}`} onClick={() => setTask({ ...task, emoji: o.e })}
-                className={`text-xl p-1 rounded-lg transition ${task.emoji === o.e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>{o.e}</button>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
-            {DEFAULT_TASK_ICONS.map(o => (
-              <button key={o.e} onClick={() => setTask({ ...task, emoji: o.e })}
-                className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
-                <span className={`text-xl leading-none p-1 rounded-lg ${task.emoji === o.e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{o.e}</span>
-                <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">{o.label}</span>
-              </button>
-            ))}
-            <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
-              aria-label="Search icons"
-              className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition active:scale-90">
-              <span className={`text-xl leading-none p-1 rounded-lg ${showEmojiSearch ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>🔍</span>
-              <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">Search</span>
+        <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+          {(emojiSearch.trim()
+            ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20)
+              .map(o => ({ e: o.e, label: '' }))
+            : DEFAULT_TASK_ICONS
+          ).map(({ e, label }, i) => (
+            <button key={`${e}-${i}`} onClick={() => setTask({ ...task, emoji: e })}
+              className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
+              <span className={`text-xl leading-none p-1 rounded-lg ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
+              {label && <span className="w-full break-words text-[8px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
 
       {/* Up For Grabs — a bounty any child can claim, first done wins */}
@@ -904,11 +893,15 @@ function RewardForm({ reward, setReward, onSave, onCancel, error }: {
         )}
         <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
           {(emojiSearch.trim()
-            ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map(o => o.e)
-            : DEFAULT_REWARD_EMOJIS
-          ).map((e, i) => (
+            ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20)
+              .map(o => ({ e: o.e, label: '' }))
+            : DEFAULT_REWARD_ICONS
+          ).map(({ e, label }, i) => (
             <button key={`${e}-${i}`} onClick={() => setReward({ ...reward, emoji: e })}
-              className={`text-xl p-1 rounded-lg transition ${reward.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>{e}</button>
+              className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
+              <span className={`text-xl leading-none p-1 rounded-lg ${reward.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
+              {label && <span className="w-full break-words text-[8px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
+            </button>
           ))}
         </div>
       </div>

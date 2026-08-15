@@ -75,7 +75,7 @@ export default function ChoresPage() {
 
   // Form state
   const [title, setTitle] = useState('')
-  const [emoji, setEmoji] = useState('🧹')
+  const [emoji, setEmoji] = useState('⭐')
   const [type, setType] = useState<'chore' | 'routine'>('chore')
   const [timeOfDay, setTimeOfDay] = useState('anytime')
   const [startDate, setStartDate] = useState('')
@@ -556,52 +556,41 @@ export default function ChoresPage() {
               </div>
             )}
 
-            {/* Name with the chosen icon beside it (white bg, red border) */}
+            {/* Name with the chosen icon beside it + 🔍 search toggle (matches the reward form) */}
             <div className="flex items-center gap-2">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-white"
                 style={{ border: '2px solid #EF4444' }}>{emoji}</div>
               <input type="text" value={title} onChange={e => onTitleChange(e.target.value)}
                 className="flex-1 min-w-0 border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 placeholder="Task name"/>
+              <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
+                aria-label="Search icons"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition active:scale-90 ${showEmojiSearch ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                style={showEmojiSearch ? { background: 'var(--theme-gradient)' } : {}}>🔍</button>
             </div>
 
-            {/* Icon picker — 9 defaults + the 🔍 cell on one row; 🔍 reveals full search */}
+            {/* Icon picker — 20 quick-picks in two rows of 10; search results replace them */}
             <div>
               {showEmojiSearch && (
-                <div className="flex items-center gap-2 mb-2">
-                  <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
-                    className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    placeholder="Search icons (e.g. bed, teeth, dog)"/>
-                  <button onClick={() => { setShowEmojiSearch(false); setEmojiSearch('') }} aria-label="Close search"
-                    className="w-9 h-9 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center text-lg flex-shrink-0 active:scale-90 transition">×</button>
-                </div>
+                <input type="text" value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} autoFocus
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder="Search icons (e.g. bed, teeth, dog)"/>
               )}
-              {emojiSearch.trim() ? (
-                <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
-                  {EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20).map((o, i) => (
-                    <button key={`${o.e}-${i}`} onClick={() => setEmoji(o.e)}
-                      className={`text-xl p-1 rounded-lg transition ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60 hover:bg-white'}`}>
-                      {o.e}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
-                  {DEFAULT_TASK_ICONS.map(o => (
-                    <button key={o.e} onClick={() => setEmoji(o.e)}
-                      className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
-                      <span className={`text-xl leading-none p-1 rounded-lg ${emoji === o.e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60'}`}>{o.e}</span>
-                      <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">{o.label}</span>
-                    </button>
-                  ))}
-                  <button onClick={() => setShowEmojiSearch(s => { if (s) setEmojiSearch(''); return !s })}
-                    aria-label="Search icons"
-                    className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition active:scale-90">
-                    <span className={`text-xl leading-none p-1 rounded-lg ${showEmojiSearch ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60'}`}>🔍</span>
-                    <span className="text-[8px] font-semibold text-gray-500 text-center leading-tight">Search</span>
+              <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+                {(emojiSearch.trim()
+                  ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20)
+                    .map(o => ({ e: o.e, label: '' }))
+                  : DEFAULT_TASK_ICONS
+                ).map(({ e, label }, i) => (
+                  <button key={`${e}-${i}`} onClick={() => setEmoji(e)}
+                    className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
+                    <span className={`text-xl leading-none p-1 rounded-lg ${emoji === e ? 'ring-2 ring-purple-400 bg-white' : 'bg-white/60'}`}>{e}</span>
+                    {/* w-full + break-words: a long word like "Groceries" is wider than the
+                        ~30px cell and would otherwise spill over its neighbours */}
+                    {label && <span className="w-full break-words text-[8px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
 
             {/* Up for grabs — unassigned; any child can claim it, first done wins */}
