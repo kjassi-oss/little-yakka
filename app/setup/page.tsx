@@ -687,7 +687,7 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
             placeholder="Search icons (e.g. bed, teeth, dog)"/>
         )}
-        <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+        <div className="grid grid-cols-7 gap-1.5 p-2 bg-gray-50 rounded-2xl">
           {(emojiSearch.trim()
             ? EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20)
               .map(o => ({ e: o.e, label: '' }))
@@ -695,8 +695,8 @@ function TaskForm({ task, setTask, childrenList, onSave, onCancel, error }: {
           ).map(({ e, label }, i) => (
             <button key={`${e}-${i}`} onClick={() => setTask({ ...task, emoji: e })}
               className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
-              <span className={`text-xl leading-none p-1 rounded-lg ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
-              {label && <span className="w-full break-words text-[8px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
+              <span className={`text-2xl leading-none p-1.5 rounded-xl ${task.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
+              {label && <span className="w-full break-words text-[9px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
             </button>
           ))}
         </div>
@@ -891,7 +891,7 @@ function RewardForm({ reward, setReward, onSave, onCancel, error }: {
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
             placeholder="Search emojis (e.g. movie, pizza, swim)"/>
         )}
-        <div className="grid grid-cols-10 gap-1 p-1.5 bg-gray-50 rounded-2xl">
+        <div className="grid grid-cols-7 gap-1.5 p-2 bg-gray-50 rounded-2xl">
           {(emojiSearch.trim()
             ? REWARD_EMOJI_OPTIONS.filter(o => o.kw.includes(emojiSearch.trim().toLowerCase())).slice(0, 20)
               .map(o => ({ e: o.e, label: '' }))
@@ -899,8 +899,8 @@ function RewardForm({ reward, setReward, onSave, onCancel, error }: {
           ).map(({ e, label }, i) => (
             <button key={`${e}-${i}`} onClick={() => setReward({ ...reward, emoji: e })}
               className="flex flex-col items-center gap-0.5 py-1 rounded-lg transition">
-              <span className={`text-xl leading-none p-1 rounded-lg ${reward.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
-              {label && <span className="w-full break-words text-[8px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
+              <span className={`text-2xl leading-none p-1.5 rounded-xl ${reward.emoji === e ? 'ring-2 ring-pink-400 bg-white' : 'bg-white/60'}`}>{e}</span>
+              {label && <span className="w-full break-words text-[9px] font-semibold text-gray-500 text-center leading-tight">{label}</span>}
             </button>
           ))}
         </div>

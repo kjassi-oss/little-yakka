@@ -42,55 +42,45 @@ export function isBrushTeeth(title: string): boolean {
   return /brush\w*\s*(my\s*|your\s*)?teeth/i.test(title.trim())
 }
 
-// 20 default quick-pick icons — two rows of 10. The 🔍 search toggle lives
-// beside the name field (not in the grid), so all 20 cells are icons.
+// 14 default quick-pick icons — two rows of 7. Seven columns rather than ten
+// gives each cell ~45px instead of ~30px, so the glyph and its label are both
+// legible on a phone. The 🔍 search toggle lives beside the name field (not in
+// the grid), so all 14 cells are icons.
 // Star leads and is the default pick for a new task: it's the app's currency.
 export const DEFAULT_TASK_ICONS: { e: string; label: string }[] = [
   { e: '⭐', label: 'Star' },
   { e: '🛁', label: 'Bath' },
-  { e: '🪣', label: 'Wash Car' },
   { e: '🧹', label: 'Vacuum' },
-  { e: '🎻', label: 'Violin' },
-  { e: '🐈', label: 'Feed Cat' },
-  { e: '🛍️', label: 'Carry Bags' },
-  { e: '🧺', label: 'Laundry' },
-  { e: '📝', label: 'School' },
-  { e: '🛏️', label: 'Make Bed' },
-  { e: '🎹', label: 'Piano' },
-  { e: '🎵', label: 'Music' },
-  { e: '🌱', label: 'Mow Lawn' },
-  { e: '🎒', label: 'Pack Bag' },
-  { e: '🐾', label: 'Feed Pet' },
-  { e: '📖', label: 'Reading' },
-  { e: '🍽️', label: 'Set Table' },
+  { e: '🎵', label: 'Music Practice' },
   { e: '📚', label: 'Study' },
   { e: '🪥', label: 'Brush Teeth' },
+  { e: '🛏️', label: 'Make Bed' },
+  { e: '🧺', label: 'Laundry' },
   { e: '🗑️', label: 'Take Out Bins' },
+  { e: '📖', label: 'Reading' },
+  { e: '🍽️', label: 'Set Table' },
+  { e: '🎒', label: 'Pack Bag' },
+  { e: '🐾', label: 'Feed Pet' },
+  { e: '🪣', label: 'Wash Car' },
 ]
 
 // Reward quick-picks — same shape and layout as the task grid above, so the two
 // forms stay visually identical. Star leads and is the default for a new reward.
 export const DEFAULT_REWARD_ICONS: { e: string; label: string }[] = [
   { e: '⭐', label: 'Star' },
-  { e: '🍔', label: 'Take Away' },
-  { e: '🎳', label: 'Bowling' },
-  { e: '🍰', label: 'Dessert' },
-  { e: '🍫', label: 'Choccy' },
+  { e: '🍫', label: 'Chocolate' },
   { e: '🍪', label: 'Cookie' },
-  { e: '🍩', label: 'Donut' },
   { e: '🎮', label: 'Game Time' },
-  { e: '📱', label: 'iPad Time' },
-  { e: '🎁', label: 'Present' },
+  { e: '📱', label: 'iPad' },
+  { e: '📺', label: 'TV Time' },
   { e: '🍭', label: 'Lolly' },
   { e: '🎬', label: 'Movies' },
-  { e: '🍕', label: 'Pizza' },
-  { e: '🍨', label: 'Sundae' },
-  { e: '📺', label: 'TV Time' },
-  { e: '🎉', label: 'Party' },
-  { e: '🍿', label: 'Popcorn' },
   { e: '🍦', label: 'Ice Cream' },
+  { e: '🍕', label: 'Pizza' },
+  { e: '🎳', label: 'Bowling' },
   { e: '🧁', label: 'Cup Cake' },
-  { e: '🎡', label: 'Day Out' },
+  { e: '🍔', label: 'Takeaway' },
+  { e: '🏆', label: 'Trophy' },
 ]
 
 export const REWARD_EMOJI_OPTIONS: { e: string; kw: string }[] = [
